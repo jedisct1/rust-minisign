@@ -73,6 +73,22 @@ impl SeckeyStruct {
     pub fn len(self) -> usize {
         mem::size_of_val(&self)
     }
+    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct, ()> {
+        let sk = SeckeyStruct {
+            sig_alg: bytes_buf[..2].to_vec(),
+            kdf_alg: bytes_buf[2..4].to_vec(),
+            chk_alg: bytes_buf[4..6].to_vec(),
+            kdf_salt: bytes_buf[6..38].to_vec(),
+            kdf_opslimit_le: OpsLimit(load_usize_le(&bytes_buf[38..46])),
+            kdf_memlimit_le: MemLimit(load_usize_le(&bytes_buf[46..54])),
+            keynum_sk: KeynumSK {
+                keynum: bytes_buf[54..62].to_vec(),
+                sk: bytes_buf[62..126].to_vec(),
+                chk: bytes_buf[126..].to_vec(),
+            },
+        };
+        Ok(sk)
+    }
     pub fn bytes(&self) -> Vec<u8> {
         let OpsLimit(op_lim) = self.kdf_opslimit_le;
         let opslim_arr = store_usize_le(op_lim);
@@ -142,6 +158,7 @@ impl SeckeyStruct {
 }
 
 
+
 impl Debug for SeckeyStruct {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         let OpsLimit(opl) = self.kdf_opslimit_le;
@@ -167,6 +184,15 @@ impl PubkeyStruct {
     pub fn len(&self) -> usize {
         mem::size_of_val(&self)
     }
+    pub fn from(buf: &[u8]) -> PubkeyStruct {
+        PubkeyStruct {
+            sig_alg: buf[..2].to_vec(),
+            keynum_pk: KeynumPK {
+                keynum: buf[2..10].to_vec(),
+                pk: buf[10..].to_vec(),
+            },
+        }
+    }
 
     pub fn bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
@@ -186,9 +212,35 @@ impl PubkeyStruct {
 
 #[derive(Debug)]
 pub struct SigStruct {
-    sig_alg: Vec<u8>,
-    keynum: Vec<u8>,
-    sig: Vec<u8>,
+    pub sig_alg: Vec<u8>,
+    pub keynum: Vec<u8>,
+    pub sig: Vec<u8>,
+}
+impl SigStruct {
+    pub fn bytes(&self) -> Vec<u8> {
+        let mut iters = Vec::new();
+        iters.push(self.sig_alg.iter());
+        iters.push(self.keynum.iter());
+        iters.push(self.sig.iter());
+        let v: Vec<u8> = iters
+            .iter()
+            .flat_map(|b| {
+                          let b = b.clone();
+                          b.into_iter().cloned()
+                      })
+            .collect();
+        v
+    }
+}
+
+impl Default for SigStruct {
+    fn default() -> Self {
+        SigStruct{
+            sig_alg: vec![0u8;2],
+            keynum: vec![0u8;8],
+            sig: vec![0u8;64],
+        }
+    }
 }
 
 pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
@@ -222,7 +274,7 @@ pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
     (p_struct, s_struct)
 }
 
-fn store_usize_le(x: usize) -> [u8; 8] {
+pub fn store_usize_le(x: usize) -> [u8; 8] {
     let b1: u8 = (x & 0xff) as u8;
     let b2: u8 = ((x >> 8) & 0xff) as u8;
     let b3: u8 = ((x >> 16) & 0xff) as u8;
@@ -232,4 +284,10 @@ fn store_usize_le(x: usize) -> [u8; 8] {
     let b7: u8 = ((x >> 48) & 0xff) as u8;
     let b8: u8 = ((x >> 56) & 0xff) as u8;
     return [b1, b2, b3, b4, b5, b6, b7, b8];
+}
+
+pub fn load_usize_le(x: &[u8]) -> usize {
+    (x[0] as usize) | (x[1] as usize) << 8 | (x[2] as usize) << 16 | (x[3] as usize) << 24 |
+    (x[4] as usize) << 32 | (x[5] as usize) << 40 |
+    (x[6] as usize) << 48 | (x[7] as usize) << 56
 }
