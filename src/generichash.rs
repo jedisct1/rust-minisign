@@ -14,7 +14,7 @@ pub const HASH_SALTBYTES: usize = ffi::crypto_generichash_blake2b_SALTBYTES;
 pub const PERSONALBYTES: usize = ffi::crypto_generichash_blake2b_PERSONALBYTES;
 
 new_type! {
-    /// `GenericHash` result produced by generichash()  
+    /// `GenericHash` result produced by generichash()
     public GenericHash(BYTES);
 }
 

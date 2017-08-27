@@ -18,6 +18,7 @@ use std::mem;
 
 pub const KEYNUMBYTES: usize = 8;
 pub const TWOBYTES: usize = 2;
+pub const TR_COMMENT_PREFIX_LEN: usize = 17;
 pub const PASSWORDMAXBYTES: usize = 1024;
 pub const COMMENTBYTES: usize = 1024;
 pub const TRUSTEDCOMMENTMAXBYTES: usize = 8192;
@@ -122,7 +123,6 @@ impl SeckeyStruct {
         let state_sz = unsafe { ffi::crypto_generichash_statebytes() };
         let mut state: Vec<u8> = vec![0;state_sz];
         let ptr_state = state.as_mut_ptr() as *mut ffi::crypto_generichash_state;
-        //let ptr_state = unsafe { std::mem::transmute::<*mut u8, *mut ffi::crypto_generichash_state>(state.as_mut_ptr()) };
         generichash::init(ptr_state).unwrap();
         generichash::update(ptr_state, self.sig_alg.as_ref()).unwrap();
         generichash::update(ptr_state, self.keynum_sk.keynum.as_ref()).unwrap();
@@ -231,11 +231,18 @@ impl SigStruct {
             .collect();
         v
     }
+    pub fn from(bytes_buf: &[u8]) -> Result<SigStruct, ()> {
+        Ok(SigStruct {
+            sig_alg: bytes_buf[..2].to_vec(),
+            keynum: bytes_buf[2..10].to_vec(),
+            sig: bytes_buf[10..74].to_vec(),   
+        })
+    }
 }
 
 impl Default for SigStruct {
     fn default() -> Self {
-        SigStruct{
+        SigStruct {
             sig_alg: vec![0u8;2],
             keynum: vec![0u8;8],
             sig: vec![0u8;64],

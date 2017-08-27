@@ -77,7 +77,7 @@ macro_rules! newtype_traits (($newtype:ident, $len:expr) => (
                 fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
                     where E: ::serde::de::Error
                 {
-                    $newtype::from_slice(v).ok_or(::serde::de::Error::invalid_length(v.len(), &self))
+                $newtype::from_slice(v).ok_or(::serde::de::Error::invalid_length(v.len(), &self))
                 }
             }
             deserializer.deserialize_bytes(NewtypeVisitor)
