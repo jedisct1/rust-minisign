@@ -2,19 +2,19 @@
 name = "rsign"
 version = "0.1.0"
 authors = ["Daniel Rangel <daniel@rangel.in>"]
+license = "MIT"
+readme = "README.md"
+
 
 [dependencies]
-sodiumoxide = { path = "sodiumoxide" }
-libsodium-sys = { path = "sodiumoxide/libsodium-sys"}
+sodiumoxide = "0.0.15"
+libsodium-sys = "0.0.15"
 base64 = "0.6.0"
-serde = "1.0.10"
-serde_derive = "1.0.10"
 clap = "2.26.0"
 libc = "0.2"
 rpassword = "1.0.0"
-byteorder = "1"
 chrono = "0.4"
 
 [[bin]]
 name = "rsign"
-path = "bin/main.rs"
+path = "src/bin/main.rs"
