@@ -6,82 +6,95 @@ extern crate rpassword;
 extern crate chrono;
 
 use rsign::parse_args::parse_args;
-use rsign::generichash;
-use rsign::{SeckeyStruct, PubkeyStruct, SigStruct, COMMENTBYTES, TRUSTED_COMMENT_PREFIX,
-            TRUSTEDCOMMENTMAXBYTES, COMMENT_PREFIX, DEFAULT_COMMENT, SIG_SUFFIX,
-            TR_COMMENT_PREFIX_LEN, SIGALG_HASHED, SIGALG};
+
+use rsign::*;
+use rsign::perror::PError;
 
 use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES};
 use sodiumoxide::crypto::pwhash;
 use chrono::prelude::*;
 
-use std::fmt;
+use std::fmt::Display;
 use std::io::prelude::*;
-use std::io::{self, BufWriter, BufReader, Stdout};
+use std::io::{BufWriter, BufReader};
 use std::fs::{OpenOptions, File};
 use std::path::Path;
-use std::process;
+
 use std::str::FromStr;
+
+type Result<T> = std::result::Result<T, PError>;
+
+macro_rules! fatal {
+    ($($tt:tt)*) => {{
+        use std::io::Write;
+        writeln!(&mut ::std::io::stderr(), $($tt)*).unwrap();
+        ::std::process::exit(1)
+    }}
+}
+
 
 fn create_file<P: AsRef<Path>>(path_pk: P,
                                path_sk: P)
-                               -> Result<(BufWriter<File>, BufWriter<File>), ()> {
+                               -> Result<(BufWriter<File>, BufWriter<File>)> {
     let sk_file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(path_sk)
-        .unwrap();
+        .open(path_sk)?;
     let pk_file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(path_pk)
-        .unwrap();
+        .open(path_pk)?;
 
     Ok((BufWriter::new(pk_file), BufWriter::new(sk_file)))
 }
-fn create_sig_file<P: AsRef<Path>>(path: P) -> Result<BufWriter<File>, ()> {
+fn create_sig_file<P: AsRef<Path>>(path: P) -> Result<BufWriter<File>> {
     let file = OpenOptions::new()
         .write(true)
         .create(true)
         .truncate(true)
-        .open(path)
-        .unwrap();
+        .open(path)?;
     Ok(BufWriter::new(file))
 }
 
-fn panic_if_file_exist<P: AsRef<Path>>(path_pk: P, path_sk: P) {
+fn panic_if_file_exist<P>(path_pk: P, path_sk: P)
+    where P: AsRef<Path> + Display
+{
     if path_pk.as_ref().exists() || path_sk.as_ref().exists() {
-        panic!("{}", "try to use -f if you want to overwrite keys");
+        fatal!("Found keys at {} and {}\ntry using -f if you want to overwrite", path_pk, path_sk);
     }
 }
 
-fn get_password() -> String {
-    let pwd = rpassword::prompt_password_stdout("Password: ").unwrap();
-    let pwd_conf = rpassword::prompt_password_stdout("Password (one more time): ").unwrap();
-    if pwd != pwd_conf {
-        writeln!(io::stderr(), "Passwords don't match").unwrap();
-        process::exit(1);
-    } else if pwd.len() == 0 {
-        writeln!(io::stderr(), "<empty>").unwrap();
+fn get_password(prompt: &str) -> Result<String> {
+    let pwd = rpassword::prompt_password_stdout(prompt)?;
+    if pwd.len() == 0 {
+        Err(PError::PasswordError("can't be blank".to_owned()))
+    } else if pwd.len() > PASSWORDMAXBYTES {
+        Err(PError::PasswordError("can't exceed 1024 bytes lenght".to_owned()))
+    } else {
+        Ok(pwd)
     }
-    pwd
 }
 
-fn generate_keys<P: AsRef<Path> + Copy + fmt::Display>(path_pk: P,
-                                                       path_sk: P,
-                                                       comment: Option<&str>,
-                                                       force: bool)
-                                                       -> Result<(), io::Error> {
+fn generate_keys<P>(path_pk: P,
+                    path_sk: P,
+                    comment: Option<&str>,
+                    force: bool)
+                    -> Result<()>
+    where P: AsRef<Path> + Copy + Display
+{
     if !force {
-        panic_if_file_exist(&path_pk, &path_sk);
+        panic_if_file_exist(path_pk, path_sk);
     }
-    let (pk_str, mut sk_str) = rsign::gen_keystruct();
+    let (pk_str, mut sk_str) = gen_keystruct();
     sk_str.checksum();
-    let pwd = get_password();
-    write!(std::io::stdout(), "Deriving a key from password... ")?;
-    std::io::stdout().flush().unwrap();
+    let pwd = get_password("Password: ").unwrap_or_else(|e| e.exit());
+    let pwd2 = get_password("Password (one more time): ").unwrap_or_else(|e| e.exit());
+    if pwd != pwd2 {
+        return Err(PError::PasswordError("don't match!".to_owned()));
+    }
+    print!("Deriving a key from password... ");
     let salt = pwhash::Salt::from_slice(sk_str.kdf_salt.as_ref()).unwrap();
     let mut stream = vec![0u8; sk_str.keynum_sk.len()];
     pwhash::derive_key(stream.as_mut_slice(),
@@ -93,18 +106,20 @@ fn generate_keys<P: AsRef<Path> + Copy + fmt::Display>(path_pk: P,
     println!("Done!");
     sk_str.xor_keynum(stream);
 
-    let (mut pk_buf, mut sk_buf) = create_file(path_pk, path_sk).unwrap();
+    let (mut pk_buf, mut sk_buf) = create_file(path_pk, path_sk)?;
     let pk_struct_bytes = pk_str.bytes();
     write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
-    write!(pk_buf, "{:X}", rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
+    write!(pk_buf,
+           "{:X}",
+           rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
     pk_buf.write(b"\n")?;
     writeln!(pk_buf, "{}", base64::encode(pk_struct_bytes.as_slice()))?;
-    pk_buf.flush().unwrap();
+    pk_buf.flush()?;
 
     write!(sk_buf, "{}", rsign::COMMENT_PREFIX)?;
-    writeln!(sk_buf, "{}", rsign::SECRETKEY_DEFAULT_COMMENT).unwrap();
-    writeln!(sk_buf, "{}", base64::encode(sk_str.bytes().as_slice())).unwrap();
-    sk_buf.flush().unwrap();
+    writeln!(sk_buf, "{}", rsign::SECRETKEY_DEFAULT_COMMENT)?;
+    writeln!(sk_buf, "{}", base64::encode(sk_str.bytes().as_slice()))?;
+    sk_buf.flush()?;
 
     println!("The secret key was saved as {} - Keep it secret!", path_sk);
     println!("The public key was saved as {} - That one can be public.\n",
@@ -112,29 +127,24 @@ fn generate_keys<P: AsRef<Path> + Copy + fmt::Display>(path_pk: P,
     println!("Files signed using this key pair can be verified with the following command:\n");
     println!("rsign -Vm <file> -P {}",
              base64::encode(pk_struct_bytes.as_slice()));
-    sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.sk);
-    sodiumoxide::utils::memzero(&mut sk_str.kdf_salt);
-    sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.chk);
-
     Ok(())
 }
 
 
-fn sk_load<P: AsRef<Path>>(sk_path: P) -> SeckeyStruct {
-    let sk_file = OpenOptions::new().read(true).open(sk_path).unwrap();
+fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
+    let sk_file = OpenOptions::new().read(true).open(sk_path)?;
     let mut sk_buf = BufReader::new(sk_file);
     let mut _comment = String::new();
-    sk_buf.read_line(&mut _comment).unwrap();
+    sk_buf.read_line(&mut _comment)?;
     let mut encoded_buf = vec![];
     let bcount = sk_buf
-        .read_until(b'\n', &mut encoded_buf)
-        .expect("error reading buffer");
+        .read_until(b'\n', &mut encoded_buf)?;
     let decoded_buf: Vec<u8> =
         base64::decode(&encoded_buf[..bcount - 1]).expect("Fail decoding b64 stream");
-    let mut sk = SeckeyStruct::from(&decoded_buf[..]).unwrap();
+    let mut sk = SeckeyStruct::from(&decoded_buf[..])?;
 
-    let pwd = get_password();
-    write!(std::io::stdout(), "Deriving a key from password... ").unwrap();
+    let pwd = get_password("Password: ")?;
+    write!(std::io::stdout(), "Deriving a key from password... ")?;
     std::io::stdout().flush().unwrap();
     let salt = pwhash::Salt::from_slice(sk.kdf_salt.as_ref()).unwrap();
     let mut stream = vec![0u8; sk.keynum_sk.len()];
@@ -147,7 +157,7 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> SeckeyStruct {
     println!("Done!");
     sk.xor_keynum(stream);
 
-    sk
+    Ok(sk)
 }
 
 fn pk_load<P: AsRef<Path>>(pk_path: P) -> PubkeyStruct {
@@ -162,11 +172,11 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> PubkeyStruct {
     let bcount = pk_buf
         .read_until(b'\n', &mut encoded_stream)
         .expect("error reading buffer");
-    let decoded_stream =
-        base64::decode(&encoded_stream[..bcount - 1]).expect("fail decoding pk");
+    let decoded_stream = base64::decode(&encoded_stream[..bcount - 1]).expect("fail decoding pk");
     let pk = PubkeyStruct::from(&decoded_stream[..]);
     pk
 }
+
 fn pk_load_string(pk_string: &str) -> PubkeyStruct {
     let pk_string = String::from_str(pk_string).unwrap();
     let decoded = base64::decode(pk_string.as_bytes()).expect("fail to decode pk string");
@@ -371,6 +381,7 @@ fn load_and_hash_message_file<P: AsRef<Path>>(message_file: P) -> Vec<u8>
 
 
 fn main() {
+
     let args = parse_args();
     sodiumoxide::init();
 
@@ -383,7 +394,8 @@ fn main() {
                                   .value_of("sk_path")
                                   .expect("sk file path"),
                               generate_action.value_of("comment"),
-                              generate_action.is_present("force"));
+                              generate_action.is_present("force"))
+                .unwrap_or_else(|e| e.exit());
 
     }
 
@@ -399,9 +411,9 @@ fn main() {
                 pk = Some(pk_load_string(string));
             }
         }
-        
 
-        let _ = sign(sk_load(sk_file),
+        let sk = sk_load(sk_file).unwrap_or_else(|e| e.exit());
+        let _ = sign(sk,
                      pk,
                      sign_action.value_of("sig_file"),
                      sign_action.value_of("message").unwrap(),

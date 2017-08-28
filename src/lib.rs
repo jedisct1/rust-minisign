@@ -2,16 +2,18 @@ extern crate sodiumoxide;
 extern crate libc;
 extern crate libsodium_sys as ffi;
 
+
 #[macro_use]
 mod macros;
 pub mod parse_args;
 pub mod generichash;
+pub mod perror;
 
 use generichash::*;
-use sodiumoxide::crypto::sign::{gen_keypair, SECRETKEYBYTES, PUBLICKEYBYTES, SIGNATUREBYTES};
-use sodiumoxide::crypto::pwhash::{OpsLimit, MemLimit, OPSLIMIT_SENSITIVE, MEMLIMIT_SENSITIVE,
-                                  SALTBYTES};
+use sodiumoxide::crypto::sign::*;
+use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::randombytes::*;
+use perror::PError;
 
 use std::fmt::{Debug, Error, Formatter};
 use std::mem;
@@ -74,7 +76,7 @@ impl SeckeyStruct {
     pub fn len(self) -> usize {
         mem::size_of_val(&self)
     }
-    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct, ()> {
+    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct, PError> {
         let sk = SeckeyStruct {
             sig_alg: bytes_buf[..2].to_vec(),
             kdf_alg: bytes_buf[2..4].to_vec(),
@@ -156,8 +158,6 @@ impl SeckeyStruct {
         sodiumoxide::utils::memzero(&mut stream);
     }
 }
-
-
 
 impl Debug for SeckeyStruct {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {

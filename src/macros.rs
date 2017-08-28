@@ -1,5 +1,4 @@
 
-
 macro_rules! newtype_clone (($newtype:ident) => (
         impl Clone for $newtype {
             fn clone(&self) -> $newtype {
