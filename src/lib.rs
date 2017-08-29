@@ -13,11 +13,7 @@ use generichash::*;
 use sodiumoxide::crypto::sign::*;
 use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::randombytes::*;
-<<<<<<< HEAD
-use perror::PError;
-=======
 use sodiumoxide::crypto::sign::ed25519::{SecretKey, PublicKey};
->>>>>>> array_keys
 
 use std::io::Cursor;
 use std::io::Read;
@@ -73,12 +69,6 @@ impl AsRef<[u8]> for SeckeyStruct {
     }
 }
 impl SeckeyStruct {
-<<<<<<< HEAD
-    pub fn len(self) -> usize {
-        mem::size_of_val(&self)
-    }
-    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct, PError> {
-=======
     pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct, ()> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; 2];
@@ -99,7 +89,6 @@ impl SeckeyStruct {
         buf.read(&mut keynum);
         buf.read(&mut sk);
         buf.read(&mut chk);
->>>>>>> array_keys
         let sk = SeckeyStruct {
             sig_alg: sig_alg,
             kdf_alg: kdf_alg,
@@ -188,25 +177,6 @@ impl SeckeyStruct {
     }
 }
 
-<<<<<<< HEAD
-impl Debug for SeckeyStruct {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        let OpsLimit(opl) = self.kdf_opslimit_le;
-        let MemLimit(meml) = self.kdf_memlimit_le;
-        write!(f,
-               "{:?} {:?} {:?} {:?} {:?} {:?} {:?}",
-               self.sig_alg,
-               self.kdf_alg,
-               self.chk_alg,
-               self.kdf_salt,
-               opl,
-               meml,
-               self.keynum_sk)
-    }
-}
-
-=======
->>>>>>> array_keys
 #[derive(Debug)]
 pub struct PubkeyStruct {
     pub sig_alg: [u8; 2],

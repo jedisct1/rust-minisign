@@ -214,21 +214,12 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct, io::Error> {
     let bcount = pk_buf
         .read_until(b'\n', &mut encoded_stream)
         .expect("error reading buffer");
-<<<<<<< HEAD
-    let decoded_stream = base64::decode(&encoded_stream[..bcount - 1]).expect("fail decoding pk");
-    let pk = PubkeyStruct::from(&decoded_stream[..]);
-    pk
-}
-
-fn pk_load_string(pk_string: &str) -> PubkeyStruct {
-=======
     let decoded_stream =
         base64::decode(&encoded_stream[..bcount - 1]).expect("fail decoding pk");
     let pk = PubkeyStruct::from(&decoded_stream[..]).unwrap();
     Ok(pk)
 }
 fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct, io::Error> {
->>>>>>> array_keys
     let pk_string = String::from_str(pk_string).unwrap();
     let decoded = base64::decode(pk_string.as_bytes()).expect("fail to decode pk string");
     let pk = PubkeyStruct::from(&decoded[..]).unwrap();
