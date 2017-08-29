@@ -6,17 +6,29 @@ extern crate rpassword;
 extern crate chrono;
 
 use rsign::parse_args::parse_args;
+<<<<<<< HEAD
 
 use rsign::*;
 use rsign::perror::PError;
+=======
+use rsign::generichash;
+use rsign::load_usize_le;
+use rsign::{SeckeyStruct, PubkeyStruct, SigStruct, COMMENTBYTES, TRUSTED_COMMENT_PREFIX,
+            TRUSTEDCOMMENTMAXBYTES, COMMENT_PREFIX, DEFAULT_COMMENT, SIG_SUFFIX,
+            TR_COMMENT_PREFIX_LEN, SIGALG_HASHED, SIGALG};
+>>>>>>> array_keys
 
 use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES};
-use sodiumoxide::crypto::pwhash;
+use sodiumoxide::crypto::pwhash::{self, MemLimit,OpsLimit};
 use chrono::prelude::*;
 
 use std::fmt::Display;
 use std::io::prelude::*;
+<<<<<<< HEAD
 use std::io::{BufWriter, BufReader};
+=======
+use std::io::{self, BufWriter, BufReader};
+>>>>>>> array_keys
 use std::fs::{OpenOptions, File};
 use std::path::Path;
 
@@ -89,6 +101,7 @@ fn generate_keys<P>(path_pk: P,
     }
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str.checksum();
+<<<<<<< HEAD
     let pwd = get_password("Password: ").unwrap_or_else(|e| e.exit());
     let pwd2 = get_password("Password (one more time): ").unwrap_or_else(|e| e.exit());
     if pwd != pwd2 {
@@ -96,16 +109,23 @@ fn generate_keys<P>(path_pk: P,
     }
     print!("Deriving a key from password... ");
     let salt = pwhash::Salt::from_slice(sk_str.kdf_salt.as_ref()).unwrap();
+=======
+    let pwd = get_password();
+    write!(std::io::stdout(), "Deriving a key from password... ")?;
+    std::io::stdout().flush().unwrap();
+    let salt = pwhash::Salt::from_slice(&sk_str.kdf_salt).unwrap();
+>>>>>>> array_keys
     let mut stream = vec![0u8; sk_str.keynum_sk.len()];
     pwhash::derive_key(stream.as_mut_slice(),
                        pwd.as_bytes(),
                        &salt,
-                       sk_str.kdf_opslimit_le,
-                       sk_str.kdf_memlimit_le)
+                       OpsLimit(load_usize_le(&sk_str.kdf_opslimit_le)),
+                       MemLimit(load_usize_le(&sk_str.kdf_memlimit_le)))
             .unwrap();
     println!("Done!");
     sk_str.xor_keynum(stream);
 
+<<<<<<< HEAD
     let (mut pk_buf, mut sk_buf) = create_file(path_pk, path_sk)?;
     let pk_struct_bytes = pk_str.bytes();
     write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
@@ -116,23 +136,45 @@ fn generate_keys<P>(path_pk: P,
     writeln!(pk_buf, "{}", base64::encode(pk_struct_bytes.as_slice()))?;
     pk_buf.flush()?;
 
+=======
+    let (mut pk_buf, mut sk_buf) = create_file(path_pk, path_sk).unwrap();
+    
+    write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
+    writeln!(pk_buf, "{:X}", rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
+    writeln!(pk_buf, "{}", base64::encode(pk_str.bytes().as_slice()))?;
+    pk_buf.flush()?;
+  
+>>>>>>> array_keys
     write!(sk_buf, "{}", rsign::COMMENT_PREFIX)?;
     writeln!(sk_buf, "{}", rsign::SECRETKEY_DEFAULT_COMMENT)?;
     writeln!(sk_buf, "{}", base64::encode(sk_str.bytes().as_slice()))?;
     sk_buf.flush()?;
 
-    println!("The secret key was saved as {} - Keep it secret!", path_sk);
+    println!("\nThe secret key was saved as {} - Keep it secret!", path_sk);
     println!("The public key was saved as {} - That one can be public.\n",
              path_pk);
     println!("Files signed using this key pair can be verified with the following command:\n");
     println!("rsign -Vm <file> -P {}",
+<<<<<<< HEAD
              base64::encode(pk_struct_bytes.as_slice()));
+=======
+             base64::encode(pk_str.bytes().as_slice()));
+    sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.sk);
+    sodiumoxide::utils::memzero(&mut sk_str.kdf_salt);
+    sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.chk);
+
+>>>>>>> array_keys
     Ok(())
 }
 
 
+<<<<<<< HEAD
 fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
     let sk_file = OpenOptions::new().read(true).open(sk_path)?;
+=======
+fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct, io::Error> {
+    let sk_file = OpenOptions::new().read(true).open(sk_path).unwrap();
+>>>>>>> array_keys
     let mut sk_buf = BufReader::new(sk_file);
     let mut _comment = String::new();
     sk_buf.read_line(&mut _comment)?;
@@ -151,8 +193,8 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
     pwhash::derive_key(stream.as_mut_slice(),
                        pwd.as_bytes(),
                        &salt,
-                       sk.kdf_opslimit_le,
-                       sk.kdf_memlimit_le)
+                       OpsLimit(load_usize_le(&sk.kdf_opslimit_le)),
+                       MemLimit(load_usize_le(&sk.kdf_memlimit_le)))
             .unwrap();
     println!("Done!");
     sk.xor_keynum(stream);
@@ -160,7 +202,7 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
     Ok(sk)
 }
 
-fn pk_load<P: AsRef<Path>>(pk_path: P) -> PubkeyStruct {
+fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct, io::Error> {
     let pk_file = OpenOptions::new()
         .read(true)
         .open(pk_path)
@@ -172,16 +214,25 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> PubkeyStruct {
     let bcount = pk_buf
         .read_until(b'\n', &mut encoded_stream)
         .expect("error reading buffer");
+<<<<<<< HEAD
     let decoded_stream = base64::decode(&encoded_stream[..bcount - 1]).expect("fail decoding pk");
     let pk = PubkeyStruct::from(&decoded_stream[..]);
     pk
 }
 
 fn pk_load_string(pk_string: &str) -> PubkeyStruct {
+=======
+    let decoded_stream =
+        base64::decode(&encoded_stream[..bcount - 1]).expect("fail decoding pk");
+    let pk = PubkeyStruct::from(&decoded_stream[..]).unwrap();
+    Ok(pk)
+}
+fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct, io::Error> {
+>>>>>>> array_keys
     let pk_string = String::from_str(pk_string).unwrap();
     let decoded = base64::decode(pk_string.as_bytes()).expect("fail to decode pk string");
-    let pk = PubkeyStruct::from(&decoded[..]);
-    pk
+    let pk = PubkeyStruct::from(&decoded[..]).unwrap();
+    Ok(pk)
 }
 
 fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
@@ -190,7 +241,7 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
                         message_file: P,
                         trusted_comment: Option<&str>,
                         untrusted_comment: Option<&str>,
-                        hashed: bool)
+                        hashed: bool) -> Result<(), io::Error>
     where P: std::marker::Copy
 {
     let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
@@ -228,15 +279,12 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
     let mut sig_buf = create_sig_file(sig_file_name).unwrap();
     let mut sig_str = SigStruct::default();
     if !hashed {
-        sig_str.sig_alg.clone_from(sk_key.sig_alg.as_ref());
+        sig_str.sig_alg = sk_key.sig_alg.clone();
     } else {
-        sig_str
-            .sig_alg
-            .clone_from(&rsign::SIGALG_HASHED.as_bytes().to_vec());
+        sig_str.sig_alg = SIGALG_HASHED;
     }
-    sig_str
-        .keynum
-        .clone_from(sk_key.keynum_sk.keynum.as_ref());
+    sig_str.keynum.copy_from_slice(&sk_key.keynum_sk.keynum[..]);
+        
     let signature =
         sodiumoxide::crypto::sign::sign_detached(msg_buf.as_ref(),
                                                  &SecretKey::from_slice(sk_key
@@ -244,7 +292,7 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
                                                                             .sk
                                                                             .as_ref())
                                                           .unwrap());
-    sig_str.sig.clone_from(&signature[..].to_vec());
+    sig_str.sig.copy_from_slice(&signature[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
     sig_and_trust_comment.extend(sig_str.sig.iter());
@@ -271,6 +319,7 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
     writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, t_comment).unwrap();
     writeln!(sig_buf, "{}", base64::encode(&global_sig[..])).unwrap();
     sig_buf.flush().unwrap();
+    Ok(())
 }
 
 fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P, quiet: bool, output: bool)
@@ -330,17 +379,17 @@ fn sig_load<P>(sig_file: P,
     let _ = buf_r.read_line(&mut g_sig);
     global_sig.extend_from_slice(g_sig.trim().as_bytes());
     let sig = SigStruct::from(&sig_str[..]).unwrap();
-    println!("{:?}", sig.sig_alg.clone());
-    println!("{:?}", SIGALG.as_bytes().to_vec());
-    if sig.sig_alg == SIGALG.as_bytes().to_vec() {
+    
+    if sig.sig_alg == SIGALG {
         *is_hashed = false;
-    } else if sig.sig_alg == SIGALG_HASHED.as_bytes().to_vec() {
+    } else if sig.sig_alg == SIGALG_HASHED {
         *is_hashed = true;
     } else {
         panic!("Unsupported signature algorithm");
     }
     sig
 }
+
 fn load_message_file<P: AsRef<Path>>(message_file: P) -> Vec<u8>
     where P: std::marker::Copy
 {
@@ -357,6 +406,7 @@ fn load_message_file<P: AsRef<Path>>(message_file: P) -> Vec<u8>
     file_buf.read_to_end(&mut msg_buf).unwrap();
     msg_buf
 }
+
 fn load_and_hash_message_file<P: AsRef<Path>>(message_file: P) -> Vec<u8>
     where P: std::marker::Copy
 {
@@ -404,15 +454,21 @@ fn main() {
         let mut pk: Option<PubkeyStruct> = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
-                pk = Some(pk_load(filename));
+                pk = Some(pk_load(filename).unwrap());
             }
         } else if sign_action.is_present("public_key") {
             if let Some(string) = sign_action.value_of("public_key") {
-                pk = Some(pk_load_string(string));
+                pk = Some(pk_load_string(string).unwrap());
             }
         }
+<<<<<<< HEAD
 
         let sk = sk_load(sk_file).unwrap_or_else(|e| e.exit());
+=======
+        
+        let sk = sk_load(sk_file).unwrap();
+
+>>>>>>> array_keys
         let _ = sign(sk,
                      pk,
                      sign_action.value_of("sig_file"),
@@ -423,7 +479,7 @@ fn main() {
     }
 
     if let Some(verify_action) = args.subcommand_matches("verify") {
-        let pk = pk_load(verify_action.value_of("pk_path").unwrap());
+        let pk = pk_load(verify_action.value_of("pk_path").unwrap()).unwrap();
         let sig_file = verify_action.value_of("sig_file").unwrap();
         let message_file = verify_action.value_of("file").unwrap();
         let _ = verify(pk, sig_file, message_file, false, false);
