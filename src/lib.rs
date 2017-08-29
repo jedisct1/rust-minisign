@@ -12,11 +12,12 @@ use sodiumoxide::crypto::sign::{gen_keypair, SECRETKEYBYTES, PUBLICKEYBYTES, SIG
 use sodiumoxide::crypto::pwhash::{OpsLimit, MemLimit, OPSLIMIT_SENSITIVE, MEMLIMIT_SENSITIVE,
                                   SALTBYTES};
 use sodiumoxide::randombytes::*;
+use sodiumoxide::crypto::sign::ed25519::{SecretKey, PublicKey};
 
-use std::fmt::{Debug, Error, Formatter};
-use std::mem;
 use std::io::Cursor;
 use std::io::Read;
+use std::io::Error;
+use std::io::Write;
 
 pub const KEYNUMBYTES: usize = 8;
 pub const TWOBYTES: usize = 2;
@@ -24,10 +25,10 @@ pub const TR_COMMENT_PREFIX_LEN: usize = 17;
 pub const PASSWORDMAXBYTES: usize = 1024;
 pub const COMMENTBYTES: usize = 1024;
 pub const TRUSTEDCOMMENTMAXBYTES: usize = 8192;
-pub const SIGALG: &'static str = "Ed";
-pub const SIGALG_HASHED: &'static str = "ED";
-pub const KDFALG: &'static str = "Sc";
-pub const CHKALG: &'static str = "B2";
+pub const SIGALG: [u8; 2] = *b"Ed";
+pub const SIGALG_HASHED: [u8; 2] = *b"ED";
+pub const KDFALG: [u8; 2] = *b"Sc";
+pub const CHKALG: [u8; 2] = *b"B2";
 pub const COMMENT_PREFIX: &'static str = "untrusted comment: ";
 pub const DEFAULT_COMMENT: &'static str = "signature from rsign secret key";
 pub const SECRETKEY_DEFAULT_COMMENT: &'static str = "rsign encrypted secret key";
@@ -40,11 +41,11 @@ pub const SIG_SUFFIX: &'static str = ".rsign";
 pub const VERSION_STRING: &'static str = "rsign 0.1";
 
 
-#[derive(Debug, Default, Clone)]
+
 pub struct KeynumSK {
-    pub keynum: Vec<u8>,
-    pub sk: Vec<u8>,
-    pub chk: Vec<u8>,
+    pub keynum: [u8; KEYNUMBYTES],
+    pub sk: [u8; SECRETKEYBYTES],
+    pub chk: [u8; BYTES],
 }
 impl KeynumSK {
     pub fn len(&self) -> usize {
@@ -52,15 +53,13 @@ impl KeynumSK {
     }
 }
 
-
-#[derive(Clone)]
 pub struct SeckeyStruct {
-    pub sig_alg: Vec<u8>,
-    pub kdf_alg: Vec<u8>,
-    pub chk_alg: Vec<u8>,
-    pub kdf_salt: Vec<u8>,
-    pub kdf_opslimit_le: OpsLimit,
-    pub kdf_memlimit_le: MemLimit,
+    pub sig_alg: [u8; 2],
+    pub kdf_alg: [u8; 2],
+    pub chk_alg: [u8; 2],
+    pub kdf_salt: [u8; SALTBYTES],
+    pub kdf_opslimit_le: [u8; 8],
+    pub kdf_memlimit_le: [u8; 8],
     pub keynum_sk: KeynumSK,
 }
 impl AsRef<[u8]> for SeckeyStruct {
@@ -69,42 +68,49 @@ impl AsRef<[u8]> for SeckeyStruct {
     }
 }
 impl SeckeyStruct {
-    pub fn len(self) -> usize {
-        mem::size_of_val(&self)
-    }
     pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct, ()> {
+        let mut buf = Cursor::new(bytes_buf);
+        let mut sig_alg = [0u8; 2];
+        let mut kdf_alg = [0u8; 2];
+        let mut chk_alg = [0u8; 2];
+        let mut kdf_salt = [0u8; SALTBYTES];
+        let mut ops_limit = [0u8; 8];
+        let mut mem_limit = [0u8; 8];
+        let mut keynum = [0u8; KEYNUMBYTES];
+        let mut sk = [0u8; SECRETKEYBYTES];
+        let mut chk = [0u8; BYTES];
+        buf.read(&mut sig_alg);
+        buf.read(&mut kdf_alg);
+        buf.read(&mut chk_alg);
+        buf.read(&mut kdf_salt);
+        buf.read(&mut ops_limit);
+        buf.read(&mut mem_limit);
+        buf.read(&mut keynum);
+        buf.read(&mut sk);
+        buf.read(&mut chk);
         let sk = SeckeyStruct {
-            sig_alg: bytes_buf[..2].to_vec(),
-            kdf_alg: bytes_buf[2..4].to_vec(),
-            chk_alg: bytes_buf[4..6].to_vec(),
-            kdf_salt: bytes_buf[6..38].to_vec(),
-            kdf_opslimit_le: OpsLimit(load_usize_le(&bytes_buf[38..46])),
-            kdf_memlimit_le: MemLimit(load_usize_le(&bytes_buf[46..54])),
+            sig_alg: sig_alg,
+            kdf_alg: kdf_alg,
+            chk_alg: chk_alg,
+            kdf_salt: kdf_salt,
+            kdf_opslimit_le: ops_limit,
+            kdf_memlimit_le: mem_limit,
             keynum_sk: KeynumSK {
-                keynum: bytes_buf[54..62].to_vec(),
-                sk: bytes_buf[62..126].to_vec(),
-                chk: bytes_buf[126..].to_vec(),
+                keynum: keynum,
+                sk: sk,
+                chk: chk,
             },
         };
         Ok(sk)
     }
     pub fn bytes(&self) -> Vec<u8> {
-        let OpsLimit(op_lim) = self.kdf_opslimit_le;
-        let opslim_arr = store_usize_le(op_lim);
-        let MemLimit(mem_lim) = self.kdf_memlimit_le;
-        let memlim_arr = store_usize_le(mem_lim);
-        let mut opslim_vec = Vec::new();
-        let mut memlim_vec = Vec::new();
-        opslim_vec.extend_from_slice(&opslim_arr[..]);
-        memlim_vec.extend_from_slice(&memlim_arr[..]);
-
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
         iters.push(self.kdf_alg.iter());
         iters.push(self.chk_alg.iter());
         iters.push(self.kdf_salt.iter());
-        iters.push(opslim_vec.iter());
-        iters.push(memlim_vec.iter());
+        iters.push(self.kdf_opslimit_le.iter());
+        iters.push(self.kdf_memlimit_le.iter());
         iters.push(self.keynum_sk.keynum.iter());
         iters.push(self.keynum_sk.sk.iter());
         iters.push(self.keynum_sk.chk.iter());
@@ -122,11 +128,26 @@ impl SeckeyStruct {
         let mut state: Vec<u8> = vec![0;state_sz];
         let ptr_state = state.as_mut_ptr() as *mut ffi::crypto_generichash_state;
         generichash::init(ptr_state).unwrap();
-        generichash::update(ptr_state, self.sig_alg.as_ref()).unwrap();
-        generichash::update(ptr_state, self.keynum_sk.keynum.as_ref()).unwrap();
-        generichash::update(ptr_state, self.keynum_sk.sk.as_ref()).unwrap();
+        generichash::update(ptr_state, &self.sig_alg).unwrap();
+        generichash::update(ptr_state, &self.keynum_sk.keynum).unwrap();
+        generichash::update(ptr_state, &self.keynum_sk.sk).unwrap();
         let h = generichash::finalize(ptr_state).unwrap();
-        self.keynum_sk.chk = h.as_ref().to_vec();
+        self.keynum_sk.chk.copy_from_slice(&h[..]);
+    }
+    pub fn write<W>(&self,buf: &mut W) -> Result<usize, Error> 
+    where W: Write
+    {
+        let mut sz = buf.write(&self.sig_alg)?;
+        sz += buf.write(&self.kdf_alg)?;
+        sz += buf.write(&self.chk_alg)?;
+        sz += buf.write(&self.kdf_alg)?;
+        sz += buf.write(&self.kdf_salt)?;
+        sz += buf.write(&self.kdf_opslimit_le)?;
+        sz += buf.write(&self.kdf_memlimit_le)?;
+        sz += buf.write(&self.keynum_sk.keynum)?;
+        sz += buf.write(&self.keynum_sk.sk)?;
+        sz += buf.write(&self.keynum_sk.chk)?;
+        Ok(sz)
     }
     pub fn xor_keynum(&mut self, mut stream: Vec<u8>) {
 
@@ -155,51 +176,32 @@ impl SeckeyStruct {
     }
 }
 
-
-
-impl Debug for SeckeyStruct {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        let OpsLimit(opl) = self.kdf_opslimit_le;
-        let MemLimit(meml) = self.kdf_memlimit_le;
-        write!(f,
-               "{:?} {:?} {:?} {:?} {:?} {:?} {:?}",
-               self.sig_alg,
-               self.kdf_alg,
-               self.chk_alg,
-               self.kdf_salt,
-               opl,
-               meml,
-               self.keynum_sk)
-    }
-}
-
 #[derive(Debug)]
 pub struct PubkeyStruct {
-    pub sig_alg: [u8;2],
+    pub sig_alg: [u8; 2],
     pub keynum_pk: KeynumPK,
 }
 #[derive(Debug, Clone)]
 pub struct KeynumPK {
-    pub keynum: [u8;KEYNUMBYTES],
-    pub pk: [u8;PUBLICKEYBYTES],
+    pub keynum: [u8; KEYNUMBYTES],
+    pub pk: [u8; PUBLICKEYBYTES],
 }
 impl PubkeyStruct {
-    
     pub fn from(buf: &[u8]) -> Result<PubkeyStruct, std::io::Error> {
         let mut buf = Cursor::new(buf);
-        let mut sig_alg = [0u8;2];
-        let mut keynum = [0u8;KEYNUMBYTES];
-        let mut pk = [0u8;PUBLICKEYBYTES];
+        let mut sig_alg = [0u8; 2];
+        let mut keynum = [0u8; KEYNUMBYTES];
+        let mut pk = [0u8; PUBLICKEYBYTES];
         buf.read(&mut sig_alg)?;
         buf.read(&mut keynum)?;
         buf.read(&mut pk)?;
         Ok(PubkeyStruct {
-            sig_alg: sig_alg,
-            keynum_pk: KeynumPK {
-                keynum: keynum,
-                pk: pk,
-            },
-        })
+               sig_alg: sig_alg,
+               keynum_pk: KeynumPK {
+                   keynum: keynum,
+                   pk: pk,
+               },
+           })
     }
 
     pub fn bytes(&self) -> Vec<u8> {
@@ -218,11 +220,10 @@ impl PubkeyStruct {
     }
 }
 
-#[derive(Debug)]
 pub struct SigStruct {
-    pub sig_alg: Vec<u8>,
-    pub keynum: Vec<u8>,
-    pub sig: Vec<u8>,
+    pub sig_alg: [u8; 2],
+    pub keynum: [u8; KEYNUMBYTES],
+    pub sig: [u8; SIGNATUREBYTES],
 }
 impl SigStruct {
     pub fn bytes(&self) -> Vec<u8> {
@@ -240,53 +241,65 @@ impl SigStruct {
         v
     }
     pub fn from(bytes_buf: &[u8]) -> Result<SigStruct, ()> {
+        let mut buf = Cursor::new(bytes_buf);
+        let mut sig_alg = [0u8; 2];
+        let mut keynum = [0u8; KEYNUMBYTES];
+        let mut sig = [0u8; SIGNATUREBYTES];
+        buf.read(&mut sig_alg);
+        buf.read(&mut keynum);
+        buf.read(&mut sig);
         Ok(SigStruct {
-            sig_alg: bytes_buf[..2].to_vec(),
-            keynum: bytes_buf[2..10].to_vec(),
-            sig: bytes_buf[10..74].to_vec(),   
-        })
+               sig_alg: sig_alg,
+               keynum: keynum,
+               sig: sig,
+           })
     }
 }
 
 impl Default for SigStruct {
     fn default() -> Self {
         SigStruct {
-            sig_alg: vec![0u8;2],
-            keynum: vec![0u8;8],
-            sig: vec![0u8;64],
+            sig_alg: [0; 2],
+            keynum: [0; KEYNUMBYTES],
+            sig: [0; SIGNATUREBYTES],
         }
     }
 }
 
 pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
     let (pk, sk) = gen_keypair();
-    let mut pk_vec = [0u8;PUBLICKEYBYTES];
-    let mut sk_vec = Vec::with_capacity(SECRETKEYBYTES);
+    let SecretKey(sk) = sk;
+    let PublicKey(pk) = pk;
+
     let keynum_vec = randombytes(KEYNUMBYTES);
-    let mut keynum = [0u8;KEYNUMBYTES];
+    let mut keynum = [0u8; KEYNUMBYTES];
     keynum.copy_from_slice(keynum_vec.as_slice());
-    pk_vec.copy_from_slice(&pk[..]);
-    sk_vec.extend_from_slice(&sk[..]);
-    let mut sig_alg = [0u8;2];
-    sig_alg.copy_from_slice(&SIGALG.as_bytes()[..]);
+
+    let kdf_salt_vec = randombytes(SALTBYTES);
+    let mut kdf_salt = [0u8; SALTBYTES];
+    kdf_salt.copy_from_slice(kdf_salt_vec.as_slice());
+
+    let OpsLimit(ops_limit) = OPSLIMIT_SENSITIVE;
+    let MemLimit(mem_limit) = MEMLIMIT_SENSITIVE;
+
     let p_struct = PubkeyStruct {
-        sig_alg: sig_alg,
+        sig_alg: SIGALG,
         keynum_pk: KeynumPK {
             keynum: keynum,
-            pk: pk_vec,
+            pk: pk,
         },
     };
     let s_struct = SeckeyStruct {
-        sig_alg: SIGALG.bytes().collect(),
-        kdf_alg: KDFALG.bytes().collect(),
-        chk_alg: CHKALG.bytes().collect(),
-        kdf_salt: randombytes(SALTBYTES),
-        kdf_opslimit_le: OPSLIMIT_SENSITIVE,
-        kdf_memlimit_le: MEMLIMIT_SENSITIVE,
+        sig_alg: SIGALG,
+        kdf_alg: KDFALG,
+        chk_alg: CHKALG,
+        kdf_salt: kdf_salt,
+        kdf_opslimit_le: store_usize_le(ops_limit),
+        kdf_memlimit_le: store_usize_le(mem_limit),
         keynum_sk: KeynumSK {
-            keynum: keynum_vec,
-            sk: sk_vec,
-            chk: Vec::with_capacity(BYTES),
+            keynum: keynum.clone(),
+            sk: sk,
+            chk: [0; BYTES],
         },
     };
     (p_struct, s_struct)

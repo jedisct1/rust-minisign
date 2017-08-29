@@ -7,12 +7,13 @@ extern crate chrono;
 
 use rsign::parse_args::parse_args;
 use rsign::generichash;
+use rsign::load_usize_le;
 use rsign::{SeckeyStruct, PubkeyStruct, SigStruct, COMMENTBYTES, TRUSTED_COMMENT_PREFIX,
             TRUSTEDCOMMENTMAXBYTES, COMMENT_PREFIX, DEFAULT_COMMENT, SIG_SUFFIX,
             TR_COMMENT_PREFIX_LEN, SIGALG_HASHED, SIGALG};
 
 use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES};
-use sodiumoxide::crypto::pwhash;
+use sodiumoxide::crypto::pwhash::{self, MemLimit,OpsLimit};
 use chrono::prelude::*;
 
 use std::fmt;
@@ -82,36 +83,35 @@ fn generate_keys<P: AsRef<Path> + Copy + fmt::Display>(path_pk: P,
     let pwd = get_password();
     write!(std::io::stdout(), "Deriving a key from password... ")?;
     std::io::stdout().flush().unwrap();
-    let salt = pwhash::Salt::from_slice(sk_str.kdf_salt.as_ref()).unwrap();
+    let salt = pwhash::Salt::from_slice(&sk_str.kdf_salt).unwrap();
     let mut stream = vec![0u8; sk_str.keynum_sk.len()];
     pwhash::derive_key(stream.as_mut_slice(),
                        pwd.as_bytes(),
                        &salt,
-                       sk_str.kdf_opslimit_le,
-                       sk_str.kdf_memlimit_le)
+                       OpsLimit(load_usize_le(&sk_str.kdf_opslimit_le)),
+                       MemLimit(load_usize_le(&sk_str.kdf_memlimit_le)))
             .unwrap();
     println!("Done!");
     sk_str.xor_keynum(stream);
 
     let (mut pk_buf, mut sk_buf) = create_file(path_pk, path_sk).unwrap();
-    let pk_struct_bytes = pk_str.bytes();
+    
     write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
-    write!(pk_buf, "{:X}", rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
-    pk_buf.write(b"\n")?;
-    writeln!(pk_buf, "{}", base64::encode(pk_struct_bytes.as_slice()))?;
-    pk_buf.flush().unwrap();
-
+    writeln!(pk_buf, "{:X}", rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
+    writeln!(pk_buf, "{}", base64::encode(pk_str.bytes().as_slice()))?;
+    pk_buf.flush()?;
+  
     write!(sk_buf, "{}", rsign::COMMENT_PREFIX)?;
-    writeln!(sk_buf, "{}", rsign::SECRETKEY_DEFAULT_COMMENT).unwrap();
-    writeln!(sk_buf, "{}", base64::encode(sk_str.bytes().as_slice())).unwrap();
-    sk_buf.flush().unwrap();
+    writeln!(sk_buf, "{}", rsign::SECRETKEY_DEFAULT_COMMENT)?;
+    writeln!(sk_buf, "{}", base64::encode(sk_str.bytes().as_slice()))?;
+    sk_buf.flush()?;
 
-    println!("The secret key was saved as {} - Keep it secret!", path_sk);
+    println!("\nThe secret key was saved as {} - Keep it secret!", path_sk);
     println!("The public key was saved as {} - That one can be public.\n",
              path_pk);
     println!("Files signed using this key pair can be verified with the following command:\n");
     println!("rsign -Vm <file> -P {}",
-             base64::encode(pk_struct_bytes.as_slice()));
+             base64::encode(pk_str.bytes().as_slice()));
     sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.sk);
     sodiumoxide::utils::memzero(&mut sk_str.kdf_salt);
     sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.chk);
@@ -141,8 +141,8 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct, io::Error> {
     pwhash::derive_key(stream.as_mut_slice(),
                        pwd.as_bytes(),
                        &salt,
-                       sk.kdf_opslimit_le,
-                       sk.kdf_memlimit_le)
+                       OpsLimit(load_usize_le(&sk.kdf_opslimit_le)),
+                       MemLimit(load_usize_le(&sk.kdf_memlimit_le)))
             .unwrap();
     println!("Done!");
     sk.xor_keynum(stream);
@@ -218,15 +218,12 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
     let mut sig_buf = create_sig_file(sig_file_name).unwrap();
     let mut sig_str = SigStruct::default();
     if !hashed {
-        sig_str.sig_alg.clone_from(sk_key.sig_alg.as_ref());
+        sig_str.sig_alg = sk_key.sig_alg.clone();
     } else {
-        sig_str
-            .sig_alg
-            .clone_from(&rsign::SIGALG_HASHED.as_bytes().to_vec());
+        sig_str.sig_alg = SIGALG_HASHED;
     }
-    sig_str
-        .keynum
-        .clone_from(sk_key.keynum_sk.keynum.as_ref());
+    sig_str.keynum.copy_from_slice(&sk_key.keynum_sk.keynum[..]);
+        
     let signature =
         sodiumoxide::crypto::sign::sign_detached(msg_buf.as_ref(),
                                                  &SecretKey::from_slice(sk_key
@@ -234,7 +231,7 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
                                                                             .sk
                                                                             .as_ref())
                                                           .unwrap());
-    sig_str.sig.clone_from(&signature[..].to_vec());
+    sig_str.sig.copy_from_slice(&signature[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
     sig_and_trust_comment.extend(sig_str.sig.iter());
@@ -321,17 +318,17 @@ fn sig_load<P>(sig_file: P,
     let _ = buf_r.read_line(&mut g_sig);
     global_sig.extend_from_slice(g_sig.trim().as_bytes());
     let sig = SigStruct::from(&sig_str[..]).unwrap();
-    println!("{:?}", sig.sig_alg.clone());
-    println!("{:?}", SIGALG.as_bytes().to_vec());
-    if sig.sig_alg == SIGALG.as_bytes().to_vec() {
+    
+    if sig.sig_alg == SIGALG {
         *is_hashed = false;
-    } else if sig.sig_alg == SIGALG_HASHED.as_bytes().to_vec() {
+    } else if sig.sig_alg == SIGALG_HASHED {
         *is_hashed = true;
     } else {
         panic!("Unsupported signature algorithm");
     }
     sig
 }
+
 fn load_message_file<P: AsRef<Path>>(message_file: P) -> Vec<u8>
     where P: std::marker::Copy
 {
@@ -348,6 +345,7 @@ fn load_message_file<P: AsRef<Path>>(message_file: P) -> Vec<u8>
     file_buf.read_to_end(&mut msg_buf).unwrap();
     msg_buf
 }
+
 fn load_and_hash_message_file<P: AsRef<Path>>(message_file: P) -> Vec<u8>
     where P: std::marker::Copy
 {
