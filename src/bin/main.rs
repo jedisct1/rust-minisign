@@ -17,7 +17,7 @@ use chrono::prelude::*;
 
 use std::fmt;
 use std::io::prelude::*;
-use std::io::{self, BufWriter, BufReader, Stdout};
+use std::io::{self, BufWriter, BufReader};
 use std::fs::{OpenOptions, File};
 use std::path::Path;
 use std::process;
@@ -120,7 +120,7 @@ fn generate_keys<P: AsRef<Path> + Copy + fmt::Display>(path_pk: P,
 }
 
 
-fn sk_load<P: AsRef<Path>>(sk_path: P) -> SeckeyStruct {
+fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct, io::Error> {
     let sk_file = OpenOptions::new().read(true).open(sk_path).unwrap();
     let mut sk_buf = BufReader::new(sk_file);
     let mut _comment = String::new();
@@ -147,10 +147,10 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> SeckeyStruct {
     println!("Done!");
     sk.xor_keynum(stream);
 
-    sk
+    Ok(sk)
 }
 
-fn pk_load<P: AsRef<Path>>(pk_path: P) -> PubkeyStruct {
+fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct, io::Error> {
     let pk_file = OpenOptions::new()
         .read(true)
         .open(pk_path)
@@ -164,14 +164,14 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> PubkeyStruct {
         .expect("error reading buffer");
     let decoded_stream =
         base64::decode(&encoded_stream[..bcount - 1]).expect("fail decoding pk");
-    let pk = PubkeyStruct::from(&decoded_stream[..]);
-    pk
+    let pk = PubkeyStruct::from(&decoded_stream[..]).unwrap();
+    Ok(pk)
 }
-fn pk_load_string(pk_string: &str) -> PubkeyStruct {
+fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct, io::Error> {
     let pk_string = String::from_str(pk_string).unwrap();
     let decoded = base64::decode(pk_string.as_bytes()).expect("fail to decode pk string");
-    let pk = PubkeyStruct::from(&decoded[..]);
-    pk
+    let pk = PubkeyStruct::from(&decoded[..]).unwrap();
+    Ok(pk)
 }
 
 fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
@@ -180,7 +180,7 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
                         message_file: P,
                         trusted_comment: Option<&str>,
                         untrusted_comment: Option<&str>,
-                        hashed: bool)
+                        hashed: bool) -> Result<(), io::Error>
     where P: std::marker::Copy
 {
     let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
@@ -261,6 +261,7 @@ fn sign<P: AsRef<Path>>(sk_key: SeckeyStruct,
     writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, t_comment).unwrap();
     writeln!(sig_buf, "{}", base64::encode(&global_sig[..])).unwrap();
     sig_buf.flush().unwrap();
+    Ok(())
 }
 
 fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P, quiet: bool, output: bool)
@@ -392,16 +393,17 @@ fn main() {
         let mut pk: Option<PubkeyStruct> = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
-                pk = Some(pk_load(filename));
+                pk = Some(pk_load(filename).unwrap());
             }
         } else if sign_action.is_present("public_key") {
             if let Some(string) = sign_action.value_of("public_key") {
-                pk = Some(pk_load_string(string));
+                pk = Some(pk_load_string(string).unwrap());
             }
         }
         
+        let sk = sk_load(sk_file).unwrap();
 
-        let _ = sign(sk_load(sk_file),
+        let _ = sign(sk,
                      pk,
                      sign_action.value_of("sig_file"),
                      sign_action.value_of("message").unwrap(),
@@ -411,7 +413,7 @@ fn main() {
     }
 
     if let Some(verify_action) = args.subcommand_matches("verify") {
-        let pk = pk_load(verify_action.value_of("pk_path").unwrap());
+        let pk = pk_load(verify_action.value_of("pk_path").unwrap()).unwrap();
         let sig_file = verify_action.value_of("sig_file").unwrap();
         let message_file = verify_action.value_of("file").unwrap();
         let _ = verify(pk, sig_file, message_file, false, false);

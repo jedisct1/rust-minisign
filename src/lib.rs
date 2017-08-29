@@ -15,6 +15,8 @@ use sodiumoxide::randombytes::*;
 
 use std::fmt::{Debug, Error, Formatter};
 use std::mem;
+use std::io::Cursor;
+use std::io::Read;
 
 pub const KEYNUMBYTES: usize = 8;
 pub const TWOBYTES: usize = 2;
@@ -50,11 +52,7 @@ impl KeynumSK {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct KeynumPK {
-    pub keynum: Vec<u8>,
-    pub pk: Vec<u8>,
-}
+
 #[derive(Clone)]
 pub struct SeckeyStruct {
     pub sig_alg: Vec<u8>,
@@ -177,21 +175,31 @@ impl Debug for SeckeyStruct {
 
 #[derive(Debug)]
 pub struct PubkeyStruct {
-    pub sig_alg: Vec<u8>,
+    pub sig_alg: [u8;2],
     pub keynum_pk: KeynumPK,
 }
+#[derive(Debug, Clone)]
+pub struct KeynumPK {
+    pub keynum: [u8;KEYNUMBYTES],
+    pub pk: [u8;PUBLICKEYBYTES],
+}
 impl PubkeyStruct {
-    pub fn len(&self) -> usize {
-        mem::size_of_val(&self)
-    }
-    pub fn from(buf: &[u8]) -> PubkeyStruct {
-        PubkeyStruct {
-            sig_alg: buf[..2].to_vec(),
+    
+    pub fn from(buf: &[u8]) -> Result<PubkeyStruct, std::io::Error> {
+        let mut buf = Cursor::new(buf);
+        let mut sig_alg = [0u8;2];
+        let mut keynum = [0u8;KEYNUMBYTES];
+        let mut pk = [0u8;PUBLICKEYBYTES];
+        buf.read(&mut sig_alg)?;
+        buf.read(&mut keynum)?;
+        buf.read(&mut pk)?;
+        Ok(PubkeyStruct {
+            sig_alg: sig_alg,
             keynum_pk: KeynumPK {
-                keynum: buf[2..10].to_vec(),
-                pk: buf[10..].to_vec(),
+                keynum: keynum,
+                pk: pk,
             },
-        }
+        })
     }
 
     pub fn bytes(&self) -> Vec<u8> {
@@ -252,16 +260,19 @@ impl Default for SigStruct {
 
 pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
     let (pk, sk) = gen_keypair();
-    let mut pk_vec = Vec::with_capacity(PUBLICKEYBYTES);
+    let mut pk_vec = [0u8;PUBLICKEYBYTES];
     let mut sk_vec = Vec::with_capacity(SECRETKEYBYTES);
-    let key_vec = randombytes(KEYNUMBYTES);
-    pk_vec.extend_from_slice(pk.as_ref());
+    let keynum_vec = randombytes(KEYNUMBYTES);
+    let mut keynum = [0u8;KEYNUMBYTES];
+    keynum.copy_from_slice(keynum_vec.as_slice());
+    pk_vec.copy_from_slice(&pk[..]);
     sk_vec.extend_from_slice(&sk[..]);
-
+    let mut sig_alg = [0u8;2];
+    sig_alg.copy_from_slice(&SIGALG.as_bytes()[..]);
     let p_struct = PubkeyStruct {
-        sig_alg: SIGALG.bytes().collect(),
+        sig_alg: sig_alg,
         keynum_pk: KeynumPK {
-            keynum: key_vec.clone(),
+            keynum: keynum,
             pk: pk_vec,
         },
     };
@@ -273,7 +284,7 @@ pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
         kdf_opslimit_le: OPSLIMIT_SENSITIVE,
         kdf_memlimit_le: MEMLIMIT_SENSITIVE,
         keynum_sk: KeynumSK {
-            keynum: key_vec.clone(),
+            keynum: keynum_vec,
             sk: sk_vec,
             chk: Vec::with_capacity(BYTES),
         },
