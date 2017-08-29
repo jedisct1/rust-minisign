@@ -6,17 +6,11 @@ extern crate rpassword;
 extern crate chrono;
 
 use rsign::parse_args::parse_args;
-<<<<<<< HEAD
-
-use rsign::*;
-use rsign::perror::PError;
-=======
 use rsign::generichash;
 use rsign::load_usize_le;
 use rsign::{SeckeyStruct, PubkeyStruct, SigStruct, COMMENTBYTES, TRUSTED_COMMENT_PREFIX,
             TRUSTEDCOMMENTMAXBYTES, COMMENT_PREFIX, DEFAULT_COMMENT, SIG_SUFFIX,
             TR_COMMENT_PREFIX_LEN, SIGALG_HASHED, SIGALG};
->>>>>>> array_keys
 
 use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES};
 use sodiumoxide::crypto::pwhash::{self, MemLimit,OpsLimit};
@@ -24,11 +18,7 @@ use chrono::prelude::*;
 
 use std::fmt::Display;
 use std::io::prelude::*;
-<<<<<<< HEAD
-use std::io::{BufWriter, BufReader};
-=======
 use std::io::{self, BufWriter, BufReader};
->>>>>>> array_keys
 use std::fs::{OpenOptions, File};
 use std::path::Path;
 
@@ -101,7 +91,6 @@ fn generate_keys<P>(path_pk: P,
     }
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str.checksum();
-<<<<<<< HEAD
     let pwd = get_password("Password: ").unwrap_or_else(|e| e.exit());
     let pwd2 = get_password("Password (one more time): ").unwrap_or_else(|e| e.exit());
     if pwd != pwd2 {
@@ -109,12 +98,6 @@ fn generate_keys<P>(path_pk: P,
     }
     print!("Deriving a key from password... ");
     let salt = pwhash::Salt::from_slice(sk_str.kdf_salt.as_ref()).unwrap();
-=======
-    let pwd = get_password();
-    write!(std::io::stdout(), "Deriving a key from password... ")?;
-    std::io::stdout().flush().unwrap();
-    let salt = pwhash::Salt::from_slice(&sk_str.kdf_salt).unwrap();
->>>>>>> array_keys
     let mut stream = vec![0u8; sk_str.keynum_sk.len()];
     pwhash::derive_key(stream.as_mut_slice(),
                        pwd.as_bytes(),
@@ -125,18 +108,6 @@ fn generate_keys<P>(path_pk: P,
     println!("Done!");
     sk_str.xor_keynum(stream);
 
-<<<<<<< HEAD
-    let (mut pk_buf, mut sk_buf) = create_file(path_pk, path_sk)?;
-    let pk_struct_bytes = pk_str.bytes();
-    write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
-    write!(pk_buf,
-           "{:X}",
-           rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
-    pk_buf.write(b"\n")?;
-    writeln!(pk_buf, "{}", base64::encode(pk_struct_bytes.as_slice()))?;
-    pk_buf.flush()?;
-
-=======
     let (mut pk_buf, mut sk_buf) = create_file(path_pk, path_sk).unwrap();
     
     write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
@@ -144,7 +115,6 @@ fn generate_keys<P>(path_pk: P,
     writeln!(pk_buf, "{}", base64::encode(pk_str.bytes().as_slice()))?;
     pk_buf.flush()?;
   
->>>>>>> array_keys
     write!(sk_buf, "{}", rsign::COMMENT_PREFIX)?;
     writeln!(sk_buf, "{}", rsign::SECRETKEY_DEFAULT_COMMENT)?;
     writeln!(sk_buf, "{}", base64::encode(sk_str.bytes().as_slice()))?;
@@ -155,26 +125,17 @@ fn generate_keys<P>(path_pk: P,
              path_pk);
     println!("Files signed using this key pair can be verified with the following command:\n");
     println!("rsign -Vm <file> -P {}",
-<<<<<<< HEAD
-             base64::encode(pk_struct_bytes.as_slice()));
-=======
              base64::encode(pk_str.bytes().as_slice()));
     sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.sk);
     sodiumoxide::utils::memzero(&mut sk_str.kdf_salt);
     sodiumoxide::utils::memzero(&mut sk_str.keynum_sk.chk);
 
->>>>>>> array_keys
     Ok(())
 }
 
 
-<<<<<<< HEAD
 fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
     let sk_file = OpenOptions::new().read(true).open(sk_path)?;
-=======
-fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct, io::Error> {
-    let sk_file = OpenOptions::new().read(true).open(sk_path).unwrap();
->>>>>>> array_keys
     let mut sk_buf = BufReader::new(sk_file);
     let mut _comment = String::new();
     sk_buf.read_line(&mut _comment)?;
@@ -452,14 +413,8 @@ fn main() {
                 pk = Some(pk_load_string(string).unwrap());
             }
         }
-<<<<<<< HEAD
 
         let sk = sk_load(sk_file).unwrap_or_else(|e| e.exit());
-=======
-        
-        let sk = sk_load(sk_file).unwrap();
-
->>>>>>> array_keys
         let _ = sign(sk,
                      pk,
                      sign_action.value_of("sig_file"),
