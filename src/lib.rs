@@ -2,7 +2,6 @@ extern crate sodiumoxide;
 extern crate libc;
 extern crate libsodium_sys as ffi;
 
-
 #[macro_use]
 mod macros;
 pub mod parse_args;
@@ -10,6 +9,7 @@ pub mod generichash;
 pub mod perror;
 
 use generichash::*;
+use perror::Result;
 use sodiumoxide::crypto::sign::*;
 use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::randombytes::*;
@@ -17,7 +17,6 @@ use sodiumoxide::crypto::sign::ed25519::{SecretKey, PublicKey};
 
 use std::io::Cursor;
 use std::io::Read;
-use std::io::Error;
 use std::io::Write;
 
 pub const KEYNUMBYTES: usize = 8;
@@ -41,8 +40,6 @@ pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
 pub const SIG_SUFFIX: &'static str = ".rsign";
 pub const VERSION_STRING: &'static str = "rsign 0.1";
 
-
-
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
     pub sk: [u8; SECRETKEYBYTES],
@@ -63,13 +60,9 @@ pub struct SeckeyStruct {
     pub kdf_memlimit_le: [u8; 8],
     pub keynum_sk: KeynumSK,
 }
-impl AsRef<[u8]> for SeckeyStruct {
-    fn as_ref(&self) -> &[u8] {
-        self.sig_alg.as_ref()
-    }
-}
+
 impl SeckeyStruct {
-    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct, ()> {
+    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; 2];
         let mut kdf_alg = [0u8; 2];
@@ -80,16 +73,17 @@ impl SeckeyStruct {
         let mut keynum = [0u8; KEYNUMBYTES];
         let mut sk = [0u8; SECRETKEYBYTES];
         let mut chk = [0u8; BYTES];
-        buf.read(&mut sig_alg);
-        buf.read(&mut kdf_alg);
-        buf.read(&mut chk_alg);
-        buf.read(&mut kdf_salt);
-        buf.read(&mut ops_limit);
-        buf.read(&mut mem_limit);
-        buf.read(&mut keynum);
-        buf.read(&mut sk);
-        buf.read(&mut chk);
-        let sk = SeckeyStruct {
+        buf.read(&mut sig_alg)?;
+        buf.read(&mut kdf_alg)?;
+        buf.read(&mut chk_alg)?;
+        buf.read(&mut kdf_salt)?;
+        buf.read(&mut ops_limit)?;
+        buf.read(&mut mem_limit)?;
+        buf.read(&mut keynum)?;
+        buf.read(&mut sk)?;
+        buf.read(&mut chk)?;
+        
+        Ok (SeckeyStruct {
             sig_alg: sig_alg,
             kdf_alg: kdf_alg,
             chk_alg: chk_alg,
@@ -101,8 +95,7 @@ impl SeckeyStruct {
                 sk: sk,
                 chk: chk,
             },
-        };
-        Ok(sk)
+        })
     }
     pub fn bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
@@ -135,7 +128,7 @@ impl SeckeyStruct {
         let h = generichash::finalize(ptr_state).unwrap();
         self.keynum_sk.chk.copy_from_slice(&h[..]);
     }
-    pub fn write<W>(&self,buf: &mut W) -> Result<usize, Error> 
+    pub fn write<W>(&self, buf: &mut W) -> Result<usize> 
     where W: Write
     {
         let mut sz = buf.write(&self.sig_alg)?;
@@ -188,7 +181,7 @@ pub struct KeynumPK {
     pub pk: [u8; PUBLICKEYBYTES],
 }
 impl PubkeyStruct {
-    pub fn from(buf: &[u8]) -> Result<PubkeyStruct, std::io::Error> {
+    pub fn from(buf: &[u8]) -> Result<PubkeyStruct> {
         let mut buf = Cursor::new(buf);
         let mut sig_alg = [0u8; 2];
         let mut keynum = [0u8; KEYNUMBYTES];
@@ -241,14 +234,14 @@ impl SigStruct {
             .collect();
         v
     }
-    pub fn from(bytes_buf: &[u8]) -> Result<SigStruct, ()> {
+    pub fn from(bytes_buf: &[u8]) -> Result<SigStruct> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; 2];
         let mut keynum = [0u8; KEYNUMBYTES];
         let mut sig = [0u8; SIGNATUREBYTES];
-        buf.read(&mut sig_alg);
-        buf.read(&mut keynum);
-        buf.read(&mut sig);
+        buf.read(&mut sig_alg)?;
+        buf.read(&mut keynum)?;
+        buf.read(&mut sig)?;
         Ok(SigStruct {
                sig_alg: sig_alg,
                keynum: keynum,
