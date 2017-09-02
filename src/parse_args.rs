@@ -97,6 +97,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                                  .short("x")
                                  .long("sig-file"))
                         .arg(Arg::with_name("message")
+                                 .index(1)
                                  .takes_value(true)
                                  .required(true)
                                  .help("file to sign")

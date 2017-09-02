@@ -2,22 +2,21 @@ extern crate sodiumoxide;
 extern crate libc;
 extern crate libsodium_sys as ffi;
 
+use sodiumoxide::crypto::pwhash::*;
+use sodiumoxide::randombytes::*;
+use sodiumoxide::crypto::sign::{SecretKey, PublicKey, SIGNATUREBYTES, SECRETKEYBYTES, PUBLICKEYBYTES, gen_keypair};
+
+use std::io::{Cursor, Read};
+
 #[macro_use]
 mod macros;
 pub mod parse_args;
 pub mod generichash;
 pub mod perror;
 
-use generichash::*;
-use perror::Result;
-use sodiumoxide::crypto::sign::*;
-use sodiumoxide::crypto::pwhash::*;
-use sodiumoxide::randombytes::*;
-use sodiumoxide::crypto::sign::ed25519::{SecretKey, PublicKey};
-
-use std::io::Cursor;
-use std::io::Read;
-use std::io::Write;
+pub use generichash::*;
+pub use perror::*;
+pub use parse_args::*;
 
 pub const KEYNUMBYTES: usize = 8;
 pub const TWOBYTES: usize = 2;
@@ -117,33 +116,20 @@ impl SeckeyStruct {
             .collect();
         v
     }
-    pub fn checksum(&mut self) {
+    pub fn checksum(&mut self) -> Result<()> {
         let state_sz = unsafe { ffi::crypto_generichash_statebytes() };
         let mut state: Vec<u8> = vec![0;state_sz];
         let ptr_state = state.as_mut_ptr() as *mut ffi::crypto_generichash_state;
-        generichash::init(ptr_state).unwrap();
-        generichash::update(ptr_state, &self.sig_alg).unwrap();
-        generichash::update(ptr_state, &self.keynum_sk.keynum).unwrap();
-        generichash::update(ptr_state, &self.keynum_sk.sk).unwrap();
-        let h = generichash::finalize(ptr_state).unwrap();
+        generichash::init(ptr_state)?;
+        generichash::update(ptr_state, &self.sig_alg)?;
+        generichash::update(ptr_state, &self.keynum_sk.keynum)?;
+        generichash::update(ptr_state, &self.keynum_sk.sk)?;
+        let h = generichash::finalize(ptr_state)?;
         self.keynum_sk.chk.copy_from_slice(&h[..]);
+        Ok(())
     }
-    pub fn write<W>(&self, buf: &mut W) -> Result<usize> 
-    where W: Write
-    {
-        let mut sz = buf.write(&self.sig_alg)?;
-        sz += buf.write(&self.kdf_alg)?;
-        sz += buf.write(&self.chk_alg)?;
-        sz += buf.write(&self.kdf_alg)?;
-        sz += buf.write(&self.kdf_salt)?;
-        sz += buf.write(&self.kdf_opslimit_le)?;
-        sz += buf.write(&self.kdf_memlimit_le)?;
-        sz += buf.write(&self.keynum_sk.keynum)?;
-        sz += buf.write(&self.keynum_sk.sk)?;
-        sz += buf.write(&self.keynum_sk.chk)?;
-        Ok(sz)
-    }
-    pub fn xor_keynum(&mut self, mut stream: Vec<u8>) {
+    
+    pub fn xor_keynum(&mut self, stream: &[u8]) {
 
         let b8 = self.keynum_sk
             .keynum
@@ -165,8 +151,6 @@ impl SeckeyStruct {
             .zip(stream[b8 + b64..].iter())
             .map(|(byte, stream)| *byte = *byte ^ *stream)
             .count();
-
-        sodiumoxide::utils::memzero(&mut stream);
     }
 }
 
@@ -220,6 +204,9 @@ pub struct SigStruct {
     pub sig: [u8; SIGNATUREBYTES],
 }
 impl SigStruct {
+    pub fn len() -> usize {
+        KEYNUMBYTES + SIGNATUREBYTES + TWOBYTES
+    }
     pub fn bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
