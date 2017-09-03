@@ -32,12 +32,11 @@ pub const COMMENT_PREFIX: &'static str = "untrusted comment: ";
 pub const DEFAULT_COMMENT: &'static str = "signature from rsign secret key";
 pub const SECRETKEY_DEFAULT_COMMENT: &'static str = "rsign encrypted secret key";
 pub const TRUSTED_COMMENT_PREFIX: &'static str = "trusted comment: ";
-pub const SIG_DEFAULT_CONFIG_DIR: &'static str = ".rsign";
-pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &'static str = "MINISIGN_CONFIG_DIR";
+pub const SIG_DEFAULT_CONFIG_DIR: &'static str = ".rsign/";
 pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
 pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
 pub const SIG_SUFFIX: &'static str = ".rsign";
-pub const VERSION_STRING: &'static str = "rsign 0.1";
+
 
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],

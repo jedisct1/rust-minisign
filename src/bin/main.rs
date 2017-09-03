@@ -4,25 +4,48 @@ extern crate base64;
 extern crate libsodium_sys as ffi;
 extern crate rpassword;
 extern crate chrono;
+extern crate clap;
 
 use rsign::*;
 
-use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES, SECRETKEYBYTES};
+use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES,
+                                SECRETKEYBYTES};
 use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit};
 use chrono::prelude::*;
 
 use std::fmt::Display;
 use std::io::{self, BufWriter, BufReader, BufRead, Read, Write};
-use std::fs::{OpenOptions, File};
-use std::path::Path;
+use std::fs::{self, OpenOptions, File, DirBuilder};
+use std::os::unix::fs::OpenOptionsExt;
+use std::os::unix::fs::DirBuilderExt;
+use std::path::{Path, PathBuf};
+
 use std::str::FromStr;
 
+macro_rules! fatal {
+    ($($tt:tt)*) => {{
+        use std::io::Write;
+        writeln!(&mut ::std::io::stderr(), $($tt)*).unwrap();
+        ::std::process::exit(1)
+    }}
+}
 
-fn create_file_rw<P: AsRef<Path>>(path: P) -> Result<BufWriter<File>> {
+fn create_dir<P>(path: P) -> Result<()> 
+where P: AsRef<Path> + Copy
+{
+    DirBuilder::new()
+        .mode(0o777)
+        .create(&path)
+        .map_err(|e| PError::from(e))
+        .and_then(|_| Ok(()))       
+      
+}
+
+fn create_file_rw<P: AsRef<Path>>(path: P, mode: u32) -> Result<BufWriter<File>> {
     OpenOptions::new()
+        .mode(mode)
         .write(true)
-        .create(true)
-        .truncate(true)
+        .create_new(true)
         .open(path)
         .map_err(|e| PError::from(e))
         .and_then(|file| Ok(BufWriter::new(file)))
@@ -61,16 +84,33 @@ fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
 fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) -> Result<()>
     where P: AsRef<Path> + Copy + Display
 {
-    if !force && (path_pk.as_ref().exists() || path_sk.as_ref().exists()) {
-        return Err(PError::Generic(format!("You already have keys at {} and {} try using --force if you want to overwrite",
-                                           path_pk,
-                                           path_sk)));
+
+    if path_sk.as_ref().exists() {
+        if force {
+            fs::remove_dir_all(path_sk)?;
+        } else {
+            return Err(PError::Generic(format!("Sorry, you have a secret key named: {} \ntry using --force if you want to overwrite", path_sk)));
+        }
+    }
+    let mut path_sk = path_sk.as_ref().to_path_buf();
+    println!("{:?}", path_sk);
+    create_dir(&path_sk)?;
+    
+    path_sk.push(SIG_DEFAULT_SKFILE);
+
+    if path_pk.as_ref().exists() {
+        if force {
+            fs::remove_file(path_pk)?;
+        } else {
+            return Err(PError::Generic(format!("Sorry, you have a public key named: {} \ntry using --force if you want to overwrite", path_pk)));
+        }
     }
 
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str
         .checksum()
         .map_err(|_| PError::Generic("Failed to hash and write checksum!".to_owned()))?;
+    write!(io::stdout(), "Please enter a password to protect the secret key.\n")?;
     let pwd = get_password("Password: ")?;
     let pwd2 = get_password("Password (one more time): ")?;
     if pwd != pwd2 {
@@ -85,7 +125,7 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) 
                   })
         .and(writeln!(io::stdout(), "Done!").map_err(|e| PError::from(e)))?;
 
-    let mut pk_buf = create_file_rw(path_pk)?;
+    let mut pk_buf = create_file_rw(path_pk, 0o644)?;
     write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
     writeln!(pk_buf,
              "{:X}",
@@ -93,7 +133,8 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) 
     writeln!(pk_buf, "{}", base64::encode(&pk_str.bytes()))?;
     pk_buf.flush()?;
 
-    let mut sk_buf = create_file_rw(path_sk)?;
+    println!("{:?}", path_sk);
+    let mut sk_buf = create_file_rw(&path_sk, 0o600)?;
     write!(sk_buf, "{}", rsign::COMMENT_PREFIX)?;
     if let Some(comment) = comment {
         writeln!(sk_buf, "{}", comment)?;
@@ -104,7 +145,7 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) 
     sk_buf.flush()?;
 
     println!("\nThe secret key was saved as {} - Keep it secret!",
-             path_sk);
+             path_sk.display());
     println!("The public key was saved as {} - That one can be public.\n",
              path_pk);
     println!("Files signed using this key pair can be verified with the following command:\n");
@@ -233,7 +274,7 @@ fn sign<P>(sk_key: SeckeyStruct,
             println!("\nSignature checked with the given public key!");;
         }
     }
-    let mut sig_buf = create_file_rw(sig_file_name)?;
+    let mut sig_buf = create_file_rw(sig_file_name, 0o644)?;
     writeln!(sig_buf, "{}", unt_comment)?;
     writeln!(sig_buf, "{}", base64::encode(&sig_str.bytes()))?;
     writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, t_comment)?;
@@ -259,18 +300,32 @@ fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
                                                   rsign::load_usize_le(&sig.keynum[..]))));
     }
     Signature::from_slice(&sig.sig)
-        .ok_or(PError::SignatureError("Couldn't compose a signature from bytes".to_owned()))
+        .ok_or(PError::SignatureError("Couldn't compose message file signature from bytes".to_owned()))
         .and_then(|signature| {
             PublicKey::from_slice(&pk_key.keynum_pk.pk)
-                .ok_or(PError::PublicKeyError("Couldn't compose a public key from bytes"
-                                                  .to_owned()))
-                .and_then(|pk| if sign::verify_detached(&signature, &message, &pk) {
-                              println!("\nMessage signature verified!");
-                              Ok(())
-                          } else {
-                              return Err(PError::SignatureError("Signature verification FAILED!"
+                .ok_or(PError::PublicKeyError("Couldn't compose a public key from bytes".to_owned()))
+                .and_then(|pk|{
+                        if sign::verify_detached(&signature, &message, &pk) {
+                              println!("Message signature verified!");
+                              Ok(pk)
+                        } else {
+                              return Err(PError::SignatureVerification("while verify message file signature"
                                                                     .to_owned()));
-                          })
+                        }
+                })
+                .and_then(|pk| {
+                    Signature::from_slice(&global_sig[..])
+                        .ok_or(PError::SignatureError("Couldn't compose trusted comment signature from bytes".to_owned()))
+                        .and_then(|global_sig|{
+                            if sign::verify_detached(&global_sig, &trusted_comment, &pk) {
+                              println!("Trusted comment signature verified!");
+                              Ok(())
+                            } else {
+                                return Err(PError::SignatureVerification("while verifying trusted comment signature"
+                                                                        .to_owned()));
+                            }
+                        })   
+                })
         })
 }
 fn sig_load<P>(sig_file: P,
@@ -280,42 +335,61 @@ fn sig_load<P>(sig_file: P,
                -> Result<SigStruct>
     where P: AsRef<Path> + Copy
 {
-
-    File::open(sig_file).map_err(|e| PError::from(e))
+    File::open(sig_file)
+        .map_err(|e| PError::from(e))
         .and_then(|file| {
             let mut buf = BufReader::new(file);
-            
             let mut untrusted_comment = String::with_capacity(COMMENTBYTES);
-            buf.read_line(&mut untrusted_comment)?;
-            if !untrusted_comment.starts_with(COMMENT_PREFIX) {
-                
-            }
-            let mut sig_string = String::with_capacity(SigStruct::len());
-            buf.read_line(&mut sig_string)?;
-            let sig = SigStruct::from(&base64::decode(sig_string.trim().as_bytes())?)?;
+            buf.read_line(&mut untrusted_comment)
+            .map_err(|e| PError::from(e))
+            .and_then(|_|{
+                let mut sig_string = String::with_capacity(SigStruct::len());
+                buf.read_line(&mut sig_string)
+                .map_err(|e| PError::from(e))
+                .and_then(|_|{
+                    let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
+                    buf.read_line(&mut t_comment)
+                    .map_err(|e| PError::from(e))
+                    .and_then(|_|{
+                        let mut g_sig = String::with_capacity(SIGNATUREBYTES);
+                        buf.read_line(&mut g_sig)
+                        .map_err(|e| PError::from(e))
+                        .and_then(|_|{
+                            if !untrusted_comment.starts_with(COMMENT_PREFIX) {
+                                return Err(PError::CommentError(format!("Untrusted comment must start with: {}", COMMENT_PREFIX)));
+                            }
+                            base64::decode(sig_string.trim().as_bytes())
+                                .map_err(|e| PError::from(e))
+                                .and_then(|sig_bytes| {
+                                    SigStruct::from(&sig_bytes)
+                                    .and_then(|sig| {
+                                        if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {
+                                            return Err(PError::CommentError(format!("trusted comment should start with: {}",
+                                                            TRUSTED_COMMENT_PREFIX)));
+                                        }
+                                        if sig.sig_alg == SIGALG {
+                                            *hashed = false;
+                                        } else if sig.sig_alg == SIGALG_HASHED {
+                                            *hashed = true;
+                                        } else {
+                                            return Err(PError::Generic(format!("Unsupported signature algorithm")));
+                                        }
+                                        let _ = t_comment.drain(..TR_COMMENT_PREFIX_LEN).count();
+                                        trusted_comment.extend(sig.sig.iter());
+                                        trusted_comment.extend_from_slice(t_comment.trim().as_bytes());
+                                        base64::decode(g_sig.trim().as_bytes())
+                                        .map_err(|e| PError::from(e))
+                                        .and_then(|comm_sig|{
+                                             global_sig.extend_from_slice(&comm_sig);
+                                             Ok(sig)   
+                                        })
+                                    })
+                                 })
 
-            if sig.sig_alg == SIGALG {
-                *hashed = false;
-            } else if sig.sig_alg == SIGALG_HASHED {
-                *hashed = true;
-            } else {
-                return Err(PError::Generic(format!("Unsupported signature algorithm")));
-            }
-
-            let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
-            buf.read_line(&mut t_comment)?;
-            if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {
-                return Err(PError::CommentError(format!("trusted comment should start with: {}",
-                                                TRUSTED_COMMENT_PREFIX)));
-            }
-            let _ = t_comment.drain(..TR_COMMENT_PREFIX_LEN).count();
-            trusted_comment.extend_from_slice(t_comment.trim().as_bytes());
-            
-            let mut g_sig = String::with_capacity(SIGNATUREBYTES);
-            buf.read_line(&mut g_sig)?;
-            global_sig.extend_from_slice(g_sig.trim().as_bytes());
-            
-            Ok(sig)
+                        })
+                    })
+                })
+            })
         })
 }
 
@@ -330,13 +404,14 @@ fn load_message_file<P>(message_file: P, hashed: &bool) -> Result<Vec<u8>>
         .open(message_file)
         .map_err(|e| PError::from(e))
         .and_then(|mut file| {
-                      if file.metadata().unwrap().len() > (1u64 << 30) {
-                          return Err(PError::Generic(format!("File {} is larger than 1G try using -H", message_file)));
-                      }
-                      let mut msg_buf: Vec<u8> = Vec::new();
-                      file.read_to_end(&mut msg_buf)?;
-                      Ok(msg_buf)
-                  })
+            if file.metadata().unwrap().len() > (1u64 << 30) {
+                return Err(PError::Generic(format!("File {} is larger than 1G try using -H",
+                                                   message_file)));
+            }
+            let mut msg_buf: Vec<u8> = Vec::new();
+            file.read_to_end(&mut msg_buf)?;
+            Ok(msg_buf)
+        })
 }
 
 fn hash_message_file<P>(message_file: P) -> Result<Vec<u8>>
@@ -363,61 +438,92 @@ fn hash_message_file<P>(message_file: P) -> Result<Vec<u8>>
         })
 
 }
-
-
-fn main() {
-
-    let args = parse_args();
-    sodiumoxide::init();
-
+pub fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()>{
     if let Some(generate_action) = args.subcommand_matches("generate") {
-        //TODO: add parent folder to sk_file_path
-        let _ = generate_keys(generate_action
-                                  .value_of("pk_path")
-                                  .expect("pk file path"),
-                              generate_action
-                                  .value_of("sk_path")
-                                  .expect("sk file path"),
+        
+        let pk_path = match generate_action.value_of("pk_path") {
+            Some(path) => path,
+            None => SIG_DEFAULT_PKFILE,
+        };
+        let sk_dir = match generate_action.value_of("sk_path") {
+            Some(path) => Some(PathBuf::from(path)),
+            None => None,
+        };
+        let sk_path = match sk_dir {
+            Some(dir) => {
+                //dir.push(SIG_DEFAULT_SKFILE);
+                Some(dir)
+                },
+            None => {
+               std::env::home_dir()
+                .ok_or_else(|| return PError::Error)
+                .and_then(|mut home_dir| {
+                    home_dir.push(SIG_DEFAULT_CONFIG_DIR);
+                    //home_dir.push(SIG_DEFAULT_SKFILE);
+                    Ok(home_dir)
+                })
+                .ok()
+            },
+        };
+        generate_keys(pk_path,
+                              sk_path.unwrap().to_str().unwrap(),
                               generate_action.value_of("comment"),
-                              generate_action.is_present("force"))
-                .unwrap_or_else(|e| e.exit());
-
+                              generate_action.is_present("force"))?;
     }
 
     if let Some(sign_action) = args.subcommand_matches("sign") {
-        let sk_file = sign_action.value_of("sk_path").unwrap();
+        let mut sk_path = std::env::home_dir().unwrap_or(PathBuf::new());
+        sk_path.push(SIG_DEFAULT_CONFIG_DIR);
+        sign_action.value_of("sk_path")
+            .ok_or_else(||{ fatal!("cannot find sk_path")})
+            .and_then(|file_name| {
+                sk_path.push(file_name);
+                Ok(())
+            }).unwrap();
+        if sign_action.occurrences_of("sk_path") != 0 {
+            sk_path = PathBuf::new();
+            sk_path.push(sign_action.value_of("sk_path").unwrap());
+        }
         let mut pk: Option<PubkeyStruct> = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
-                pk = Some(pk_load(filename).unwrap());
+                pk = Some(pk_load(filename).unwrap_or_else(|e| e.exit())) ;
             }
         } else if sign_action.is_present("public_key") {
             if let Some(string) = sign_action.value_of("public_key") {
-                pk = Some(pk_load_string(string).unwrap());
+                pk = Some(pk_load_string(string).unwrap_or_else(|e| e.exit()));
             }
         }
 
-        let sk = sk_load(sk_file).unwrap_or_else(|e| e.exit());
-        let _ = sign(sk,
+        let sk = sk_load(sk_path).unwrap_or_else(|e| e.exit());
+        sign(sk,
                      pk,
                      sign_action.value_of("sig_file"),
                      sign_action.value_of("message").unwrap(),
                      sign_action.value_of("trusted-comment"),
                      sign_action.value_of("untrusted-comment"),
-                     sign_action.is_present("hash"));
+                     sign_action.is_present("hash"))?;
     }
 
     if let Some(verify_action) = args.subcommand_matches("verify") {
         let pk = verify_action
             .value_of("pk_path")
             .ok_or_else(|| PError::Error.exit())
-            .and_then(|pk_path| pk_load(pk_path).map_err(|e| e.exit()));
+            .and_then(|pk_path| {
+                pk_load(pk_path)
+                    .map_err(|e| e.exit())
+            });
 
 
         let sig_file = verify_action.value_of("sig_file").unwrap();
         let message_file = verify_action.value_of("file").unwrap();
-        let _ = verify(pk.unwrap(), sig_file, message_file);
+        verify(pk.unwrap(), sig_file, message_file)?;
     }
+    Ok(())
+}
 
-
+fn main() {
+    let args = parse_args();
+    run(args).map_err(|e| e.exit()).unwrap();
+    std::process::exit(0);
 }

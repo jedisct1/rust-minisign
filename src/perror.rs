@@ -18,6 +18,7 @@ pub type Result<T> = std::result::Result<T, PError>;
 #[derive(Debug)]
 pub enum PError<> {
     Error,
+    SignatureVerification(String),
     SignatureError(String),
     CommentError(String),
     PublicKeyError(String),
@@ -38,6 +39,7 @@ impl PError {
 impl fmt::Display for PError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
+            PError::SignatureVerification(ref err) => write!(f, "VERIFICATION FAILED: {}", err),
             PError::SignatureError(ref err) => write!(f, "Signature Error: {}", err),
             PError::CommentError(ref err) => write!(f, "Comment Error: {}", err),
             PError::PublicKeyError(ref err) => write!(f, "PublicKey Error: {}", err),
@@ -53,6 +55,7 @@ impl fmt::Display for PError {
 impl StdError for PError {
     fn description(&self) -> &str {
         match *self {
+            PError::SignatureVerification(_) => "SignatureVerification",
             PError::SignatureError(_) => "SignatureError",
             PError::CommentError(_) => "CommentError",
             PError::PublicKeyError(_) => "PublicKeyError",
