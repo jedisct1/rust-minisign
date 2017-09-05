@@ -16,17 +16,19 @@ macro_rules! werr(
 pub type Result<T> = std::result::Result<T, PError>;
 
 #[derive(Debug)]
-pub enum PError<> {
-    Error,
-    SignatureVerification(String),
-    SignatureError(String),
-    CommentError(String),
-    PublicKeyError(String),
-    SecretKeyError(String),
-    PasswordError(String),
-    Io(io::Error),
-    EncDec(base64::DecodeError),
-    Generic(String),
+pub enum ErrorKind {
+    Generate,
+    Sign,
+    Verify,
+    Io,
+    Misc,
+    Hash,
+}
+
+#[derive(Debug)]
+pub struct PError {
+    kind: ErrorKind,
+    err: Box<StdError+Send+Sync>,
 }
 
 impl PError {
@@ -34,64 +36,58 @@ impl PError {
             werr!("{}\n", self);
             ::std::process::exit(1)
     }
+    pub fn new<E>(kind: ErrorKind, err: E) -> PError
+        where E: Into<Box<StdError+Send+Sync>>
+    {
+        PError {
+            kind: kind,
+            err: err.into(),
+        }
+    }
 }
 
 impl fmt::Display for PError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            PError::SignatureVerification(ref err) => write!(f, "VERIFICATION FAILED: {}", err),
-            PError::SignatureError(ref err) => write!(f, "Signature Error: {}", err),
-            PError::CommentError(ref err) => write!(f, "Comment Error: {}", err),
-            PError::PublicKeyError(ref err) => write!(f, "PublicKey Error: {}", err),
-            PError::SecretKeyError(ref err) => write!(f, "SecretKey Error: {}", err),
-            PError::Error => f.write_str("Error!"),
-            PError::PasswordError(ref err) => write!(f, "Password Error: {}", err),
-            PError::Generic(ref err) => write!(f, "Error: {}", err),
-            PError::Io(ref err) => err.fmt(f),
-            PError::EncDec(ref err) => err.fmt(f),
+        match self.kind {
+            ErrorKind::Generate => write!(f, "generate error: {}", self.err),
+            ErrorKind::Sign => write!(f, "sign error: {}", self.err),
+            ErrorKind::Verify => write!(f, "verify error: {}", self.err),
+            ErrorKind::Misc => write!(f, "misc error: {}", self.err),
+            ErrorKind::Io => write!(f, "io error: {}", self.err),
+            ErrorKind::Hash => write!(f, "hash error: {}", self.err),
         }
     }
 }
 impl StdError for PError {
     fn description(&self) -> &str {
-        match *self {
-            PError::SignatureVerification(_) => "SignatureVerification",
-            PError::SignatureError(_) => "SignatureError",
-            PError::CommentError(_) => "CommentError",
-            PError::PublicKeyError(_) => "PublicKeyError",
-            PError::SecretKeyError(_) => "SecretKeyError",
-            PError::Error => "empty error",
-            PError::Generic(_) => "generic error",
-            PError::PasswordError(_)=> "password error",
-            PError::Io(ref err) => err.description(),
-            PError::EncDec(ref err) => err.description(),
+        match self.kind {
+            ErrorKind::Generate => "generate error",
+            ErrorKind::Sign => "sign error",
+            ErrorKind::Verify => "verify error",
+            ErrorKind::Misc => "misc error",
+            ErrorKind::Io => "io error",
+            ErrorKind::Hash => "hash error",
         }
     }
 }
 impl From<io::Error> for PError {
     fn from(err: io::Error) -> PError {
-        PError::Io(err)
+        PError::new(ErrorKind::Io, err)
     }
 }
 impl From<std::string::ParseError> for PError {
-    fn from(_: std::string::ParseError) -> PError {
-        PError::Error
+    fn from(err: std::string::ParseError) -> PError {
+        PError::new(ErrorKind::Misc, err)
     }
 }
 impl From<clap::Error> for PError {
     fn from(err: clap::Error) -> PError {
-        PError::Generic(err.description().to_owned())
-    }
-}
-
-impl From<()> for PError {
-    fn from(_: ()) -> PError {
-        PError::Error
+        PError::new(ErrorKind::Misc, err)
     }
 }
 
 impl From<base64::DecodeError> for PError {
     fn from(err: base64::DecodeError) -> PError {
-        PError::EncDec(err)
+        PError::new(ErrorKind::Misc, err)
     }
 }
