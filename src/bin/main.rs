@@ -13,53 +13,42 @@ use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATURE
 use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit};
 use chrono::prelude::*;
 
-use std::fmt::Display;
+use std::fmt::{Display, Debug};
 use std::io::{self, BufWriter, BufReader, BufRead, Read, Write};
-use std::fs::{self, OpenOptions, File, DirBuilder};
+use std::fs::{OpenOptions, File, DirBuilder};
 use std::os::unix::fs::OpenOptionsExt;
-use std::os::unix::fs::DirBuilderExt;
 use std::path::{Path, PathBuf};
 
 use std::str::FromStr;
 
-use std::fmt::Debug;
-
-
-macro_rules! fatal {
-    ($($tt:tt)*) => {{
-        use std::io::Write;
-        writeln!(&mut ::std::io::stderr(), $($tt)*).unwrap();
-        ::std::process::exit(1)
-    }}
-}
-
-fn create_dir<P>(path: P) -> Result<()> 
-where P: AsRef<Path> + Copy + Debug
+fn create_dir<P>(path: P) -> Result<()>
+    where P: AsRef<Path> + Debug
 {
     DirBuilder::new()
-        .mode(0o777)
+        .recursive(true)
         .create(&path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("{}: {:?}",e, path )))
-        .and_then(|_| Ok(()))       
-      
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
+        .and_then(|_| Ok(()))
+
 }
 
-fn create_file_rw<P: AsRef<Path> + Copy + Debug >(path: P, mode: u32) -> Result<BufWriter<File>> {
+fn create_file<P: AsRef<Path> + Copy + Debug>(path: P, mode: u32) -> Result<BufWriter<File>> {
     OpenOptions::new()
         .mode(mode)
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("{}: {:?}", e, path )))
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
         .and_then(|file| Ok(BufWriter::new(file)))
 }
+
 fn create_sig_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<BufWriter<File>> {
     OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(path)
-            .map_err(|e| PError::new(ErrorKind::Io, format!("{}: {:?}", e, path )))
-            .and_then(|file| Ok(BufWriter::new(file)))
+        .write(true)
+        .create(true)
+        .open(path)
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
+        .and_then(|file| Ok(BufWriter::new(file)))
 }
 
 fn get_password(prompt: &str) -> Result<String> {
@@ -76,7 +65,7 @@ fn get_password(prompt: &str) -> Result<String> {
 fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
     let mut stream = [0u8; BYTES + SECRETKEYBYTES + KEYNUMBYTES];
     pwhash::Salt::from_slice(&sk_str.kdf_salt)
-        .ok_or(PError::new(ErrorKind::Misc, "failed to generate Salt from random bytes" ))
+        .ok_or(PError::new(ErrorKind::Misc, "failed to generate Salt from random bytes"))
         .and_then(|salt| {
 
             pwhash::derive_key(&mut stream,
@@ -84,7 +73,7 @@ fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
                                &salt,
                                OpsLimit(load_usize_le(&sk_str.kdf_opslimit_le)),
                                MemLimit(load_usize_le(&sk_str.kdf_memlimit_le)))
-                    .map_err(|_| PError::new(ErrorKind::Misc, "failed to derive key from password" ))
+                    .map_err(|_| PError::new(ErrorKind::Misc, "failed to derive key from password"))
 
         })?;
     sk_str.xor_keynum(&stream);
@@ -92,37 +81,15 @@ fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
 }
 
 
-fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) -> Result<()>
-    where P: AsRef<Path> + Copy + Display + Debug
+fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>) -> Result<()>
+    where P: AsRef<Path>  + Debug
 {
-
-    if path_sk.as_ref().exists() {
-        if force {
-            fs::remove_dir_all(path_sk)?;
-        } else {
-            return Err(PError::new(ErrorKind::Generate, format!("sorry, you have a secret key named: {} \ntry using --force if you want to overwrite", path_sk)));
-        }
-    }
-    
-    let mut path_sk = path_sk.as_ref().to_path_buf();
-    
-    create_dir(&path_sk)?;
-    
-    path_sk.push(SIG_DEFAULT_SKFILE);
-    //let path_pk = path_pk.as_ref().canonicalize().unwrap();
-    if path_pk.as_ref().exists() {
-        if force {
-            fs::remove_file(path_pk)?;
-        } else {
-            return Err(PError::new(ErrorKind::Generate, format!("sorry, you have a public key named: {} \ntry using --force if you want to overwrite", path_pk)));
-        }
-    }
-
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str
         .checksum()
         .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
-    write!(io::stdout(), "Please enter a password to protect the secret key.\n")?;
+    write!(io::stdout(),
+           "Please enter a password to protect the secret key.\n")?;
     let pwd = get_password("Password: ")?;
     let pwd2 = get_password("Password (one more time): ")?;
     if pwd != pwd2 {
@@ -137,7 +104,7 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) 
                   })
         .and(writeln!(io::stdout(), "Done!").map_err(|e| PError::new(ErrorKind::Io, e)))?;
 
-    let mut pk_buf = create_file_rw(path_pk, 0o644)?;
+    let mut pk_buf = create_file(&path_pk, 0o644)?;
     write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
     writeln!(pk_buf,
              "{:X}",
@@ -145,7 +112,7 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) 
     writeln!(pk_buf, "{}", base64::encode(&pk_str.bytes()))?;
     pk_buf.flush()?;
 
-    let mut sk_buf = create_file_rw(&path_sk, 0o600)?;
+    let mut sk_buf = create_file(&path_sk, 0o600)?;
     write!(sk_buf, "{}", rsign::COMMENT_PREFIX)?;
     if let Some(comment) = comment {
         writeln!(sk_buf, "{}", comment)?;
@@ -155,9 +122,9 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>, force: bool) 
     writeln!(sk_buf, "{}", base64::encode(&sk_str.bytes()))?;
     sk_buf.flush()?;
 
-    println!("\nThe secret key was saved as {} - Keep it secret!",
-             path_sk.display());
-    println!("The public key was saved as {} - That one can be public.\n",
+    println!("\nThe secret key was saved as {:?} - Keep it secret!",
+             path_sk);
+    println!("The public key was saved as {:?} - That one can be public.\n",
              path_pk);
     println!("Files signed using this key pair can be verified with the following command:\n");
     println!("rsign verify -m <file> -P {}",
@@ -213,6 +180,7 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct> {
         })?;
     Ok(pk)
 }
+
 fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
     let pk = String::from_str(pk_string)
         .map_err(|e| PError::new(ErrorKind::Io, e))
@@ -230,7 +198,7 @@ fn sign<P>(sk_key: SeckeyStruct,
            message_file: P,
            trusted_comment: Option<&str>,
            untrusted_comment: Option<&str>,
-            hashed: bool)
+           hashed: bool)
            -> Result<()>
     where P: AsRef<Path> + Copy + Display
 {
@@ -246,7 +214,7 @@ fn sign<P>(sk_key: SeckeyStruct,
         format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT)
     };
     let msg_buf = load_message_file(message_file, &hashed)?;
-    
+
     let mut sig_str = SigStruct::default();
     if !hashed {
         sig_str.sig_alg = sk_key.sig_alg.clone();
@@ -257,9 +225,8 @@ fn sign<P>(sk_key: SeckeyStruct,
         .keynum
         .copy_from_slice(&sk_key.keynum_sk.keynum[..]);
 
-    let sk =
-        SecretKey::from_slice(&sk_key.keynum_sk.sk)
-            .ok_or(PError::new(ErrorKind::Sign, "Couldn't generate secret key from bytes" ))?;
+    let sk = SecretKey::from_slice(&sk_key.keynum_sk.sk)
+        .ok_or(PError::new(ErrorKind::Sign, "Couldn't generate secret key from bytes"))?;
 
     let signature = sodiumoxide::crypto::sign::sign_detached(&msg_buf, &sk);
 
@@ -279,7 +246,7 @@ fn sign<P>(sk_key: SeckeyStruct,
             println!("\nSignature checked with the given public key!");;
         }
     }
-    
+
     writeln!(sig_buf, "{}", unt_comment)?;
     writeln!(sig_buf, "{}", base64::encode(&sig_str.bytes()))?;
     writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, t_comment)?;
@@ -299,10 +266,10 @@ fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
 
     let message = load_message_file(message_file, &hashed)?;
     if sig.keynum != pk_key.keynum_pk.keynum {
-        return Err(PError::new(ErrorKind::Verify, format!("Public key ID: {:X} is not equal to signature key ID: {:X}",
-                                                  rsign::load_usize_le(&pk_key.keynum_pk.keynum
-                                                                            [..]),
-                                                  rsign::load_usize_le(&sig.keynum[..]))));
+        return Err(PError::new(ErrorKind::Verify,
+                               format!("Public key ID: {:X} is not equal to signature key ID: {:X}",
+                                       rsign::load_usize_le(&pk_key.keynum_pk.keynum[..]),
+                                       rsign::load_usize_le(&sig.keynum[..]))));
     }
     Signature::from_slice(&sig.sig)
         .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose message file signature from bytes"))
@@ -311,10 +278,10 @@ fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
                 .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose a public key from bytes"))
                 .and_then(|pk|{
                         if sign::verify_detached(&signature, &message, &pk) {
-                              println!("Message signature verified!");
+                              println!("Success! - Message signature verified!");
                               Ok(pk)
                         } else {
-                              return Err(PError::new(ErrorKind::Verify, "while verify message file signature"));
+                              return Err(PError::new(ErrorKind::Verify, "while verifying message file signature"));
                                                                     
                         }
                 })
@@ -323,7 +290,7 @@ fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
                         .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose trusted comment signature from bytes"))
                         .and_then(|global_sig|{
                             if sign::verify_detached(&global_sig, &trusted_comment, &pk) {
-                              println!("Trusted comment signature verified!");
+                              println!("Success! - Trusted comment signature verified!");
                               Ok(())
                             } else {
                                 return Err(PError::new(ErrorKind::Verify, "Trusted comment verification failed!"));
@@ -409,8 +376,8 @@ fn load_message_file<P>(message_file: P, hashed: &bool) -> Result<Vec<u8>>
         .map_err(|e| PError::new(ErrorKind::Io, e))
         .and_then(|mut file| {
             if file.metadata().unwrap().len() > (1u64 << 30) {
-                return Err(PError::new(ErrorKind::Io, format!("{} is larger than 1G try using -H",
-                                                   message_file)));
+                return Err(PError::new(ErrorKind::Io,
+                                       format!("{} is larger than 1G try using -H", message_file)));
             }
             let mut msg_buf: Vec<u8> = Vec::new();
             file.read_to_end(&mut msg_buf)?;
@@ -442,71 +409,98 @@ fn hash_message_file<P>(message_file: P) -> Result<Vec<u8>>
         })
 
 }
-pub fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()>{
+
+fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
+
     if let Some(generate_action) = args.subcommand_matches("generate") {
-        
+        let force = generate_action.is_present("force");
         let pk_path = match generate_action.value_of("pk_path") {
-            Some(path) => path,
-            None => SIG_DEFAULT_PKFILE,
+            Some(path) => PathBuf::from(path),
+            None => PathBuf::from(SIG_DEFAULT_PKFILE),
         };
-        let sk_dir = generate_action.value_of("sk_path").map_or(None, |path|{ Some(PathBuf::from(path))});
-        match sk_dir {
-            Some(path) => path,
-            None => {
-                let path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR)
-                    .and_then(|var|{
-                        Ok(PathBuf::from(var))
-                    });
-            },
+        if pk_path.exists() {
+            if !force {
+                return Err(PError::new(ErrorKind::Io, format!("can't overwrite {:?}, remove or try again with --force", pk_path)));
+            } else {
+                try!(std::fs::remove_file(&pk_path));
+            }
         }
-        let sk_path = match sk_dir {
-            Some(mut dir) => {
-                dir.push(SIG_DEFAULT_SKFILE);
-                Some(dir)
-                },
+
+        let sk_path = match generate_action.value_of("sk_path") {
+            Some(path) => {
+                let complete_path = PathBuf::from(path);
+                let mut dir = complete_path.clone();
+                dir.pop();
+                try!(create_dir(dir));
+                complete_path
+            }
             None => {
-               std::env::home_dir()
-                .ok_or(PError::new(ErrorKind::Generate, "Could not find home dir"))
-                .and_then(|mut home_dir| {
-                    home_dir.push(SIG_DEFAULT_CONFIG_DIR);
-                    home_dir.push(SIG_DEFAULT_SKFILE);
-                    Ok(home_dir)
-                })
-                .ok()
-            },
+                let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
+                let path = match env_path {
+                    Ok(env_path) => {
+                        let mut complete_path = PathBuf::from(env_path);
+                        if !complete_path.exists() {
+                            return Err(PError::new(ErrorKind::Io, format!("folder {:?} referenced by {} doesn't exists, you'll have to create yourself", complete_path, SIG_DEFAULT_CONFIG_DIR_ENV_VAR)));
+                        }
+                        complete_path.push(SIG_DEFAULT_SKFILE);
+                        complete_path
+                    },
+                    Err(_) => {
+                        let home_path = std::env::home_dir().ok_or(PError::new(ErrorKind::Io, "can't find home dir"));
+                        let mut complete_path = PathBuf::from(home_path.unwrap());
+                        complete_path.push(SIG_DEFAULT_CONFIG_DIR);
+                        if !complete_path.exists() {
+                                try!(create_dir(&complete_path));
+                        }
+                        complete_path.push(SIG_DEFAULT_SKFILE);
+                        complete_path
+                    },
+                };
+                path
+            }
         };
+    
+        if sk_path.exists() {
+            if !force {
+                return Err(PError::new(ErrorKind::Io, format!("can't overwrite {:?}, remove or try again with --force", sk_path)));
+            } else {
+                try!(std::fs::remove_file(&sk_path));
+            }
+        }
+        
         generate_keys(pk_path,
-                              sk_path.unwrap().to_str().unwrap(),
-                              generate_action.value_of("comment"),
-                              generate_action.is_present("force"))?;
+                      sk_path,
+                      generate_action.value_of("comment"))?;
     }
 
     if let Some(sign_action) = args.subcommand_matches("sign") {
-        let mut sk_path = std::env::home_dir().unwrap_or(PathBuf::new());
-        sk_path.push(SIG_DEFAULT_CONFIG_DIR);
-        sign_action.value_of("sk_path")
-            .ok_or(PError::new(ErrorKind::Sign, "cannot find sk_path"))
-            .and_then(|file_name| {
-                sk_path.push(file_name);
-                Ok(())
-            }).unwrap();
-        if sign_action.occurrences_of("sk_path") != 0 {
-            sk_path = PathBuf::new();
-            sk_path.push(sign_action.value_of("sk_path").unwrap());
+        let sk_path = match sign_action.value_of("sk_path") {
+            Some(path) => PathBuf::from(path),
+            None => {
+                let home_path = std::env::home_dir().ok_or(PError::new(ErrorKind::Io, "can't find home dir"));
+                let mut complete_path = PathBuf::from(home_path.unwrap());
+                complete_path.push(SIG_DEFAULT_CONFIG_DIR);
+                complete_path.push(SIG_DEFAULT_SKFILE);
+                complete_path
+            },
+        };
+        if !sk_path.exists() {
+                return Err(PError::new(ErrorKind::Io, format!("can't find secret key file at {:?}, try using -s", sk_path)));
         }
+        
         let mut pk: Option<PubkeyStruct> = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
-                pk = Some(pk_load(filename).unwrap_or_else(|e| e.exit())) ;
+                pk = Some(try!(pk_load(filename)));
             }
         } else if sign_action.is_present("public_key") {
             if let Some(string) = sign_action.value_of("public_key") {
-                pk = Some(pk_load_string(string).unwrap_or_else(|e| e.exit()));
+                pk = Some(try!(pk_load_string(string)));
             }
         }
         let hashed = sign_action.is_present("hash");
-        let message_file = sign_action.value_of("message").unwrap(); // required
-        
+        let message_file = sign_action.value_of("message").unwrap(); // safe to unwrap
+
         let sig_file_name = if let Some(file) = sign_action.value_of("sig_file") {
             format!("{}", file)
         } else {
@@ -514,30 +508,34 @@ pub fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()>{
         };
         let sig_buf = create_sig_file(&sig_file_name)?;
 
-        let sk = sk_load(sk_path).unwrap_or_else(|e| e.exit());
+        let sk = try!(sk_load(sk_path));
         sign(sk,
-                     pk,
-                     sig_buf,
-                     message_file,
-                     sign_action.value_of("trusted-comment"),
-                     sign_action.value_of("untrusted-comment"),
-                     hashed)?;
+             pk,
+             sig_buf,
+             message_file,
+             sign_action.value_of("trusted-comment"),
+             sign_action.value_of("untrusted-comment"),
+             hashed)?;
     }
 
     if let Some(verify_action) = args.subcommand_matches("verify") {
-        let pk = verify_action
-            .value_of("pk_path")
-            .ok_or_else(|| PError::new(ErrorKind::Verify, "Could not find a public key"))
-            .and_then(|pk_path| {
-                pk_load(pk_path)
-                    .map_err(|e| e.exit())
-            });
-
-
-        let sig_file = verify_action.value_of("sig_file").unwrap();
-        let message_file = verify_action.value_of("file").unwrap();
-        verify(pk.unwrap(), sig_file, message_file)?;
+        let input = verify_action.value_of("pk_path").or(verify_action.value_of("public_key"));
+        let pk = if verify_action.is_present("pk_path") {
+            try!(pk_load(input.unwrap()))
+        } else {
+            try!(pk_load_string(input.unwrap()))
+        };
+        let message_file = verify_action.value_of("file").unwrap(); //safe to unwrap
+        
+        let sig_file_name = if let Some(file) = verify_action.value_of("sig_file") {
+            format!("{}", file)
+        } else {
+            format!("{}{}", message_file, SIG_SUFFIX)
+        };
+       
+        verify(pk, sig_file_name.as_str(), message_file)?;
     }
+    
     Ok(())
 }
 

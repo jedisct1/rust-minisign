@@ -1,5 +1,4 @@
 extern crate clap;
-use super::{SIG_DEFAULT_PKFILE, SIG_DEFAULT_SKFILE } ;
 use self::clap::{Arg, App, SubCommand};
 
 pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
@@ -46,8 +45,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                                  .long("public-key-path")
                                  .takes_value(true)
                                  .value_name("PUBLIC_KEY_PATH")
-                                 .help("path to public key file")
-                                 .default_value(SIG_DEFAULT_PKFILE))
+                                 .help("path to public key file"))
                         .arg(Arg::with_name("sig_file")
                                  .takes_value(true)
                                  .help("signature file to be verified")
@@ -73,18 +71,16 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                                  .value_name("PUBLIC_KEY_STRING"))
                         .arg(Arg::with_name("pk_path")
                                  .short("p")
-                                 .long("public-key-path")
+                                 .long("public-key-file")
                                  .takes_value(true)
-                                 .value_name("PUBLIC_KEY_PATH")
-                                 .help("path to public key file")
-                                 .default_value(SIG_DEFAULT_PKFILE))
+                                 .value_name("PUBLIC_KEY_FILE")
+                                 .help("path to public key file"))
                         .arg(Arg::with_name("sk_path")
                                  .short("s")
                                  .long("secret-key-file")
                                  .takes_value(true)
                                  .value_name("SECRET_KEY_FILE")
-                                 .help("secret key to be used to sign")
-                                 .default_value(SIG_DEFAULT_SKFILE))
+                                 .help("secret key to be used to sign"))
                         .arg(Arg::with_name("sig_file")
                                  .takes_value(true)
                                  .help("signature file")
