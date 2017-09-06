@@ -243,7 +243,7 @@ fn sign<P>(sk_key: SeckeyStruct,
         if !sodiumoxide::crypto::sign::verify_detached(&global_sig, &sig_and_trust_comment, &pk) {
             panic!("Could not verify signature with the provided public key");
         } else {
-            println!("\nSignature checked with the given public key!");;
+            println!("\nSignature checked with the public key ID: {:X}", rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]));;
         }
     }
 
