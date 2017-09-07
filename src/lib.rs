@@ -6,6 +6,7 @@ use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::randombytes::*;
 use sodiumoxide::crypto::sign::{SecretKey, PublicKey, SIGNATUREBYTES, SECRETKEYBYTES, PUBLICKEYBYTES, gen_keypair};
 
+use std::fmt::Formatter;
 use std::io::{Cursor, Read};
 
 #[macro_use]
@@ -38,7 +39,7 @@ pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
 pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
 pub const SIG_SUFFIX: &'static str = ".rsign";
 
-
+#[derive(Clone)]
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
     pub sk: [u8; SECRETKEYBYTES],
@@ -49,6 +50,25 @@ impl KeynumSK {
         self.keynum.len() + self.sk.len() + self.chk.len()
     }
 }
+
+impl ::std::fmt::Debug for KeynumSK {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result{
+        for byte in self.sk.iter() {
+            try!(write!(f, "{:x}", byte))
+        }
+        Ok(())
+    }
+}
+
+impl ::std::cmp::PartialEq for KeynumSK {
+        fn eq(&self, other: &KeynumSK) -> bool {
+            use sodiumoxide::utils::memcmp;
+            memcmp(&self.sk, &other.sk)
+        }
+    }
+impl ::std::cmp::Eq for KeynumSK {}
+
+
 
 pub struct SeckeyStruct {
     pub sig_alg: [u8; 2],
@@ -154,6 +174,23 @@ impl SeckeyStruct {
     }
 }
 
+impl ::std::fmt::Debug for SeckeyStruct {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result{
+        for byte in self.keynum_sk.sk.iter() {
+            try!(write!(f, "{:x}", byte))
+        }
+        Ok(())
+    }
+}
+
+impl ::std::cmp::PartialEq for SeckeyStruct {
+        fn eq(&self, other: &SeckeyStruct) -> bool {
+            use sodiumoxide::utils::memcmp;
+            memcmp(&self.keynum_sk.sk, &other.keynum_sk.sk)
+        }
+    }
+impl ::std::cmp::Eq for SeckeyStruct {}
+
 #[derive(Debug)]
 pub struct PubkeyStruct {
     pub sig_alg: [u8; 2],
@@ -164,6 +201,15 @@ pub struct KeynumPK {
     pub keynum: [u8; KEYNUMBYTES],
     pub pk: [u8; PUBLICKEYBYTES],
 }
+
+impl ::std::cmp::PartialEq for PubkeyStruct {
+        fn eq(&self, other: &PubkeyStruct) -> bool {
+            use sodiumoxide::utils::memcmp;
+            memcmp(&self.keynum_pk.pk, &other.keynum_pk.pk)
+        }
+    }
+impl ::std::cmp::Eq for PubkeyStruct {}
+
 impl PubkeyStruct {
     pub fn from(buf: &[u8]) -> Result<PubkeyStruct> {
         let mut buf = Cursor::new(buf);
@@ -302,4 +348,48 @@ pub fn load_usize_le(x: &[u8]) -> usize {
     (x[0] as usize) | (x[1] as usize) << 8 | (x[2] as usize) << 16 | (x[3] as usize) << 24 |
     (x[4] as usize) << 32 | (x[5] as usize) << 40 |
     (x[6] as usize) << 48 | (x[7] as usize) << 56
+}
+
+#[cfg(test)]
+mod tests {
+    
+    #[test]
+    fn byte_array_store() {
+        use store_usize_le;
+        assert_eq!([0xFF,0,0,0,0,0,0,0], store_usize_le(0xFF) );
+    }
+    #[test]
+    fn byte_array_load(){
+        use load_usize_le;
+        assert_eq!(255, load_usize_le(&[0xFF,0,0,0,0,0,0,0]) );
+    }
+
+    #[test]
+    fn pk_key_struct_conversion() {
+        use gen_keystruct;
+        use PubkeyStruct;
+        let (pk,_) = gen_keystruct();
+        assert_eq!(pk , PubkeyStruct::from(&pk.bytes()).unwrap() );
+    }
+    #[test]
+    fn sk_key_struct_conversion() {
+        use gen_keystruct;
+        use SeckeyStruct;
+        let (_,sk) = gen_keystruct();
+        assert_eq!(sk , SeckeyStruct::from(&sk.bytes()).unwrap() );
+    }
+
+    #[test]
+    fn xor_keynum() {
+        use randombytes;
+        use gen_keystruct;
+        let (_,mut sk) = gen_keystruct();
+        let key = randombytes(sk.keynum_sk.len());
+        let original_keynum = sk.keynum_sk.clone();
+        sk.xor_keynum(&key);
+        assert_ne!(original_keynum, sk.keynum_sk);
+        sk.xor_keynum(&key);
+        assert_eq!(original_keynum,sk.keynum_sk);
+        
+    }
 }
