@@ -5,23 +5,126 @@ use libc::c_ulonglong;
 use std::ptr::null;
 use perror::{PError, ErrorKind, Result};
 
-pub const BYTES_MIN: usize = ffi::crypto_generichash_blake2b_BYTES_MIN;
-pub const BYTES_MAX: usize = ffi::crypto_generichash_blake2b_BYTES_MAX;
 pub const BYTES: usize = ffi::crypto_generichash_blake2b_BYTES;
-pub const KEYBYTES_MIN: usize = ffi::crypto_generichash_blake2b_KEYBYTES_MIN;
-pub const KEYBYTES_MAX: usize = ffi::crypto_generichash_blake2b_KEYBYTES_MAX;
 pub const KEYBYTES: usize = ffi::crypto_generichash_blake2b_KEYBYTES;
-pub const HASH_SALTBYTES: usize = ffi::crypto_generichash_blake2b_SALTBYTES;
-pub const PERSONALBYTES: usize = ffi::crypto_generichash_blake2b_PERSONALBYTES;
 
-new_type! {
-    public GenericHash(BYTES);
+pub struct GenericHash([u8;BYTES]);
+
+impl Clone for GenericHash {
+    fn clone(&self) -> GenericHash {
+        let &GenericHash(v) = self;
+        GenericHash(v)
+    }
 }
 
-new_type! {
-     public Key(KEYBYTES);
- }
+pub fn from_slice(bs: &[u8]) -> Option<GenericHash> {
+    if bs.len() != BYTES {
+        return None;
+    }
+    let mut n = GenericHash([0u8; BYTES]);
+    {
+        let GenericHash(ref mut b) = n;
+        for (bi, &bsi) in b.iter_mut().zip(bs.iter()) {
+            *bi = bsi
+        }
+    }
+    Some(n)
+}
 
+impl AsRef<[u8]> for GenericHash{
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        &self[..]
+    }
+}
+impl ::std::cmp::PartialEq for GenericHash {
+        fn eq(&self, &GenericHash(ref other): &GenericHash) -> bool {
+            use sodiumoxide::utils::memcmp;
+            let &GenericHash(ref this) = self;
+            memcmp(this, other)
+        }
+    }
+
+impl ::std::cmp::Eq for GenericHash {}
+
+impl ::std::cmp::PartialOrd for GenericHash {
+    #[inline]
+    fn partial_cmp(&self,
+                    other: &GenericHash) -> Option<::std::cmp::Ordering> {
+        ::std::cmp::PartialOrd::partial_cmp(self.as_ref(), other.as_ref())
+    }
+    #[inline]
+    fn lt(&self, other: &GenericHash) -> bool {
+        ::std::cmp::PartialOrd::lt(self.as_ref(), other.as_ref())
+    }
+    #[inline]
+    fn le(&self, other: &GenericHash) -> bool {
+        ::std::cmp::PartialOrd::le(self.as_ref(), other.as_ref())
+    }
+    #[inline]
+    fn ge(&self, other: &GenericHash) -> bool {
+        ::std::cmp::PartialOrd::ge(self.as_ref(), other.as_ref())
+    }
+    #[inline]
+    fn gt(&self, other: &GenericHash) -> bool {
+        ::std::cmp::PartialOrd::gt(self.as_ref(), other.as_ref())
+    }
+}
+
+impl ::std::ops::Index<::std::ops::Range<usize>> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::Range<usize>) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
+    }
+}
+    
+impl ::std::ops::Index<::std::ops::RangeTo<usize>> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::RangeTo<usize>) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
+    }
+}
+
+impl ::std::ops::Index<::std::ops::RangeFrom<usize>> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::RangeFrom<usize>) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
+    }
+}
+
+impl ::std::ops::Index<::std::ops::RangeFull> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::RangeFull) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
+    }
+}
+
+impl ::std::cmp::Ord for GenericHash {
+    #[inline]
+    fn cmp(&self, other: &GenericHash) -> ::std::cmp::Ordering {
+        ::std::cmp::Ord::cmp(self.as_ref(), other.as_ref())
+    }
+}
+
+impl Drop for GenericHash {
+    fn drop(&mut self) {
+        use sodiumoxide::utils::memzero;
+        let &mut GenericHash(ref mut v) = self;
+        memzero(v);
+    }
+}
+impl ::std::fmt::Debug for GenericHash {
+    fn fmt(&self,
+            formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        write!(formatter, "{}(****)", stringify!(GenericHash))
+    }
+}    
+
+pub struct Key([u8;KEYBYTES]);
 pub fn hash(message: &[u8], Key(ref key): Key) -> Result<GenericHash> {
     let mut out = GenericHash([0; BYTES]);
     if unsafe {

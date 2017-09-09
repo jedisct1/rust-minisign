@@ -15,6 +15,7 @@ use chrono::prelude::*;
 use std::fmt::{Display, Debug};
 use std::io::{self, BufWriter, BufReader, BufRead, Read, Write};
 use std::fs::{OpenOptions, File, DirBuilder};
+#[cfg(not(windows))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -30,7 +31,16 @@ fn create_dir<P>(path: P) -> Result<()>
         .and_then(|_| Ok(()))
 
 }
-
+#[cfg(windows)]
+fn create_file<P: AsRef<Path> + Copy + Debug>(path: P, _mode: u32) -> Result<BufWriter<File>> {
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
+        .and_then(|file| Ok(BufWriter::new(file)))
+}
+#[cfg(not(windows))]
 fn create_file<P: AsRef<Path> + Copy + Debug>(path: P, mode: u32) -> Result<BufWriter<File>> {
     OpenOptions::new()
         .mode(mode)
