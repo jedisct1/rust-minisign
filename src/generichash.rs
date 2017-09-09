@@ -187,16 +187,18 @@ pub fn finalize(state: *mut GenericState) -> Result<GenericHash> {
 }
 
 mod tests {
-     
-    
+
     #[test]
     fn hash_with_key() {
+        use generichash::{keygen, hash};
         let message = b"Sphinx of black quartz, judge my vow.";
         let key = keygen();
         assert!(hash(&message[..], key).is_ok());
     }
     #[test]
     fn hash_detached() {
+        use super::ffi;
+        use generichash::{init, update, finalize};
         let state_sz = unsafe { ffi::crypto_generichash_statebytes() };
         let message = b"Sphinx of black quartz, judge my vow.";
         let message2 = b"The five boxing wizards jump quickly";

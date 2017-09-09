@@ -4,7 +4,8 @@ extern crate libsodium_sys as ffi;
 
 use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::randombytes::*;
-use sodiumoxide::crypto::sign::{SecretKey, PublicKey, SIGNATUREBYTES, SECRETKEYBYTES, PUBLICKEYBYTES, gen_keypair};
+use sodiumoxide::crypto::sign::{SecretKey, PublicKey, SIGNATUREBYTES, SECRETKEYBYTES,
+                                PUBLICKEYBYTES, gen_keypair};
 
 use std::fmt::Formatter;
 use std::io::{Cursor, Read};
@@ -37,12 +38,21 @@ pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
 pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
 pub const SIG_SUFFIX: &'static str = ".rsign";
 
-
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
     pub sk: [u8; SECRETKEYBYTES],
     pub chk: [u8; BYTES],
 }
+impl Clone for KeynumSK {
+    fn clone(&self) -> KeynumSK {
+        KeynumSK {
+            keynum: self.keynum,
+            sk: self.sk,
+            chk: self.chk,
+        }
+    }
+}
+
 impl KeynumSK {
     pub fn len(&self) -> usize {
         self.keynum.len() + self.sk.len() + self.chk.len()
@@ -50,7 +60,7 @@ impl KeynumSK {
 }
 
 impl ::std::fmt::Debug for KeynumSK {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result{
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for byte in self.sk.iter() {
             try!(write!(f, "{:x}", byte))
         }
@@ -59,14 +69,12 @@ impl ::std::fmt::Debug for KeynumSK {
 }
 
 impl ::std::cmp::PartialEq for KeynumSK {
-        fn eq(&self, other: &KeynumSK) -> bool {
-            use sodiumoxide::utils::memcmp;
-            memcmp(&self.sk, &other.sk)
-        }
+    fn eq(&self, other: &KeynumSK) -> bool {
+        use sodiumoxide::utils::memcmp;
+        memcmp(&self.sk, &other.sk)
     }
+}
 impl ::std::cmp::Eq for KeynumSK {}
-
-
 
 pub struct SeckeyStruct {
     pub sig_alg: [u8; 2],
@@ -99,20 +107,20 @@ impl SeckeyStruct {
         buf.read(&mut keynum)?;
         buf.read(&mut sk)?;
         buf.read(&mut chk)?;
-        
-        Ok (SeckeyStruct {
-            sig_alg: sig_alg,
-            kdf_alg: kdf_alg,
-            chk_alg: chk_alg,
-            kdf_salt: kdf_salt,
-            kdf_opslimit_le: ops_limit,
-            kdf_memlimit_le: mem_limit,
-            keynum_sk: KeynumSK {
-                keynum: keynum,
-                sk: sk,
-                chk: chk,
-            },
-        })
+
+        Ok(SeckeyStruct {
+               sig_alg: sig_alg,
+               kdf_alg: kdf_alg,
+               chk_alg: chk_alg,
+               kdf_salt: kdf_salt,
+               kdf_opslimit_le: ops_limit,
+               kdf_memlimit_le: mem_limit,
+               keynum_sk: KeynumSK {
+                   keynum: keynum,
+                   sk: sk,
+                   chk: chk,
+               },
+           })
     }
     pub fn bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
@@ -146,7 +154,7 @@ impl SeckeyStruct {
         self.keynum_sk.chk.copy_from_slice(&h[..]);
         Ok(())
     }
-    
+
     pub fn xor_keynum(&mut self, stream: &[u8]) {
 
         let b8 = self.keynum_sk
@@ -173,7 +181,7 @@ impl SeckeyStruct {
 }
 
 impl ::std::fmt::Debug for SeckeyStruct {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result{
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         for byte in self.keynum_sk.sk.iter() {
             try!(write!(f, "{:x}", byte))
         }
@@ -182,11 +190,11 @@ impl ::std::fmt::Debug for SeckeyStruct {
 }
 
 impl ::std::cmp::PartialEq for SeckeyStruct {
-        fn eq(&self, other: &SeckeyStruct) -> bool {
-            use sodiumoxide::utils::memcmp;
-            memcmp(&self.keynum_sk.sk, &other.keynum_sk.sk)
-        }
+    fn eq(&self, other: &SeckeyStruct) -> bool {
+        use sodiumoxide::utils::memcmp;
+        memcmp(&self.keynum_sk.sk, &other.keynum_sk.sk)
     }
+}
 impl ::std::cmp::Eq for SeckeyStruct {}
 
 #[derive(Debug)]
@@ -201,11 +209,11 @@ pub struct KeynumPK {
 }
 
 impl ::std::cmp::PartialEq for PubkeyStruct {
-        fn eq(&self, other: &PubkeyStruct) -> bool {
-            use sodiumoxide::utils::memcmp;
-            memcmp(&self.keynum_pk.pk, &other.keynum_pk.pk)
-        }
+    fn eq(&self, other: &PubkeyStruct) -> bool {
+        use sodiumoxide::utils::memcmp;
+        memcmp(&self.keynum_pk.pk, &other.keynum_pk.pk)
     }
+}
 impl ::std::cmp::Eq for PubkeyStruct {}
 
 impl PubkeyStruct {
@@ -350,50 +358,50 @@ pub fn load_usize_le(x: &[u8]) -> usize {
 
 #[cfg(test)]
 mod tests {
-    
+
     #[test]
     fn byte_array_store() {
         use store_usize_le;
-        assert_eq!([0xFF,0,0,0,0,0,0,0], store_usize_le(0xFF) );
+        assert_eq!([0xFF, 0, 0, 0, 0, 0, 0, 0], store_usize_le(0xFF));
     }
     #[test]
-    fn byte_array_load(){
+    fn byte_array_load() {
         use load_usize_le;
-        assert_eq!(255, load_usize_le(&[0xFF,0,0,0,0,0,0,0]) );
+        assert_eq!(255, load_usize_le(&[0xFF, 0, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn pk_key_struct_conversion() {
         use gen_keystruct;
         use PubkeyStruct;
-        let (pk,_) = gen_keystruct();
-        assert_eq!(pk , PubkeyStruct::from(&pk.bytes()).unwrap() );
+        let (pk, _) = gen_keystruct();
+        assert_eq!(pk, PubkeyStruct::from(&pk.bytes()).unwrap());
     }
     #[test]
     fn sk_key_struct_conversion() {
         use gen_keystruct;
         use SeckeyStruct;
-        let (_,sk) = gen_keystruct();
-        assert_eq!(sk , SeckeyStruct::from(&sk.bytes()).unwrap() );
+        let (_, sk) = gen_keystruct();
+        assert_eq!(sk, SeckeyStruct::from(&sk.bytes()).unwrap());
     }
 
     #[test]
     fn xor_keynum() {
         use randombytes;
         use gen_keystruct;
-        let (_,mut sk) = gen_keystruct();
+        let (_, mut sk) = gen_keystruct();
         let key = randombytes(sk.keynum_sk.len());
         let original_keynum = sk.keynum_sk.clone();
         sk.xor_keynum(&key);
         assert_ne!(original_keynum, sk.keynum_sk);
         sk.xor_keynum(&key);
-        assert_eq!(original_keynum,sk.keynum_sk);
-        
+        assert_eq!(original_keynum, sk.keynum_sk);
+
     }
     #[test]
     fn sk_checksum() {
         use gen_keystruct;
-        let (_,mut sk) = gen_keystruct();
+        let (_, mut sk) = gen_keystruct();
         assert!(sk.checksum().is_ok());
     }
 }
