@@ -187,7 +187,7 @@ pub fn finalize(state: *mut GenericState) -> Result<GenericHash> {
 }
 
 mod tests {
-     use generichash::*;
+     
     
     #[test]
     fn hash_with_key() {

@@ -37,7 +37,7 @@ pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
 pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
 pub const SIG_SUFFIX: &'static str = ".rsign";
 
-#[derive(Clone)]
+
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
     pub sk: [u8; SECRETKEYBYTES],
