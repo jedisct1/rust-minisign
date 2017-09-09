@@ -3,7 +3,7 @@ extern crate libsodium_sys as ffi;
 use sodiumoxide::randombytes::randombytes_into;
 use libc::c_ulonglong;
 use std::ptr::null;
-use ::perror::{PError, ErrorKind, Result};
+use perror::{PError, ErrorKind, Result};
 
 pub const BYTES_MIN: usize = ffi::crypto_generichash_blake2b_BYTES_MIN;
 pub const BYTES_MAX: usize = ffi::crypto_generichash_blake2b_BYTES_MAX;
@@ -15,10 +15,8 @@ pub const HASH_SALTBYTES: usize = ffi::crypto_generichash_blake2b_SALTBYTES;
 pub const PERSONALBYTES: usize = ffi::crypto_generichash_blake2b_PERSONALBYTES;
 
 new_type! {
-    /// `GenericHash` result produced by generichash()
     public GenericHash(BYTES);
 }
-
 
 new_type! {
      public Key(KEYBYTES);
@@ -57,7 +55,8 @@ pub fn init(state: *mut GenericState) -> Result<()> {
     if unsafe { ffi::crypto_generichash_init(state, null(), 0, BYTES) } == 0 {
         Ok(())
     } else {
-        Err(PError::new(ErrorKind::Hash, "failed to initialize generichash state pointer"))
+        Err(PError::new(ErrorKind::Hash,
+                        "failed to initialize generichash state pointer"))
     }
 }
 
@@ -67,7 +66,8 @@ pub fn update(state: *mut GenericState, chunk: &[u8]) -> Result<()> {
        } == 0 {
         Ok(())
     } else {
-        Err(PError::new(ErrorKind::Hash, "failed to update generichash state pointer"))
+        Err(PError::new(ErrorKind::Hash,
+                        "failed to update generichash state pointer"))
     }
 }
 
@@ -80,5 +80,30 @@ pub fn finalize(state: *mut GenericState) -> Result<GenericHash> {
         Ok(out)
     } else {
         Err(PError::new(ErrorKind::Hash, "failed to finalize hash state pointer"))
+    }
+}
+
+mod tests {
+     use generichash::*;
+    
+    #[test]
+    fn hash_with_key() {
+        let message = b"Sphinx of black quartz, judge my vow.";
+        let key = keygen();
+        assert!(hash(&message[..], key).is_ok());
+    }
+    #[test]
+    fn hash_detached() {
+        let state_sz = unsafe { ffi::crypto_generichash_statebytes() };
+        let message = b"Sphinx of black quartz, judge my vow.";
+        let message2 = b"The five boxing wizards jump quickly";
+        let mut state = vec![0u8;state_sz];
+        let ptr = state.as_mut_ptr() as *mut ffi::crypto_generichash_state;
+
+        assert!(init(ptr).is_ok());
+        assert!(update(ptr, &message[..]).is_ok());
+        assert!(update(ptr, &message2[..]).is_ok());
+        assert!(finalize(ptr).is_ok());
+
     }
 }

@@ -392,4 +392,10 @@ mod tests {
         assert_eq!(original_keynum,sk.keynum_sk);
         
     }
+    #[test]
+    fn sk_checksum() {
+        use gen_keystruct;
+        let (_,mut sk) = gen_keystruct();
+        assert!(sk.checksum().is_ok());
+    }
 }
