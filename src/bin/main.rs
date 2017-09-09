@@ -8,8 +8,7 @@ extern crate clap;
 
 use rsign::*;
 
-use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES,
-                                SECRETKEYBYTES};
+use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES, SECRETKEYBYTES};
 use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit};
 use chrono::prelude::*;
 
@@ -19,8 +18,8 @@ use std::fs::{OpenOptions, File, DirBuilder};
 #[cfg(not(windows))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-
 use std::str::FromStr;
+
 
 fn create_dir<P>(path: P) -> Result<()>
     where P: AsRef<Path> + Debug
@@ -89,7 +88,6 @@ fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
     sk_str.xor_keynum(&stream);
     Ok(())
 }
-
 
 fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>) -> Result<()>
     where P: AsRef<Path>  + Debug
@@ -195,6 +193,7 @@ fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
     let pk = String::from_str(pk_string)
         .map_err(|e| PError::new(ErrorKind::Io, e))
         .and_then(|string| {
+                    string.trim();
                       base64::decode(string.as_bytes())
                           .map_err(|e| PError::new(ErrorKind::Io, e))
                           .and_then(|decoded_string| PubkeyStruct::from(&decoded_string))
@@ -481,9 +480,8 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
         generate_keys(pk_path,
                       sk_path,
                       generate_action.value_of("comment"))?;
-    }
 
-    if let Some(sign_action) = args.subcommand_matches("sign") {
+    } else if let Some(sign_action) = args.subcommand_matches("sign") {
         let sk_path = match sign_action.value_of("sk_path") {
             Some(path) => PathBuf::from(path),
             None => {
@@ -526,9 +524,7 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
              sign_action.value_of("trusted-comment"),
              sign_action.value_of("untrusted-comment"),
              hashed)?;
-    }
-
-    if let Some(verify_action) = args.subcommand_matches("verify") {
+    } else if let Some(verify_action) = args.subcommand_matches("verify") {
         let input = verify_action.value_of("pk_path").or(verify_action.value_of("public_key"));
         let pk = if verify_action.is_present("pk_path") {
             try!(pk_load(input.unwrap()))
@@ -544,6 +540,9 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
         };
        
         verify(pk, sig_file_name.as_str(), message_file)?;
+        
+    } else {
+        println!("{}\n", args.usage());
     }
     
     Ok(())
