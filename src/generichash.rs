@@ -5,17 +5,10 @@ use libc::c_ulonglong;
 use std::ptr::null;
 use ::perror::{PError, ErrorKind, Result};
 
-pub const BYTES_MIN: usize = ffi::crypto_generichash_blake2b_BYTES_MIN;
-pub const BYTES_MAX: usize = ffi::crypto_generichash_blake2b_BYTES_MAX;
 pub const BYTES: usize = ffi::crypto_generichash_blake2b_BYTES;
-pub const KEYBYTES_MIN: usize = ffi::crypto_generichash_blake2b_KEYBYTES_MIN;
-pub const KEYBYTES_MAX: usize = ffi::crypto_generichash_blake2b_KEYBYTES_MAX;
 pub const KEYBYTES: usize = ffi::crypto_generichash_blake2b_KEYBYTES;
-pub const HASH_SALTBYTES: usize = ffi::crypto_generichash_blake2b_SALTBYTES;
-pub const PERSONALBYTES: usize = ffi::crypto_generichash_blake2b_PERSONALBYTES;
 
 pub struct GenericHash([u8;BYTES]);
-
 
 impl Clone for GenericHash {
     fn clone(&self) -> GenericHash {
@@ -51,7 +44,8 @@ impl ::std::cmp::PartialEq for GenericHash {
             memcmp(this, other)
         }
     }
-    impl ::std::cmp::Eq for GenericHash {}
+
+impl ::std::cmp::Eq for GenericHash {}
 
 impl ::std::cmp::PartialOrd for GenericHash {
     #[inline]
@@ -76,62 +70,43 @@ impl ::std::cmp::PartialOrd for GenericHash {
         ::std::cmp::PartialOrd::gt(self.as_ref(), other.as_ref())
     }
 }
- impl ::std::ops::Index<::std::ops::Range<usize>> for GenericHash {
-        type Output = [u8];
-        fn index(&self, _index: ::std::ops::Range<usize>) -> &[u8] {
-            let &GenericHash(ref b) = self;
-            b.index(_index)
-        }
+
+impl ::std::ops::Index<::std::ops::Range<usize>> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::Range<usize>) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
     }
-    /// Allows a user to access the byte contents of an object as a slice.
-    ///
-    /// WARNING: it might be tempting to do comparisons on objects
-    /// by using `x[..b] == y[..b]`. This will open up for timing attacks
-    /// when comparing for example authenticator tags. Because of this only
-    /// use the comparison functions exposed by the sodiumoxide API.
-    impl ::std::ops::Index<::std::ops::RangeTo<usize>> for GenericHash {
-        type Output = [u8];
-        fn index(&self, _index: ::std::ops::RangeTo<usize>) -> &[u8] {
-            let &GenericHash(ref b) = self;
-            b.index(_index)
-        }
+}
+    
+impl ::std::ops::Index<::std::ops::RangeTo<usize>> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::RangeTo<usize>) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
     }
-    /// Allows a user to access the byte contents of an object as a slice.
-    ///
-    /// WARNING: it might be tempting to do comparisons on objects
-    /// by using `x[a..] == y[a..]`. This will open up for timing attacks
-    /// when comparing for example authenticator tags. Because of this only
-    /// use the comparison functions exposed by the sodiumoxide API.
-    impl ::std::ops::Index<::std::ops::RangeFrom<usize>> for GenericHash {
-        type Output = [u8];
-        fn index(&self, _index: ::std::ops::RangeFrom<usize>) -> &[u8] {
-            let &GenericHash(ref b) = self;
-            b.index(_index)
-        }
+}
+
+impl ::std::ops::Index<::std::ops::RangeFrom<usize>> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::RangeFrom<usize>) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
     }
-    /// Allows a user to access the byte contents of an object as a slice.
-    ///
-    /// WARNING: it might be tempting to do comparisons on objects
-    /// by using `x[] == y[]`. This will open up for timing attacks
-    /// when comparing for example authenticator tags. Because of this only
-    /// use the comparison functions exposed by the sodiumoxide API.
-    impl ::std::ops::Index<::std::ops::RangeFull> for GenericHash {
-        type Output = [u8];
-        fn index(&self, _index: ::std::ops::RangeFull) -> &[u8] {
-            let &GenericHash(ref b) = self;
-            b.index(_index)
-        }
+}
+
+impl ::std::ops::Index<::std::ops::RangeFull> for GenericHash {
+    type Output = [u8];
+    fn index(&self, _index: ::std::ops::RangeFull) -> &[u8] {
+        let &GenericHash(ref b) = self;
+        b.index(_index)
     }
+}
 
 impl ::std::cmp::Ord for GenericHash {
     #[inline]
     fn cmp(&self, other: &GenericHash) -> ::std::cmp::Ordering {
         ::std::cmp::Ord::cmp(self.as_ref(), other.as_ref())
-    }
-}
-impl ::std::hash::Hash for GenericHash {
-    fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
-        ::std::hash::Hash::hash(self.as_ref(), state)
     }
 }
 

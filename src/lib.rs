@@ -8,7 +8,6 @@ use sodiumoxide::crypto::sign::{SecretKey, PublicKey, SIGNATUREBYTES, SECRETKEYB
 
 use std::io::{Cursor, Read};
 
-
 pub mod parse_args;
 pub mod generichash;
 pub mod perror;
