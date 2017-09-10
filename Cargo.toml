@@ -7,7 +7,7 @@ license = "MIT"
 license-file = "LICENSE"
 readme = "README.md"
 categories = ["command-line-utilitie", "cryptograph"]
-keywords = ["command-line", "sign", "public key", "cryptography", "minisign"]
+keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
 repository = "https://bitbucket.org/danielrangel/rsign"
 
 
