@@ -43,6 +43,7 @@ pub struct KeynumSK {
     pub sk: [u8; SECRETKEYBYTES],
     pub chk: [u8; BYTES],
 }
+
 impl Clone for KeynumSK {
     fn clone(&self) -> KeynumSK {
         KeynumSK {

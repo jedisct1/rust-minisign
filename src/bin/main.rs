@@ -8,7 +8,8 @@ extern crate clap;
 
 use rsign::*;
 
-use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES, SECRETKEYBYTES};
+use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES,
+                                SECRETKEYBYTES};
 use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit};
 use chrono::prelude::*;
 
@@ -90,7 +91,7 @@ fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
 }
 
 fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>) -> Result<()>
-    where P: AsRef<Path>  + Debug
+    where P: AsRef<Path> + Debug
 {
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str
@@ -135,7 +136,7 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>) -> Result<()>
     println!("The public key was saved as {:?} - That one can be public.\n",
              path_pk);
     println!("Files signed using this key pair can be verified with the following command:\n");
-    println!("rsign verify -m <file> -P {}",
+    println!("rsign verify <file> -P {}",
              base64::encode(pk_str.bytes().as_slice()));
 
     Ok(())
@@ -193,7 +194,7 @@ fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
     let pk = String::from_str(pk_string)
         .map_err(|e| PError::new(ErrorKind::Io, e))
         .and_then(|string| {
-                    string.trim();
+                      string.trim();
                       base64::decode(string.as_bytes())
                           .map_err(|e| PError::new(ErrorKind::Io, e))
                           .and_then(|decoded_string| PubkeyStruct::from(&decoded_string))
@@ -252,7 +253,8 @@ fn sign<P>(sk_key: SeckeyStruct,
         if !sodiumoxide::crypto::sign::verify_detached(&global_sig, &sig_and_trust_comment, &pk) {
             panic!("Could not verify signature with the provided public key");
         } else {
-            println!("\nSignature checked with the public key ID: {:X}", rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]));;
+            println!("\nSignature checked with the public key ID: {:X}",
+                     rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]));;
         }
     }
 
@@ -429,73 +431,82 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
         };
         if pk_path.exists() {
             if !force {
-                return Err(PError::new(ErrorKind::Io, format!("can't overwrite {:?}, remove or try again with --force", pk_path)));
+                return Err(PError::new(ErrorKind::Io,
+                                       format!("can't overwrite {:?}, remove or try again with --force",
+                                               pk_path)));
             } else {
                 try!(std::fs::remove_file(&pk_path));
             }
         }
 
-        let sk_path = match generate_action.value_of("sk_path") {
-            Some(path) => {
-                let complete_path = PathBuf::from(path);
-                let mut dir = complete_path.clone();
-                dir.pop();
-                try!(create_dir(dir));
-                complete_path
-            }
-            None => {
-                let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
-                let path = match env_path {
-                    Ok(env_path) => {
-                        let mut complete_path = PathBuf::from(env_path);
-                        if !complete_path.exists() {
-                            return Err(PError::new(ErrorKind::Io, format!("folder {:?} referenced by {} doesn't exists, you'll have to create yourself", complete_path, SIG_DEFAULT_CONFIG_DIR_ENV_VAR)));
-                        }
-                        complete_path.push(SIG_DEFAULT_SKFILE);
-                        complete_path
-                    },
-                    Err(_) => {
-                        let home_path = std::env::home_dir().ok_or(PError::new(ErrorKind::Io, "can't find home dir"));
-                        let mut complete_path = PathBuf::from(home_path.unwrap());
-                        complete_path.push(SIG_DEFAULT_CONFIG_DIR);
-                        if !complete_path.exists() {
-                                try!(create_dir(&complete_path));
-                        }
-                        complete_path.push(SIG_DEFAULT_SKFILE);
-                        complete_path
-                    },
-                };
-                path
-            }
-        };
-    
+        let sk_path =
+            match generate_action.value_of("sk_path") {
+                Some(path) => {
+                    let complete_path = PathBuf::from(path);
+                    let mut dir = complete_path.clone();
+                    dir.pop();
+                    try!(create_dir(dir));
+                    complete_path
+                }
+                None => {
+                    let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
+                    let path =
+                        match env_path {
+                            Ok(env_path) => {
+                                let mut complete_path = PathBuf::from(env_path);
+                                if !complete_path.exists() {
+                                    return Err(PError::new(ErrorKind::Io, format!("folder {:?} referenced by {} doesn't exists, you'll have to create yourself", complete_path, SIG_DEFAULT_CONFIG_DIR_ENV_VAR)));
+                                }
+                                complete_path.push(SIG_DEFAULT_SKFILE);
+                                complete_path
+                            }
+                            Err(_) => {
+                                let home_path =
+                                    std::env::home_dir().ok_or(PError::new(ErrorKind::Io,
+                                                                           "can't find home dir"));
+                                let mut complete_path = PathBuf::from(home_path.unwrap());
+                                complete_path.push(SIG_DEFAULT_CONFIG_DIR);
+                                if !complete_path.exists() {
+                                    try!(create_dir(&complete_path));
+                                }
+                                complete_path.push(SIG_DEFAULT_SKFILE);
+                                complete_path
+                            }
+                        };
+                    path
+                }
+            };
+
         if sk_path.exists() {
             if !force {
-                return Err(PError::new(ErrorKind::Io, format!("can't overwrite {:?}, remove or try again with --force", sk_path)));
+                return Err(PError::new(ErrorKind::Io,
+                                       format!("can't overwrite {:?}, remove or try again with --force",
+                                               sk_path)));
             } else {
                 try!(std::fs::remove_file(&sk_path));
             }
         }
-        
-        generate_keys(pk_path,
-                      sk_path,
-                      generate_action.value_of("comment"))?;
+
+        generate_keys(pk_path, sk_path, generate_action.value_of("comment"))?;
 
     } else if let Some(sign_action) = args.subcommand_matches("sign") {
         let sk_path = match sign_action.value_of("sk_path") {
             Some(path) => PathBuf::from(path),
             None => {
-                let home_path = std::env::home_dir().ok_or(PError::new(ErrorKind::Io, "can't find home dir"));
+                let home_path =
+                    std::env::home_dir().ok_or(PError::new(ErrorKind::Io, "can't find home dir"));
                 let mut complete_path = PathBuf::from(home_path.unwrap());
                 complete_path.push(SIG_DEFAULT_CONFIG_DIR);
                 complete_path.push(SIG_DEFAULT_SKFILE);
                 complete_path
-            },
+            }
         };
         if !sk_path.exists() {
-                return Err(PError::new(ErrorKind::Io, format!("can't find secret key file at {:?}, try using -s", sk_path)));
+            return Err(PError::new(ErrorKind::Io,
+                                   format!("can't find secret key file at {:?}, try using -s",
+                                           sk_path)));
         }
-        
+
         let mut pk: Option<PubkeyStruct> = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
@@ -525,26 +536,28 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
              sign_action.value_of("untrusted-comment"),
              hashed)?;
     } else if let Some(verify_action) = args.subcommand_matches("verify") {
-        let input = verify_action.value_of("pk_path").or(verify_action.value_of("public_key"));
+        let input = verify_action
+            .value_of("pk_path")
+            .or(verify_action.value_of("public_key"));
         let pk = if verify_action.is_present("pk_path") {
             try!(pk_load(input.unwrap()))
         } else {
             try!(pk_load_string(input.unwrap()))
         };
         let message_file = verify_action.value_of("file").unwrap(); //safe to unwrap
-        
+
         let sig_file_name = if let Some(file) = verify_action.value_of("sig_file") {
             format!("{}", file)
         } else {
             format!("{}{}", message_file, SIG_SUFFIX)
         };
-       
+
         verify(pk, sig_file_name.as_str(), message_file)?;
-        
+
     } else {
         println!("{}\n", args.usage());
     }
-    
+
     Ok(())
 }
 

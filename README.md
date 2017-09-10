@@ -1,15 +1,9 @@
-# RSIGN #
+# rsign #
 [ ![Codeship Status for danielrangel/rsign](https://app.codeship.com/projects/60b28d80-7645-0135-4402-1639b58199d0/status?branch=master)](https://app.codeship.com/projects/244452)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
 A simple rust implementation of [Minisign](https://jedisct1.github.io/minisign/) tool
-
-
-rsign
-========
-
-For more information, please refer to the
 
 
 Tarballs and pre-compiled binaries can be verified with the following
