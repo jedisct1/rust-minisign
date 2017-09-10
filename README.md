@@ -9,7 +9,7 @@ A simple rust implementation of [Minisign](https://jedisct1.github.io/minisign/)
 Tarballs and pre-compiled binaries can be verified with the following
 public key:
 
-    RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3
+    $ rsign verify <file> -P RWTAe2UcD/q/yWJGypI74sB0WGiQTygRsuZzyMaUWpxo3KrEgrhvg62p
 
 Compilation / installation
 --------------------------
@@ -22,7 +22,6 @@ Compilation:
     $ git clone https://danielrangel@bitbucket.org/danielrangel/rsign.git
     $ cd rsign
     $ cargo build --release
-    $ 
 
 
 Usage
