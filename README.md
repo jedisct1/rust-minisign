@@ -9,19 +9,23 @@ It uses an [asymmetric encryption](https://en.wikipedia.org/wiki/Public-key_cryp
 
 [BLAKE2b](https://blake2.net/) is used to confirm the integrity of the secret key as well to create a unique identifier for files larger than 1Gb.
 
+* [Ed25519](https://download.libsodium.org/doc/public-key_cryptography/public-key_signatures.html)
+
+* [Generic Hashing](https://download.libsodium.org/doc/hashing/generic_hashing.html)
+
+* [Scrypt](https://download.libsodium.org/doc/password_hashing/)
 
 Tarballs and pre-compiled binaries can be verified with the following:
 
     $ rsign verify <file> -P RWTAe2UcD/q/yWJGypI74sB0WGiQTygRsuZzyMaUWpxo3KrEgrhvg62p
 
-Compilation / installation
+Compilation / Installation
 --------------------------
 
 Dependencies:
 * [libsodium](http://doc.libsodium.org/)
-    * [Ed25519](https://download.libsodium.org/doc/public-key_cryptography/public-key_signatures.html)
-    * [Generic Hashing](https://download.libsodium.org/doc/hashing/generic_hashing.html)
-    * [Scrypt](https://download.libsodium.org/doc/password_hashing/)
+
+Make sure you have libsodium in your default lib path before compiling rsign.
 
 Compilation:
 
@@ -59,15 +63,15 @@ You can find more information using the help subcommand as in:
 
     $ rsign help [SUBCOMMAND]
 
->USAGE:
->    rsign [SUBCOMMAND]
->
->FLAGS:
->    -h, --help       Prints help information
->    -V, --version    Prints version information
->
->SUBCOMMANDS:
->    generate    Generate public and private keys
->    help        Prints this message or the help of the given subcommand(s)
->    sign        Sign a file with a given private key
->    verify      Verify a signed file with a given public key
+    USAGE:
+        rsign [SUBCOMMAND]
+    
+    FLAGS:
+        -h, --help       Prints help information
+        -V, --version    Prints version information
+    
+    SUBCOMMANDS:
+        generate    Generate public and private keys
+        help        Prints this message or the help of the given subcommand(s)
+        sign        Sign a file with a given private key
+        verify      Verify a signed file with a given public key
