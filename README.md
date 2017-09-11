@@ -40,7 +40,7 @@ Usage
 
     $ rsign generate
 
-Generates a new key pair. The public key is printed in the screen and stored in `rsign.pub` by default. The secret key is writen at `~/.rsign/rsign.key`. You can change the default paths with `-p` and `-s` respectively. 
+Generates a new key pair. The public key is printed in the screen and stored in `rsign.pub` by default. The secret key will be written at `~/.rsign/rsign.key`. You can change the default paths with `-p` and `-s` respectively. 
 
     $ rsign sign myfile.txt
 
