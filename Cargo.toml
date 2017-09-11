@@ -4,9 +4,8 @@ version = "0.1.0"
 authors = ["Daniel Rangel <daniel@rangel.in>"]
 description = "A command-line tool to sign files and verify signatures."
 license = "MIT"
-license-file = "LICENSE"
 readme = "README.md"
-categories = ["command-line-utilitie", "cryptograph"]
+categories = ["command-line-utilities", "cryptography"]
 keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
 repository = "https://bitbucket.org/danielrangel/rsign"
 
