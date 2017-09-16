@@ -8,6 +8,12 @@ image: rust:1.19
 pipelines:
   default:
     - step:
-        script: # Modify the commands below to build your repository.
-          - cargo build --release -v
-          - cargo test -v
+        script: 
+          - wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.13.tar.gz
+          - tar xvzf libsodium-1.0.13.tar.gz
+          - cd libsodium-1.0.13/
+          - ./configure --prefix=/usr/local
+          - make && make install
+          - cd ..
+          - SODIUM_STATIC=yes SODIUM_LIB_DIR=/usr/local/lib cargo build --release --verbose
+          - SODIUM_STATIC=yes SODIUM_LIB_DIR=/usr/local/lib cargo test -- --test-threads=1

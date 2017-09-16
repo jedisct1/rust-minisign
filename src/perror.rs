@@ -49,12 +49,12 @@ impl PError {
 impl fmt::Display for PError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.kind {
-            ErrorKind::Generate => write!(f, "generate error: {}", self.err),
-            ErrorKind::Sign => write!(f, "sign error: {}", self.err),
-            ErrorKind::Verify => write!(f, "verify error: {}", self.err),
-            ErrorKind::Misc => write!(f, "misc error: {}", self.err),
-            ErrorKind::Io => write!(f, "io error: {}", self.err),
-            ErrorKind::Hash => write!(f, "hash error: {}", self.err),
+            ErrorKind::Generate => write!(f, "{}", self.err),
+            ErrorKind::Sign => write!(f, "{}", self.err),
+            ErrorKind::Verify => write!(f, "{}", self.err),
+            ErrorKind::Misc => write!(f, "{}", self.err),
+            ErrorKind::Io => write!(f, "{}", self.err),
+            ErrorKind::Hash => write!(f, "{}", self.err),
         }
     }
 }
@@ -88,6 +88,12 @@ impl From<clap::Error> for PError {
 
 impl From<base64::DecodeError> for PError {
     fn from(err: base64::DecodeError) -> PError {
+        PError::new(ErrorKind::Misc, err)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for PError {
+    fn from(err: std::string::FromUtf8Error) -> PError {
         PError::new(ErrorKind::Misc, err)
     }
 }

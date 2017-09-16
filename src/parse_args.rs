@@ -33,7 +33,6 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
         .subcommand(SubCommand::with_name("verify")
                         .about("Verify a signed file with a given public key")
                         .arg(Arg::with_name("public_key")
-                                 .required(true)
                                  .short("P")
                                  .long("public-key-string")
                                  .takes_value(true)

@@ -21,6 +21,7 @@ pub use parse_args::*;
 pub const KEYNUMBYTES: usize = 8;
 pub const TWOBYTES: usize = 2;
 pub const TR_COMMENT_PREFIX_LEN: usize = 17;
+pub const PK_B64_ENCODED_LEN:usize = 56;
 pub const PASSWORDMAXBYTES: usize = 1024;
 pub const COMMENTBYTES: usize = 1024;
 pub const TRUSTEDCOMMENTMAXBYTES: usize = 8192;
@@ -56,7 +57,8 @@ impl Clone for KeynumSK {
 
 impl KeynumSK {
     pub fn len(&self) -> usize {
-        self.keynum.len() + self.sk.len() + self.chk.len()
+        use std::mem;
+        mem::size_of::<KeynumSK>()
     }
 }
 
@@ -143,7 +145,13 @@ impl SeckeyStruct {
             .collect();
         v
     }
-    pub fn checksum(&mut self) -> Result<()> {
+    pub fn write_checksum(&mut self) -> Result<()> {
+        let h = self.read_checksum()?;
+        self.keynum_sk.chk.copy_from_slice(&h[..]);
+        Ok(())
+    }
+
+    pub fn read_checksum(&self) -> Result<Vec<u8>> {
         let state_sz = unsafe { ffi::crypto_generichash_statebytes() };
         let mut state: Vec<u8> = vec![0;state_sz];
         let ptr_state = state.as_mut_ptr() as *mut ffi::crypto_generichash_state;
@@ -152,8 +160,7 @@ impl SeckeyStruct {
         generichash::update(ptr_state, &self.keynum_sk.keynum)?;
         generichash::update(ptr_state, &self.keynum_sk.sk)?;
         let h = generichash::finalize(ptr_state)?;
-        self.keynum_sk.chk.copy_from_slice(&h[..]);
-        Ok(())
+        Ok(Vec::from(&h[..]))
     }
 
     pub fn xor_keynum(&mut self, stream: &[u8]) {
@@ -218,6 +225,11 @@ impl ::std::cmp::PartialEq for PubkeyStruct {
 impl ::std::cmp::Eq for PubkeyStruct {}
 
 impl PubkeyStruct {
+    pub fn len() -> usize{
+        use std::mem;
+        mem::size_of::<PubkeyStruct>()
+    }
+
     pub fn from(buf: &[u8]) -> Result<PubkeyStruct> {
         let mut buf = Cursor::new(buf);
         let mut sig_alg = [0u8; 2];
@@ -258,7 +270,8 @@ pub struct SigStruct {
 }
 impl SigStruct {
     pub fn len() -> usize {
-        KEYNUMBYTES + SIGNATUREBYTES + TWOBYTES
+        use std::mem;
+        mem::size_of::<SigStruct>()
     }
     pub fn bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
@@ -403,6 +416,8 @@ mod tests {
     fn sk_checksum() {
         use gen_keystruct;
         let (_, mut sk) = gen_keystruct();
-        assert!(sk.checksum().is_ok());
+        assert!(sk.write_checksum().is_ok());
+        assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap() );
+
     }
 }

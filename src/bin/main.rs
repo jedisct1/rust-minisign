@@ -64,7 +64,8 @@ fn create_sig_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<BufWriter<F
 fn get_password(prompt: &str) -> Result<String> {
     let pwd = rpassword::prompt_password_stdout(prompt)?;
     if pwd.len() == 0 {
-        Err(PError::new(ErrorKind::Misc, "passphrase can't be blank"))
+        println!("<empty>");
+        Ok(pwd)
     } else if pwd.len() > PASSWORDMAXBYTES {
         Err(PError::new(ErrorKind::Misc, "passphrase can't exceed 1024 bytes lenght"))
     } else {
@@ -95,7 +96,7 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>) -> Result<()>
 {
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str
-        .checksum()
+        .write_checksum()
         .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
     write!(io::stdout(),
            "Please enter a password to protect the secret key.\n")?;
@@ -105,13 +106,14 @@ fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>) -> Result<()>
         return Err(PError::new(ErrorKind::Generate, "passwords don't match!"));
     }
 
-    write!(io::stdout(), "Deriving a key from password... ")
-        .map_err(|e| PError::new(ErrorKind::Io, e))
-        .and_then(|_| {
-                      io::stdout().flush()?;
-                      derive_and_crypt(&mut sk_str, &pwd.as_bytes())
-                  })
-        .and(writeln!(io::stdout(), "Done!").map_err(|e| PError::new(ErrorKind::Io, e)))?;
+    write!(io::stdout(),
+           "Deriving a key from the password in order to encrypt the secret key... ")
+            .map_err(|e| PError::new(ErrorKind::Io, e))
+            .and_then(|_| {
+                          io::stdout().flush()?;
+                          derive_and_crypt(&mut sk_str, &pwd.as_bytes())
+                      })
+            .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
 
     let mut pk_buf = create_file(&path_pk, 0o644)?;
     write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
@@ -167,9 +169,19 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
                           io::stdout().flush()?;
                           derive_and_crypt(&mut sk_str, &pwd.as_bytes())
                       })
-            .and(writeln!(io::stdout(), "Done!").map_err(|e| PError::new(ErrorKind::Io, e)))?;
-
-    Ok(sk_str)
+            .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
+    sk_str
+        .read_checksum()
+        .map_err(|e| From::from(e))
+        .and_then(|checksum_vec| {
+            let mut chk = [0u8; BYTES];
+            chk.copy_from_slice(&checksum_vec[..]);
+            if chk != sk_str.keynum_sk.chk {
+                Err(PError::new(ErrorKind::Verify, "Wrong password for that key"))
+            } else {
+                Ok(sk_str)
+            }
+        })
 }
 
 fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct> {
@@ -183,8 +195,11 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct> {
             pk_buf.read_line(&mut _comment)?;
             let mut encoded_buf = String::new();
             pk_buf.read_line(&mut encoded_buf)?;
+            if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
+               return Err(PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?")));
+            }
             base64::decode(encoded_buf.trim())
-                .map_err(|e| PError::new(ErrorKind::Io, e))
+                .map_err(|e| PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?: {}", e)))
                 .and_then(|decoded_buf| PubkeyStruct::from(&decoded_buf))
         })?;
     Ok(pk)
@@ -193,10 +208,12 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct> {
 fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
     let pk = String::from_str(pk_string)
         .map_err(|e| PError::new(ErrorKind::Io, e))
-        .and_then(|string| {
-                      string.trim();
-                      base64::decode(string.as_bytes())
-                          .map_err(|e| PError::new(ErrorKind::Io, e))
+        .and_then(|encoded_string| {
+            if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
+                return Err(PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?")));
+            }
+                      base64::decode(encoded_string.as_bytes())
+                          .map_err(|e| PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?: {}", e)))
                           .and_then(|decoded_string| PubkeyStruct::from(&decoded_string))
                   })?;
     Ok(pk)
@@ -215,7 +232,9 @@ fn sign<P>(sk_key: SeckeyStruct,
     let t_comment = if let Some(trusted_comment) = trusted_comment {
         format!("{}", trusted_comment)
     } else {
-        format!("timestamp:{} file:{}", Utc::now().timestamp(), message_file)
+        format!("timestamp:{}\tfile:{}",
+                Utc::now().timestamp(),
+                message_file)
     };
 
     let unt_comment = if let Some(untrusted_comment) = untrusted_comment {
@@ -288,12 +307,10 @@ fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
             PublicKey::from_slice(&pk_key.keynum_pk.pk)
                 .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose a public key from bytes"))
                 .and_then(|pk|{
-                        if sign::verify_detached(&signature, &message, &pk) {
-                              println!("Success! - Message signature verified!");
+                        if sign::verify_detached(&signature, &message, &pk) {    
                               Ok(pk)
                         } else {
-                              return Err(PError::new(ErrorKind::Verify, "while verifying message file signature"));
-                                                                    
+                              Err(PError::new(ErrorKind::Verify, "Signature verification failed"))                                          
                         }
                 })
                 .and_then(|pk| {
@@ -301,10 +318,12 @@ fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
                         .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose trusted comment signature from bytes"))
                         .and_then(|global_sig|{
                             if sign::verify_detached(&global_sig, &trusted_comment, &pk) {
-                              println!("Success! - Trusted comment signature verified!");
+                              let just_comment = String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;  
+                              println!("Signature and comment signature verified");
+                              println!("Trusted comment: {}", just_comment );
                               Ok(())
                             } else {
-                                return Err(PError::new(ErrorKind::Verify, "Trusted comment verification failed!"));
+                                return Err(PError::new(ErrorKind::Verify, "Comment signature verification failed"));
                             }
                         })   
                 })
@@ -432,7 +451,7 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
         if pk_path.exists() {
             if !force {
                 return Err(PError::new(ErrorKind::Io,
-                                       format!("can't overwrite {:?}, remove or try again with --force",
+                                       format!("Key generation aborted:\n{:?} already exists\n\nIf you really want to overwrite the existing key pair, add the -f switch to\nforce this operation.",
                                                pk_path)));
             } else {
                 try!(std::fs::remove_file(&pk_path));
@@ -480,7 +499,7 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
         if sk_path.exists() {
             if !force {
                 return Err(PError::new(ErrorKind::Io,
-                                       format!("can't overwrite {:?}, remove or try again with --force",
+                                       format!("Key generation aborted:\n{:?} already exists\n\nIf you really want to overwrite the existing key pair, add the -f switch to\nforce this operation.",
                                                sk_path)));
             } else {
                 try!(std::fs::remove_file(&sk_path));
@@ -539,11 +558,18 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
         let input = verify_action
             .value_of("pk_path")
             .or(verify_action.value_of("public_key"));
-        let pk = if verify_action.is_present("pk_path") {
-            try!(pk_load(input.unwrap()))
-        } else {
-            try!(pk_load_string(input.unwrap()))
+
+        let pk = match input {
+            Some(path_or_string) => {
+                if verify_action.is_present("pk_path") {
+                    try!(pk_load(path_or_string))
+                } else {
+                    try!(pk_load_string(path_or_string))
+                }
+            }
+            None => try!(pk_load(SIG_DEFAULT_PKFILE)),
         };
+
         let message_file = verify_action.value_of("file").unwrap(); //safe to unwrap
 
         let sig_file_name = if let Some(file) = verify_action.value_of("sig_file") {
@@ -565,4 +591,10 @@ fn main() {
     let args = parse_args();
     run(args).map_err(|e| e.exit()).unwrap();
     std::process::exit(0);
+}
+
+#[test]
+fn load_public_key_string() {
+    assert!(pk_load_string("RWRzq51bKcS8oJvZ4xEm+nRvGYPdsNRD3ciFPu1YJEL8Bl/3daWaj72r").is_ok());
+    assert!(pk_load_string("RWQt7oYqpar/yePp+nonossdnononovlOSkkckMMfvHuGc+0+oShmJyN5Y").is_err());
 }
