@@ -1,26 +1,21 @@
 extern crate rsign;
 extern crate sodiumoxide;
-extern crate base64;
 extern crate libsodium_sys as ffi;
-extern crate rpassword;
 extern crate chrono;
+extern crate base64;
 extern crate clap;
 
 use chrono::prelude::*;
 use rsign::*;
-use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit};
+use sodiumoxide::crypto::sign::SIGNATUREBYTES;
+use std::fmt::Debug;
 
-use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES,
-                                SECRETKEYBYTES};
-
-use std::fmt::{Display, Debug};
 use std::fs::{OpenOptions, File, DirBuilder};
 use std::io::{self, BufWriter, BufReader, BufRead, Read, Write};
 #[cfg(not(windows))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-
 
 fn create_dir<P>(path: P) -> Result<()>
     where P: AsRef<Path> + Debug
@@ -59,89 +54,6 @@ fn create_sig_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<BufWriter<F
         .open(path)
         .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
         .and_then(|file| Ok(BufWriter::new(file)))
-}
-
-fn get_password(prompt: &str) -> Result<String> {
-    let pwd = rpassword::prompt_password_stdout(prompt)?;
-    if pwd.len() == 0 {
-        println!("<empty>");
-        Ok(pwd)
-    } else if pwd.len() > PASSWORDMAXBYTES {
-        Err(PError::new(ErrorKind::Misc, "passphrase can't exceed 1024 bytes lenght"))
-    } else {
-        Ok(pwd)
-    }
-}
-
-fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
-    let mut stream = [0u8; BYTES + SECRETKEYBYTES + KEYNUMBYTES];
-    pwhash::Salt::from_slice(&sk_str.kdf_salt)
-        .ok_or(PError::new(ErrorKind::Misc, "failed to generate Salt from random bytes"))
-        .and_then(|salt| {
-
-            pwhash::derive_key(&mut stream,
-                               &pwd,
-                               &salt,
-                               OpsLimit(load_usize_le(&sk_str.kdf_opslimit_le)),
-                               MemLimit(load_usize_le(&sk_str.kdf_memlimit_le)))
-                    .map_err(|_| PError::new(ErrorKind::Misc, "failed to derive key from password"))
-
-        })?;
-    sk_str.xor_keynum(&stream);
-    Ok(())
-}
-
-fn generate_keys<P>(path_pk: P, path_sk: P, comment: Option<&str>) -> Result<()>
-    where P: AsRef<Path> + Debug
-{
-    let (pk_str, mut sk_str) = gen_keystruct();
-    sk_str
-        .write_checksum()
-        .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
-    write!(io::stdout(),
-           "Please enter a password to protect the secret key.\n")?;
-    let pwd = get_password("Password: ")?;
-    let pwd2 = get_password("Password (one more time): ")?;
-    if pwd != pwd2 {
-        return Err(PError::new(ErrorKind::Generate, "passwords don't match!"));
-    }
-
-    write!(io::stdout(),
-           "Deriving a key from the password in order to encrypt the secret key... ")
-            .map_err(|e| PError::new(ErrorKind::Io, e))
-            .and_then(|_| {
-                          io::stdout().flush()?;
-                          derive_and_crypt(&mut sk_str, &pwd.as_bytes())
-                      })
-            .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
-
-    let mut pk_buf = create_file(&path_pk, 0o644)?;
-    write!(pk_buf, "{}rsign public key: ", rsign::COMMENT_PREFIX)?;
-    writeln!(pk_buf,
-             "{:X}",
-             rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
-    writeln!(pk_buf, "{}", base64::encode(&pk_str.bytes()))?;
-    pk_buf.flush()?;
-
-    let mut sk_buf = create_file(&path_sk, 0o600)?;
-    write!(sk_buf, "{}", rsign::COMMENT_PREFIX)?;
-    if let Some(comment) = comment {
-        writeln!(sk_buf, "{}", comment)?;
-    } else {
-        writeln!(sk_buf, "{}", rsign::SECRETKEY_DEFAULT_COMMENT)?;
-    }
-    writeln!(sk_buf, "{}", base64::encode(&sk_str.bytes()))?;
-    sk_buf.flush()?;
-
-    println!("\nThe secret key was saved as {:?} - Keep it secret!",
-             path_sk);
-    println!("The public key was saved as {:?} - That one can be public.\n",
-             path_pk);
-    println!("Files signed using this key pair can be verified with the following command:\n");
-    println!("rsign verify <file> -P {}",
-             base64::encode(pk_str.bytes().as_slice()));
-
-    Ok(())
 }
 
 fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
@@ -233,131 +145,15 @@ fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
     Ok(pk)
 }
 
-fn sign<P>(sk_key: SeckeyStruct,
-           pk_key: Option<PubkeyStruct>,
-           mut sig_buf: BufWriter<File>,
-           message_file: P,
-           trusted_comment: Option<&str>,
-           untrusted_comment: Option<&str>,
-           hashed: bool)
-           -> Result<()>
-    where P: AsRef<Path> + Copy + Display
-{
-    let t_comment = if let Some(trusted_comment) = trusted_comment {
-        format!("{}", trusted_comment)
-    } else {
-        format!("timestamp:{}\tfile:{}",
-                Utc::now().timestamp(),
-                message_file)
-    };
-
-    let unt_comment = if let Some(untrusted_comment) = untrusted_comment {
-        format!("{}{}", COMMENT_PREFIX, untrusted_comment)
-    } else {
-        format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT)
-    };
-    let msg_buf = load_message_file(message_file, &hashed)?;
-
-    let mut sig_str = SigStruct::default();
-    if !hashed {
-        sig_str.sig_alg = sk_key.sig_alg.clone();
-    } else {
-        sig_str.sig_alg = SIGALG_HASHED;
-    }
-    sig_str
-        .keynum
-        .copy_from_slice(&sk_key.keynum_sk.keynum[..]);
-
-    let sk = SecretKey::from_slice(&sk_key.keynum_sk.sk)
-        .ok_or(PError::new(ErrorKind::Sign, "Couldn't generate secret key from bytes"))?;
-
-    let signature = sodiumoxide::crypto::sign::sign_detached(&msg_buf, &sk);
-
-    sig_str.sig.copy_from_slice(&signature[..]);
-
-    let mut sig_and_trust_comment: Vec<u8> = vec![];
-    sig_and_trust_comment.extend(sig_str.sig.iter());
-    sig_and_trust_comment.extend(t_comment.as_bytes().iter());
-
-    let global_sig = sodiumoxide::crypto::sign::sign_detached(&sig_and_trust_comment, &sk);
-
-    if let Some(pk_str) = pk_key {
-        let pk = PublicKey::from_slice(&pk_str.keynum_pk.pk[..]).unwrap();
-        if !sodiumoxide::crypto::sign::verify_detached(&global_sig, &sig_and_trust_comment, &pk) {
-            panic!("Could not verify signature with the provided public key");
-        } else {
-            println!("\nSignature checked with the public key ID: {:X}",
-                     rsign::load_usize_le(&pk_str.keynum_pk.keynum[..]));;
-        }
-    }
-
-    writeln!(sig_buf, "{}", unt_comment)?;
-    writeln!(sig_buf, "{}", base64::encode(&sig_str.bytes()))?;
-    writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, t_comment)?;
-    writeln!(sig_buf, "{}", base64::encode(&global_sig[..]))?;
-    sig_buf.flush()?;
-    Ok(())
-}
-
-fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
-    where P: AsRef<Path> + Copy + Display
-{
-    let mut hashed: bool = false;
-
-    let mut trusted_comment: Vec<u8> = Vec::with_capacity(TRUSTEDCOMMENTMAXBYTES);
-    let mut global_sig: Vec<u8> = Vec::with_capacity(SIGNATUREBYTES);
-    let sig = sig_load(sig_file, &mut global_sig, &mut trusted_comment, &mut hashed)?;
-
-    let message = load_message_file(message_file, &hashed)?;
-    if sig.keynum != pk_key.keynum_pk.keynum {
-        return Err(PError::new(ErrorKind::Verify,
-                               format!("Public key ID: {:X} is not equal to signature key ID: \
-                                        {:X}",
-                                       rsign::load_usize_le(&pk_key.keynum_pk.keynum[..]),
-                                       rsign::load_usize_le(&sig.keynum[..]))));
-    }
-    Signature::from_slice(&sig.sig)
-        .ok_or(PError::new(ErrorKind::Verify,
-                           "Couldn't compose message file signature from bytes"))
-        .and_then(|signature| {
-            PublicKey::from_slice(&pk_key.keynum_pk.pk)
-                .ok_or(PError::new(ErrorKind::Verify,
-                                   "Couldn't compose a public key from bytes"))
-                .and_then(|pk| if sign::verify_detached(&signature, &message, &pk) {
-                              Ok(pk)
-                          } else {
-                              Err(PError::new(ErrorKind::Verify, "Signature verification failed"))
-                          })
-                .and_then(|pk| {
-                    Signature::from_slice(&global_sig[..])
-                        .ok_or(PError::new(ErrorKind::Verify,
-                                           "Couldn't compose trusted comment signature from bytes"))
-                        .and_then(|global_sig| if sign::verify_detached(&global_sig,
-                                                                        &trusted_comment,
-                                                                        &pk) {
-                                      let just_comment =
-                                          String::from_utf8(trusted_comment[SIGNATUREBYTES..]
-                                                                .to_vec())?;
-                                      println!("Signature and comment signature verified");
-                                      println!("Trusted comment: {}", just_comment);
-                                      Ok(())
-                                  } else {
-                                      return Err(PError::new(ErrorKind::Verify,
-                                                             "Comment signature verification \
-                                                              failed"));
-                                  })
-                })
-        })
-}
 fn sig_load<P>(sig_file: P,
                global_sig: &mut Vec<u8>,
                trusted_comment: &mut Vec<u8>,
                hashed: &mut bool)
                -> Result<SigStruct>
-    where P: AsRef<Path> + Copy + Display
+    where P: AsRef<Path> + Copy + Debug
 {
     File::open(sig_file)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("{} {}", e, sig_file)))
+        .map_err(|e| PError::new(ErrorKind::Io, format!("{} {:?}", e, sig_file)))
         .and_then(|file| {
             let mut buf = BufReader::new(file);
             let mut untrusted_comment = String::with_capacity(COMMENTBYTES);
@@ -417,7 +213,7 @@ fn sig_load<P>(sig_file: P,
 }
 
 fn load_message_file<P>(message_file: P, hashed: &bool) -> Result<Vec<u8>>
-    where P: AsRef<Path> + Copy + Display
+    where P: AsRef<Path> + Copy + Debug
 {
     if *hashed {
         return hash_message_file(message_file);
@@ -429,7 +225,8 @@ fn load_message_file<P>(message_file: P, hashed: &bool) -> Result<Vec<u8>>
         .and_then(|mut file| {
             if file.metadata().unwrap().len() > (1u64 << 30) {
                 return Err(PError::new(ErrorKind::Io,
-                                       format!("{} is larger than 1G try using -H", message_file)));
+                                       format!("{:?} is larger than 1G try using -H",
+                                               message_file)));
             }
             let mut msg_buf: Vec<u8> = Vec::new();
             file.read_to_end(&mut msg_buf)?;
@@ -438,7 +235,7 @@ fn load_message_file<P>(message_file: P, hashed: &bool) -> Result<Vec<u8>>
 }
 
 fn hash_message_file<P>(message_file: P) -> Result<Vec<u8>>
-    where P: AsRef<Path> + Copy + Display
+    where P: AsRef<Path> + Copy
 {
     OpenOptions::new()
         .read(true)
@@ -538,8 +335,17 @@ force this operation.",
                 try!(std::fs::remove_file(&sk_path));
             }
         }
+        let pk_file = create_file(&pk_path, 0o644)?;
+        let sk_file = create_file(&sk_path, 0o600)?;
+        let (pk_str, _) = generate(pk_file, sk_file, generate_action.value_of("comment"))?;
 
-        generate_keys(pk_path, sk_path, generate_action.value_of("comment"))?;
+        println!("\nThe secret key was saved as {:?} - Keep it secret!",
+                 sk_path);
+        println!("The public key was saved as {:?} - That one can be public.\n",
+                 pk_path);
+        println!("Files signed using this key pair can be verified with the following command:\n");
+        println!("rsign verify <file> -P {}",
+                 base64::encode(pk_str.bytes().as_slice()));
 
     } else if let Some(sign_action) = args.subcommand_matches("sign") {
         let sk_path = match sign_action.value_of("sk_path") {
@@ -580,14 +386,32 @@ force this operation.",
         let sig_buf = create_sig_file(&sig_file_name)?;
 
         let sk = try!(sk_load(sk_path));
+
+        let t_comment = if let Some(trusted_comment) = sign_action.value_of("trusted-comment") {
+            format!("{}", trusted_comment)
+        } else {
+            format!("timestamp:{}\tfile:{}",
+                    Utc::now().timestamp(),
+                    message_file)
+        };
+
+        let unt_comment = if let Some(untrusted_comment) =
+            sign_action.value_of("untrusted-comment") {
+            format!("{}{}", COMMENT_PREFIX, untrusted_comment)
+        } else {
+            format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT)
+        };
+        let message = load_message_file(message_file, &hashed)?;
+
         sign(sk,
              pk,
              sig_buf,
-             message_file,
-             sign_action.value_of("trusted-comment"),
-             sign_action.value_of("untrusted-comment"),
-             hashed)?;
+             message.as_ref(),
+             hashed,
+             t_comment.as_str(),
+             unt_comment.as_str())?;
     } else if let Some(verify_action) = args.subcommand_matches("verify") {
+
         let input = verify_action
             .value_of("pk_path")
             .or(verify_action.value_of("public_key"));
@@ -610,8 +434,24 @@ force this operation.",
         } else {
             format!("{}{}", message_file, SIG_SUFFIX)
         };
+        let mut hashed: bool = false;
 
-        verify(pk, sig_file_name.as_str(), message_file)?;
+        let mut trusted_comment: Vec<u8> = Vec::with_capacity(TRUSTEDCOMMENTMAXBYTES);
+        let mut global_sig: Vec<u8> = Vec::with_capacity(SIGNATUREBYTES);
+        let sig = sig_load(sig_file_name.as_str(),
+                           &mut global_sig,
+                           &mut trusted_comment,
+                           &mut hashed)?;
+
+        let message = load_message_file(message_file, &hashed)?;
+
+        verify(pk,
+               sig,
+               &global_sig[..],
+               trusted_comment.as_ref(),
+               message.as_ref(),
+               verify_action.is_present("quiet"),
+               verify_action.is_present("output"))?;
 
     } else {
         println!("{}\n", args.usage());

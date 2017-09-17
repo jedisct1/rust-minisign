@@ -9,7 +9,6 @@ categories = ["command-line-utilities", "cryptography"]
 keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
 repository = "https://bitbucket.org/danielrangel/rsign"
 
-
 [dependencies]
 sodiumoxide = "0.0.15"
 libsodium-sys = "0.0.15"
@@ -21,7 +20,3 @@ chrono = "0.4"
 
 [dev-dependencies]
 unwrap = "~1.1.0"
-
-[[bin]]
-name = "rsign"
-path = "src/bin/main.rs"
