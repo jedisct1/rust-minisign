@@ -1,14 +1,14 @@
 extern crate libsodium_sys as ffi;
 
-use sodiumoxide::randombytes::randombytes_into;
 use libc::c_ulonglong;
-use std::ptr::null;
 use perror::{PError, ErrorKind, Result};
+use sodiumoxide::randombytes::randombytes_into;
+use std::ptr::null;
 
 pub const BYTES: usize = ffi::crypto_generichash_blake2b_BYTES;
 pub const KEYBYTES: usize = ffi::crypto_generichash_blake2b_KEYBYTES;
 
-pub struct GenericHash([u8;BYTES]);
+pub struct GenericHash([u8; BYTES]);
 
 impl Clone for GenericHash {
     fn clone(&self) -> GenericHash {
@@ -31,26 +31,25 @@ pub fn from_slice(bs: &[u8]) -> Option<GenericHash> {
     Some(n)
 }
 
-impl AsRef<[u8]> for GenericHash{
+impl AsRef<[u8]> for GenericHash {
     #[inline]
     fn as_ref(&self) -> &[u8] {
         &self[..]
     }
 }
 impl ::std::cmp::PartialEq for GenericHash {
-        fn eq(&self, &GenericHash(ref other): &GenericHash) -> bool {
-            use sodiumoxide::utils::memcmp;
-            let &GenericHash(ref this) = self;
-            memcmp(this, other)
-        }
+    fn eq(&self, &GenericHash(ref other): &GenericHash) -> bool {
+        use sodiumoxide::utils::memcmp;
+        let &GenericHash(ref this) = self;
+        memcmp(this, other)
     }
+}
 
 impl ::std::cmp::Eq for GenericHash {}
 
 impl ::std::cmp::PartialOrd for GenericHash {
     #[inline]
-    fn partial_cmp(&self,
-                    other: &GenericHash) -> Option<::std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &GenericHash) -> Option<::std::cmp::Ordering> {
         ::std::cmp::PartialOrd::partial_cmp(self.as_ref(), other.as_ref())
     }
     #[inline]
@@ -78,7 +77,7 @@ impl ::std::ops::Index<::std::ops::Range<usize>> for GenericHash {
         b.index(_index)
     }
 }
-    
+
 impl ::std::ops::Index<::std::ops::RangeTo<usize>> for GenericHash {
     type Output = [u8];
     fn index(&self, _index: ::std::ops::RangeTo<usize>) -> &[u8] {
@@ -118,13 +117,12 @@ impl Drop for GenericHash {
     }
 }
 impl ::std::fmt::Debug for GenericHash {
-    fn fmt(&self,
-            formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+    fn fmt(&self, formatter: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
         write!(formatter, "{}(****)", stringify!(GenericHash))
     }
-}    
+}
 
-pub struct Key([u8;KEYBYTES]);
+pub struct Key([u8; KEYBYTES]);
 pub fn hash(message: &[u8], Key(ref key): Key) -> Result<GenericHash> {
     let mut out = GenericHash([0; BYTES]);
     if unsafe {

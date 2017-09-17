@@ -36,7 +36,7 @@ fn get_test_dir() -> String {
     use std::env;
     let mut current_path = unwrap!(env::current_dir());
     println!("{:?}", current_path);
-    current_path.push("test/");
+    current_path.push("target/debug/test/");
     unwrap!(current_path.into_os_string().into_string())
 }
 

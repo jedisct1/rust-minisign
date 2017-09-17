@@ -1,10 +1,10 @@
 extern crate base64;
 extern crate clap;
 
+use std;
+use std::error::Error as StdError;
 use std::fmt;
 use std::io;
-use std::error::Error as StdError;
-use std;
 
 macro_rules! werr(
     ($($arg:tt)*) => ({
@@ -28,16 +28,16 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct PError {
     kind: ErrorKind,
-    err: Box<StdError+Send+Sync>,
+    err: Box<StdError + Send + Sync>,
 }
 
 impl PError {
     pub fn exit(&self) -> ! {
-            werr!("{}\n", self);
-            ::std::process::exit(1)
+        werr!("{}\n", self);
+        ::std::process::exit(1)
     }
     pub fn new<E>(kind: ErrorKind, err: E) -> PError
-        where E: Into<Box<StdError+Send+Sync>>
+        where E: Into<Box<StdError + Send + Sync>>
     {
         PError {
             kind: kind,

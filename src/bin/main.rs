@@ -6,16 +6,16 @@ extern crate rpassword;
 extern crate chrono;
 extern crate clap;
 
+use chrono::prelude::*;
 use rsign::*;
+use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit};
 
 use sodiumoxide::crypto::sign::{self, PublicKey, SecretKey, Signature, SIGNATUREBYTES,
                                 SECRETKEYBYTES};
-use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit};
-use chrono::prelude::*;
 
 use std::fmt::{Display, Debug};
-use std::io::{self, BufWriter, BufReader, BufRead, Read, Write};
 use std::fs::{OpenOptions, File, DirBuilder};
+use std::io::{self, BufWriter, BufReader, BufRead, Read, Write};
 #[cfg(not(windows))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
@@ -196,10 +196,17 @@ fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct> {
             let mut encoded_buf = String::new();
             pk_buf.read_line(&mut encoded_buf)?;
             if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
-               return Err(PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?")));
+                return Err(PError::new(ErrorKind::Io,
+                                       format!("base64 conversion failed - was an actual \
+                                                public key given?")));
             }
             base64::decode(encoded_buf.trim())
-                .map_err(|e| PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?: {}", e)))
+                .map_err(|e| {
+                             PError::new(ErrorKind::Io,
+                                         format!("base64 conversion failed -
+                            was an actual public key given?: {}",
+                                                 e))
+                         })
                 .and_then(|decoded_buf| PubkeyStruct::from(&decoded_buf))
         })?;
     Ok(pk)
@@ -210,12 +217,19 @@ fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
         .map_err(|e| PError::new(ErrorKind::Io, e))
         .and_then(|encoded_string| {
             if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
-                return Err(PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?")));
+                return Err(PError::new(ErrorKind::Io,
+                                       format!("base64 conversion failed -
+                 was an actual public key given?")));
             }
-                      base64::decode(encoded_string.as_bytes())
-                          .map_err(|e| PError::new(ErrorKind::Io, format!("base64 conversion failed - was an actual public key given?: {}", e)))
-                          .and_then(|decoded_string| PubkeyStruct::from(&decoded_string))
-                  })?;
+            base64::decode(encoded_string.as_bytes())
+                .map_err(|e| {
+                             PError::new(ErrorKind::Io,
+                                         format!("base64 conversion
+                          failed - was an actual public key given?: {}",
+                                                 e))
+                         })
+                .and_then(|decoded_string| PubkeyStruct::from(&decoded_string))
+        })?;
     Ok(pk)
 }
 
@@ -297,35 +311,41 @@ fn verify<P>(pk_key: PubkeyStruct, sig_file: P, message_file: P) -> Result<()>
     let message = load_message_file(message_file, &hashed)?;
     if sig.keynum != pk_key.keynum_pk.keynum {
         return Err(PError::new(ErrorKind::Verify,
-                               format!("Public key ID: {:X} is not equal to signature key ID: {:X}",
+                               format!("Public key ID: {:X} is not equal to signature key ID: \
+                                        {:X}",
                                        rsign::load_usize_le(&pk_key.keynum_pk.keynum[..]),
                                        rsign::load_usize_le(&sig.keynum[..]))));
     }
     Signature::from_slice(&sig.sig)
-        .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose message file signature from bytes"))
+        .ok_or(PError::new(ErrorKind::Verify,
+                           "Couldn't compose message file signature from bytes"))
         .and_then(|signature| {
             PublicKey::from_slice(&pk_key.keynum_pk.pk)
-                .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose a public key from bytes"))
-                .and_then(|pk|{
-                        if sign::verify_detached(&signature, &message, &pk) {    
+                .ok_or(PError::new(ErrorKind::Verify,
+                                   "Couldn't compose a public key from bytes"))
+                .and_then(|pk| if sign::verify_detached(&signature, &message, &pk) {
                               Ok(pk)
-                        } else {
-                              Err(PError::new(ErrorKind::Verify, "Signature verification failed"))                                          
-                        }
-                })
+                          } else {
+                              Err(PError::new(ErrorKind::Verify, "Signature verification failed"))
+                          })
                 .and_then(|pk| {
                     Signature::from_slice(&global_sig[..])
-                        .ok_or(PError::new(ErrorKind::Verify, "Couldn't compose trusted comment signature from bytes"))
-                        .and_then(|global_sig|{
-                            if sign::verify_detached(&global_sig, &trusted_comment, &pk) {
-                              let just_comment = String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;  
-                              println!("Signature and comment signature verified");
-                              println!("Trusted comment: {}", just_comment );
-                              Ok(())
-                            } else {
-                                return Err(PError::new(ErrorKind::Verify, "Comment signature verification failed"));
-                            }
-                        })   
+                        .ok_or(PError::new(ErrorKind::Verify,
+                                           "Couldn't compose trusted comment signature from bytes"))
+                        .and_then(|global_sig| if sign::verify_detached(&global_sig,
+                                                                        &trusted_comment,
+                                                                        &pk) {
+                                      let just_comment =
+                                          String::from_utf8(trusted_comment[SIGNATUREBYTES..]
+                                                                .to_vec())?;
+                                      println!("Signature and comment signature verified");
+                                      println!("Trusted comment: {}", just_comment);
+                                      Ok(())
+                                  } else {
+                                      return Err(PError::new(ErrorKind::Verify,
+                                                             "Comment signature verification \
+                                                              failed"));
+                                  })
                 })
         })
 }
@@ -342,55 +362,57 @@ fn sig_load<P>(sig_file: P,
             let mut buf = BufReader::new(file);
             let mut untrusted_comment = String::with_capacity(COMMENTBYTES);
             buf.read_line(&mut untrusted_comment)
-            .map_err(|e| PError::new(ErrorKind::Io, e))
-            .and_then(|_|{
-                let mut sig_string = String::with_capacity(SigStruct::len());
-                buf.read_line(&mut sig_string)
                 .map_err(|e| PError::new(ErrorKind::Io, e))
-                .and_then(|_|{
-                    let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
-                    buf.read_line(&mut t_comment)
-                    .map_err(|e| PError::new(ErrorKind::Io, e))
-                    .and_then(|_|{
-                        let mut g_sig = String::with_capacity(SIGNATUREBYTES);
-                        buf.read_line(&mut g_sig)
+                .and_then(|_| {
+                    let mut sig_string = String::with_capacity(SigStruct::len());
+                    buf.read_line(&mut sig_string)
                         .map_err(|e| PError::new(ErrorKind::Io, e))
-                        .and_then(|_|{
-                            if !untrusted_comment.starts_with(COMMENT_PREFIX) {
-                                return Err(PError::new(ErrorKind::Verify, format!("Untrusted comment must start with: {}", COMMENT_PREFIX)));
-                            }
-                            base64::decode(sig_string.trim().as_bytes())
+                        .and_then(|_| {
+                            let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
+                            buf.read_line(&mut t_comment)
                                 .map_err(|e| PError::new(ErrorKind::Io, e))
-                                .and_then(|sig_bytes| {
-                                    SigStruct::from(&sig_bytes)
-                                    .and_then(|sig| {
-                                        if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {
-                                            return Err(PError::new(ErrorKind::Verify, format!("trusted comment should start with: {}",
-                                                            TRUSTED_COMMENT_PREFIX)));
-                                        }
-                                        if sig.sig_alg == SIGALG {
-                                            *hashed = false;
-                                        } else if sig.sig_alg == SIGALG_HASHED {
-                                            *hashed = true;
-                                        } else {
-                                            return Err(PError::new(ErrorKind::Verify, format!("Unsupported signature algorithm")));
-                                        }
-                                        let _ = t_comment.drain(..TR_COMMENT_PREFIX_LEN).count();
-                                        trusted_comment.extend(sig.sig.iter());
-                                        trusted_comment.extend_from_slice(t_comment.trim().as_bytes());
-                                        base64::decode(g_sig.trim().as_bytes())
+                                .and_then(|_| {
+                                    let mut g_sig = String::with_capacity(SIGNATUREBYTES);
+                                    buf.read_line(&mut g_sig)
                                         .map_err(|e| PError::new(ErrorKind::Io, e))
-                                        .and_then(|comm_sig|{
-                                             global_sig.extend_from_slice(&comm_sig);
-                                             Ok(sig)   
-                                        })
-                                    })
-                                 })
+                                        .and_then(|_| {
+                                            if !untrusted_comment.starts_with(COMMENT_PREFIX) {
+                                                return Err(PError::new(ErrorKind::Verify,
+                                                                       format!("Untrusted comment must start with: {}", COMMENT_PREFIX)));
+                                            }
+                                            base64::decode(sig_string.trim().as_bytes())
+                                                .map_err(|e| PError::new(ErrorKind::Io, e))
+                                                .and_then(|sig_bytes| {
+                                                    SigStruct::from(&sig_bytes).and_then(|sig| {
+                                                        if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {
+                                                            return Err(PError::new(ErrorKind::Verify,
+                                                                                   format!("trusted comment should start with: {}",
+                                                                                           TRUSTED_COMMENT_PREFIX)));
+                                                        }
+                                                        if sig.sig_alg == SIGALG {
+                                                            *hashed = false;
+                                                        } else if sig.sig_alg == SIGALG_HASHED {
+                                                            *hashed = true;
+                                                        } else {
+                                                            return Err(PError::new(ErrorKind::Verify,
+                                                                                   format!("Unsupported signature algorithm")));
+                                                        }
+                                                        let _ = t_comment.drain(..TR_COMMENT_PREFIX_LEN).count();
+                                                        trusted_comment.extend(sig.sig.iter());
+                                                        trusted_comment.extend_from_slice(t_comment.trim().as_bytes());
+                                                        base64::decode(g_sig.trim().as_bytes())
+                                                            .map_err(|e| PError::new(ErrorKind::Io, e))
+                                                            .and_then(|comm_sig| {
+                                                                          global_sig.extend_from_slice(&comm_sig);
+                                                                          Ok(sig)
+                                                                      })
+                                                    })
+                                                })
 
+                                        })
+                                })
                         })
-                    })
                 })
-            })
         })
 }
 
@@ -451,55 +473,66 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
         if pk_path.exists() {
             if !force {
                 return Err(PError::new(ErrorKind::Io,
-                                       format!("Key generation aborted:\n{:?} already exists\n\nIf you really want to overwrite the existing key pair, add the -f switch to\nforce this operation.",
+                                       format!("Key generation aborted:\n
+                {:?} already exists\n
+                If you really want to overwrite the existing key pair, add the -f switch to\n
+                force this operation.",
                                                pk_path)));
             } else {
                 try!(std::fs::remove_file(&pk_path));
             }
         }
 
-        let sk_path =
-            match generate_action.value_of("sk_path") {
-                Some(path) => {
-                    let complete_path = PathBuf::from(path);
-                    let mut dir = complete_path.clone();
-                    dir.pop();
-                    try!(create_dir(dir));
-                    complete_path
-                }
-                None => {
-                    let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
-                    let path =
-                        match env_path {
-                            Ok(env_path) => {
-                                let mut complete_path = PathBuf::from(env_path);
-                                if !complete_path.exists() {
-                                    return Err(PError::new(ErrorKind::Io, format!("folder {:?} referenced by {} doesn't exists, you'll have to create yourself", complete_path, SIG_DEFAULT_CONFIG_DIR_ENV_VAR)));
-                                }
-                                complete_path.push(SIG_DEFAULT_SKFILE);
-                                complete_path
-                            }
-                            Err(_) => {
-                                let home_path =
-                                    std::env::home_dir().ok_or(PError::new(ErrorKind::Io,
-                                                                           "can't find home dir"));
-                                let mut complete_path = PathBuf::from(home_path.unwrap());
-                                complete_path.push(SIG_DEFAULT_CONFIG_DIR);
-                                if !complete_path.exists() {
-                                    try!(create_dir(&complete_path));
-                                }
-                                complete_path.push(SIG_DEFAULT_SKFILE);
-                                complete_path
-                            }
-                        };
-                    path
-                }
-            };
+        let sk_path = match generate_action.value_of("sk_path") {
+            Some(path) => {
+                let complete_path = PathBuf::from(path);
+                let mut dir = complete_path.clone();
+                dir.pop();
+                try!(create_dir(dir));
+                complete_path
+            }
+            None => {
+                let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
+                let path = match env_path {
+                    Ok(env_path) => {
+                        let mut complete_path = PathBuf::from(env_path);
+                        if !complete_path.exists() {
+                            return Err(PError::new(ErrorKind::Io,
+                                                   format!("folder {:?} referenced by {} \
+                                                            doesn't exists,
+                                     \
+                                                            you'll have to create yourself",
+                                                           complete_path,
+                                                           SIG_DEFAULT_CONFIG_DIR_ENV_VAR)));
+                        }
+                        complete_path.push(SIG_DEFAULT_SKFILE);
+                        complete_path
+                    }
+                    Err(_) => {
+                        let home_path =
+                            std::env::home_dir().ok_or(PError::new(ErrorKind::Io,
+                                                                   "can't find home dir"));
+                        let mut complete_path = PathBuf::from(home_path.unwrap());
+                        complete_path.push(SIG_DEFAULT_CONFIG_DIR);
+                        if !complete_path.exists() {
+                            try!(create_dir(&complete_path));
+                        }
+                        complete_path.push(SIG_DEFAULT_SKFILE);
+                        complete_path
+                    }
+                };
+                path
+            }
+        };
 
         if sk_path.exists() {
             if !force {
                 return Err(PError::new(ErrorKind::Io,
-                                       format!("Key generation aborted:\n{:?} already exists\n\nIf you really want to overwrite the existing key pair, add the -f switch to\nforce this operation.",
+                                       format!("Key generation aborted:
+{:?} already exists
+
+If you really want to overwrite the existing key pair, add the -f switch to
+force this operation.",
                                                sk_path)));
             } else {
                 try!(std::fs::remove_file(&sk_path));

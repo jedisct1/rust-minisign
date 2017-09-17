@@ -3,9 +3,9 @@ extern crate libc;
 extern crate libsodium_sys as ffi;
 
 use sodiumoxide::crypto::pwhash::*;
-use sodiumoxide::randombytes::*;
 use sodiumoxide::crypto::sign::{SecretKey, PublicKey, SIGNATUREBYTES, SECRETKEYBYTES,
                                 PUBLICKEYBYTES, gen_keypair};
+use sodiumoxide::randombytes::*;
 
 use std::fmt::Formatter;
 use std::io::{Cursor, Read};
@@ -15,13 +15,13 @@ pub mod generichash;
 pub mod perror;
 
 pub use generichash::*;
-pub use perror::*;
 pub use parse_args::*;
+pub use perror::*;
 
 pub const KEYNUMBYTES: usize = 8;
 pub const TWOBYTES: usize = 2;
 pub const TR_COMMENT_PREFIX_LEN: usize = 17;
-pub const PK_B64_ENCODED_LEN:usize = 56;
+pub const PK_B64_ENCODED_LEN: usize = 56;
 pub const PASSWORDMAXBYTES: usize = 1024;
 pub const COMMENTBYTES: usize = 1024;
 pub const TRUSTEDCOMMENTMAXBYTES: usize = 8192;
@@ -34,7 +34,7 @@ pub const DEFAULT_COMMENT: &'static str = "signature from rsign secret key";
 pub const SECRETKEY_DEFAULT_COMMENT: &'static str = "rsign encrypted secret key";
 pub const TRUSTED_COMMENT_PREFIX: &'static str = "trusted comment: ";
 pub const SIG_DEFAULT_CONFIG_DIR: &'static str = ".rsign";
-pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &'static str = "MINISIGN_CONFIG_DIR";
+pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &'static str = "RSIGN_CONFIG_DIR";
 pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
 pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
 pub const SIG_SUFFIX: &'static str = ".rsign";
@@ -225,7 +225,7 @@ impl ::std::cmp::PartialEq for PubkeyStruct {
 impl ::std::cmp::Eq for PubkeyStruct {}
 
 impl PubkeyStruct {
-    pub fn len() -> usize{
+    pub fn len() -> usize {
         use std::mem;
         mem::size_of::<PubkeyStruct>()
     }
@@ -417,7 +417,7 @@ mod tests {
         use gen_keystruct;
         let (_, mut sk) = gen_keystruct();
         assert!(sk.write_checksum().is_ok());
-        assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap() );
+        assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap());
 
     }
 }
