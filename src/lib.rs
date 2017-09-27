@@ -1,322 +1,30 @@
 extern crate sodiumoxide;
 extern crate libc;
-extern crate libsodium_sys as ffi;
+
 extern crate rpassword;
 extern crate base64;
 
-use sodiumoxide::crypto::pwhash::{self, MemLimit, OpsLimit, SALTBYTES, OPSLIMIT_SENSITIVE,
-                                  MEMLIMIT_SENSITIVE};
-use sodiumoxide::crypto::sign::{self, SecretKey, PublicKey, Signature, SIGNATUREBYTES,
-                                SECRETKEYBYTES, PUBLICKEYBYTES, gen_keypair};
+use sodiumoxide::crypto::pwhash::*;
+use sodiumoxide::crypto::pwhash;
+use sodiumoxide::crypto::sign::*;
+use sodiumoxide::crypto::sign;
 use sodiumoxide::randombytes::randombytes;
 
-use std::fmt::Formatter;
+
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
-use std::io::{Cursor, Read};
+
 
 pub mod parse_args;
 pub mod generichash;
 pub mod perror;
+pub mod types;
 
 pub use generichash::*;
 pub use parse_args::*;
 pub use perror::*;
+pub use types::*;
 
-pub const KEYNUMBYTES: usize = 8;
-pub const TWOBYTES: usize = 2;
-pub const TR_COMMENT_PREFIX_LEN: usize = 17;
-pub const PK_B64_ENCODED_LEN: usize = 56;
-pub const PASSWORDMAXBYTES: usize = 1024;
-pub const COMMENTBYTES: usize = 1024;
-pub const TRUSTEDCOMMENTMAXBYTES: usize = 8192;
-pub const SIGALG: [u8; 2] = *b"Ed";
-pub const SIGALG_HASHED: [u8; 2] = *b"ED";
-pub const KDFALG: [u8; 2] = *b"Sc";
-pub const CHKALG: [u8; 2] = *b"B2";
-pub const COMMENT_PREFIX: &'static str = "untrusted comment: ";
-pub const DEFAULT_COMMENT: &'static str = "signature from rsign secret key";
-pub const SECRETKEY_DEFAULT_COMMENT: &'static str = "rsign encrypted secret key";
-pub const TRUSTED_COMMENT_PREFIX: &'static str = "trusted comment: ";
-pub const SIG_DEFAULT_CONFIG_DIR: &'static str = ".rsign";
-pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &'static str = "RSIGN_CONFIG_DIR";
-pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
-pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
-pub const SIG_SUFFIX: &'static str = ".rsign";
-
-pub struct KeynumSK {
-    pub keynum: [u8; KEYNUMBYTES],
-    pub sk: [u8; SECRETKEYBYTES],
-    pub chk: [u8; BYTES],
-}
-
-impl Clone for KeynumSK {
-    fn clone(&self) -> KeynumSK {
-        KeynumSK {
-            keynum: self.keynum,
-            sk: self.sk,
-            chk: self.chk,
-        }
-    }
-}
-
-impl KeynumSK {
-    pub fn len(&self) -> usize {
-        use std::mem;
-        mem::size_of::<KeynumSK>()
-    }
-}
-
-impl ::std::fmt::Debug for KeynumSK {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        for byte in self.sk.iter() {
-            try!(write!(f, "{:x}", byte))
-        }
-        Ok(())
-    }
-}
-
-impl ::std::cmp::PartialEq for KeynumSK {
-    fn eq(&self, other: &KeynumSK) -> bool {
-        use sodiumoxide::utils::memcmp;
-        memcmp(&self.sk, &other.sk)
-    }
-}
-impl ::std::cmp::Eq for KeynumSK {}
-
-pub struct SeckeyStruct {
-    pub sig_alg: [u8; 2],
-    pub kdf_alg: [u8; 2],
-    pub chk_alg: [u8; 2],
-    pub kdf_salt: [u8; SALTBYTES],
-    pub kdf_opslimit_le: [u8; 8],
-    pub kdf_memlimit_le: [u8; 8],
-    pub keynum_sk: KeynumSK,
-}
-
-impl SeckeyStruct {
-    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct> {
-        let mut buf = Cursor::new(bytes_buf);
-        let mut sig_alg = [0u8; 2];
-        let mut kdf_alg = [0u8; 2];
-        let mut chk_alg = [0u8; 2];
-        let mut kdf_salt = [0u8; SALTBYTES];
-        let mut ops_limit = [0u8; 8];
-        let mut mem_limit = [0u8; 8];
-        let mut keynum = [0u8; KEYNUMBYTES];
-        let mut sk = [0u8; SECRETKEYBYTES];
-        let mut chk = [0u8; BYTES];
-        buf.read(&mut sig_alg)?;
-        buf.read(&mut kdf_alg)?;
-        buf.read(&mut chk_alg)?;
-        buf.read(&mut kdf_salt)?;
-        buf.read(&mut ops_limit)?;
-        buf.read(&mut mem_limit)?;
-        buf.read(&mut keynum)?;
-        buf.read(&mut sk)?;
-        buf.read(&mut chk)?;
-
-        Ok(SeckeyStruct {
-               sig_alg: sig_alg,
-               kdf_alg: kdf_alg,
-               chk_alg: chk_alg,
-               kdf_salt: kdf_salt,
-               kdf_opslimit_le: ops_limit,
-               kdf_memlimit_le: mem_limit,
-               keynum_sk: KeynumSK {
-                   keynum: keynum,
-                   sk: sk,
-                   chk: chk,
-               },
-           })
-    }
-    pub fn bytes(&self) -> Vec<u8> {
-        let mut iters = Vec::new();
-        iters.push(self.sig_alg.iter());
-        iters.push(self.kdf_alg.iter());
-        iters.push(self.chk_alg.iter());
-        iters.push(self.kdf_salt.iter());
-        iters.push(self.kdf_opslimit_le.iter());
-        iters.push(self.kdf_memlimit_le.iter());
-        iters.push(self.keynum_sk.keynum.iter());
-        iters.push(self.keynum_sk.sk.iter());
-        iters.push(self.keynum_sk.chk.iter());
-        let v: Vec<u8> = iters
-            .iter()
-            .flat_map(|b| {
-                          let b = b.clone();
-                          b.into_iter().cloned()
-                      })
-            .collect();
-        v
-    }
-    pub fn write_checksum(&mut self) -> Result<()> {
-        let h = self.read_checksum()?;
-        self.keynum_sk.chk.copy_from_slice(&h[..]);
-        Ok(())
-    }
-
-    pub fn read_checksum(&self) -> Result<Vec<u8>> {
-        let state_sz = unsafe { ffi::crypto_generichash_statebytes() };
-        let mut state: Vec<u8> = vec![0;state_sz];
-        let ptr_state = state.as_mut_ptr() as *mut ffi::crypto_generichash_state;
-        generichash::init(ptr_state)?;
-        generichash::update(ptr_state, &self.sig_alg)?;
-        generichash::update(ptr_state, &self.keynum_sk.keynum)?;
-        generichash::update(ptr_state, &self.keynum_sk.sk)?;
-        let h = generichash::finalize(ptr_state)?;
-        Ok(Vec::from(&h[..]))
-    }
-
-    pub fn xor_keynum(&mut self, stream: &[u8]) {
-
-        let b8 = self.keynum_sk
-            .keynum
-            .iter_mut()
-            .zip(stream.iter())
-            .map(|(byte, stream)| *byte = *byte ^ *stream)
-            .count();
-
-        let b64 = self.keynum_sk
-            .sk
-            .iter_mut()
-            .zip(stream[b8..].iter())
-            .map(|(byte, stream)| *byte = *byte ^ *stream)
-            .count();
-
-        let _b32 = self.keynum_sk
-            .chk
-            .iter_mut()
-            .zip(stream[b8 + b64..].iter())
-            .map(|(byte, stream)| *byte = *byte ^ *stream)
-            .count();
-    }
-}
-
-impl ::std::fmt::Debug for SeckeyStruct {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        for byte in self.keynum_sk.sk.iter() {
-            try!(write!(f, "{:x}", byte))
-        }
-        Ok(())
-    }
-}
-
-impl ::std::cmp::PartialEq for SeckeyStruct {
-    fn eq(&self, other: &SeckeyStruct) -> bool {
-        use sodiumoxide::utils::memcmp;
-        memcmp(&self.keynum_sk.sk, &other.keynum_sk.sk)
-    }
-}
-impl ::std::cmp::Eq for SeckeyStruct {}
-
-#[derive(Debug)]
-pub struct PubkeyStruct {
-    pub sig_alg: [u8; 2],
-    pub keynum_pk: KeynumPK,
-}
-#[derive(Debug, Clone)]
-pub struct KeynumPK {
-    pub keynum: [u8; KEYNUMBYTES],
-    pub pk: [u8; PUBLICKEYBYTES],
-}
-
-impl ::std::cmp::PartialEq for PubkeyStruct {
-    fn eq(&self, other: &PubkeyStruct) -> bool {
-        use sodiumoxide::utils::memcmp;
-        memcmp(&self.keynum_pk.pk, &other.keynum_pk.pk)
-    }
-}
-impl ::std::cmp::Eq for PubkeyStruct {}
-
-impl PubkeyStruct {
-    pub fn len() -> usize {
-        use std::mem;
-        mem::size_of::<PubkeyStruct>()
-    }
-
-    pub fn from(buf: &[u8]) -> Result<PubkeyStruct> {
-        let mut buf = Cursor::new(buf);
-        let mut sig_alg = [0u8; 2];
-        let mut keynum = [0u8; KEYNUMBYTES];
-        let mut pk = [0u8; PUBLICKEYBYTES];
-        buf.read(&mut sig_alg)?;
-        buf.read(&mut keynum)?;
-        buf.read(&mut pk)?;
-        Ok(PubkeyStruct {
-               sig_alg: sig_alg,
-               keynum_pk: KeynumPK {
-                   keynum: keynum,
-                   pk: pk,
-               },
-           })
-    }
-
-    pub fn bytes(&self) -> Vec<u8> {
-        let mut iters = Vec::new();
-        iters.push(self.sig_alg.iter());
-        iters.push(self.keynum_pk.keynum.iter());
-        iters.push(self.keynum_pk.pk.iter());
-        let v: Vec<u8> = iters
-            .iter()
-            .flat_map(|b| {
-                          let b = b.clone();
-                          b.into_iter().cloned()
-                      })
-            .collect();
-        v
-    }
-}
-
-pub struct SigStruct {
-    pub sig_alg: [u8; 2],
-    pub keynum: [u8; KEYNUMBYTES],
-    pub sig: [u8; SIGNATUREBYTES],
-}
-impl SigStruct {
-    pub fn len() -> usize {
-        use std::mem;
-        mem::size_of::<SigStruct>()
-    }
-    pub fn bytes(&self) -> Vec<u8> {
-        let mut iters = Vec::new();
-        iters.push(self.sig_alg.iter());
-        iters.push(self.keynum.iter());
-        iters.push(self.sig.iter());
-        let v: Vec<u8> = iters
-            .iter()
-            .flat_map(|b| {
-                          let b = b.clone();
-                          b.into_iter().cloned()
-                      })
-            .collect();
-        v
-    }
-    pub fn from(bytes_buf: &[u8]) -> Result<SigStruct> {
-        let mut buf = Cursor::new(bytes_buf);
-        let mut sig_alg = [0u8; 2];
-        let mut keynum = [0u8; KEYNUMBYTES];
-        let mut sig = [0u8; SIGNATUREBYTES];
-        buf.read(&mut sig_alg)?;
-        buf.read(&mut keynum)?;
-        buf.read(&mut sig)?;
-        Ok(SigStruct {
-               sig_alg: sig_alg,
-               keynum: keynum,
-               sig: sig,
-           })
-    }
-}
-
-impl Default for SigStruct {
-    fn default() -> Self {
-        SigStruct {
-            sig_alg: [0; 2],
-            keynum: [0; KEYNUMBYTES],
-            sig: [0; SIGNATUREBYTES],
-        }
-    }
-}
 
 pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
     let (pk, sk) = gen_keypair();
@@ -439,14 +147,17 @@ pub fn verify(pk_key: PubkeyStruct,
                 })
         })
 }
-pub fn sign(sk_key: SeckeyStruct,
+
+pub fn sign<W>(sk_key: SeckeyStruct,
             pk_key: Option<PubkeyStruct>,
-            mut sig_buf: BufWriter<File>,
+            mut sig_buf: W,
             message: &[u8],
             hashed: bool,
             trusted_comment: &str,
             untrusted_comment: &str)
-            -> Result<()> {
+            -> Result<()>
+    where W: Write            
+{
 
     let mut sig_str = SigStruct::default();
     if !hashed {
@@ -472,13 +183,18 @@ pub fn sign(sk_key: SeckeyStruct,
     let global_sig = sodiumoxide::crypto::sign::sign_detached(&sig_and_trust_comment, &sk);
 
     if let Some(pk_str) = pk_key {
-        let pk = PublicKey::from_slice(&pk_str.keynum_pk.pk[..]).unwrap();
-        if !sodiumoxide::crypto::sign::verify_detached(&global_sig, &sig_and_trust_comment, &pk) {
-            panic!("Could not verify signature with the provided public key");
-        } else {
-            println!("\nSignature checked with the public key ID: {:X}",
-                     load_usize_le(&pk_str.keynum_pk.keynum[..]));;
-        }
+        PublicKey::from_slice(&pk_str.keynum_pk.pk[..])
+            .ok_or(PError::new(ErrorKind::Sign, "failed to obtain public key from bytes"))
+            .and_then(|pk|{
+                   if !sodiumoxide::crypto::sign::verify_detached(&global_sig, &sig_and_trust_comment, &pk) {
+                       Err(PError::new(ErrorKind::Verify,format!("Could not verify signature with the \
+                        provided public key ID: {:X}", load_usize_le(&pk_str.keynum_pk.keynum[..]))))
+                    } else {
+                        println!("\nSignature checked with the public key ID: {:X}",
+                                load_usize_le(&pk_str.keynum_pk.keynum[..]));
+                                Ok(())
+                    } 
+            })?;
     }
 
     writeln!(sig_buf, "{}", untrusted_comment)?;

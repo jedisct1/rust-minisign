@@ -28,7 +28,9 @@ fn create_dir<P>(path: P) -> Result<()>
 
 }
 #[cfg(windows)]
-fn create_file<P: AsRef<Path> + Copy + Debug>(path: P, _mode: u32) -> Result<BufWriter<File>> {
+fn create_file<P>(path: P, _mode: u32) -> Result<BufWriter<File>>
+    where P: AsRef<Path> + Copy + Debug
+{
     OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -37,7 +39,9 @@ fn create_file<P: AsRef<Path> + Copy + Debug>(path: P, _mode: u32) -> Result<Buf
         .and_then(|file| Ok(BufWriter::new(file)))
 }
 #[cfg(not(windows))]
-fn create_file<P: AsRef<Path> + Copy + Debug>(path: P, mode: u32) -> Result<BufWriter<File>> {
+fn create_file<P>(path: P, mode: u32) -> Result<BufWriter<File>>
+    where P: AsRef<Path> + Copy + Debug
+{
     OpenOptions::new()
         .mode(mode)
         .write(true)
@@ -47,7 +51,9 @@ fn create_file<P: AsRef<Path> + Copy + Debug>(path: P, mode: u32) -> Result<BufW
         .and_then(|file| Ok(BufWriter::new(file)))
 }
 
-fn create_sig_file<P: AsRef<Path> + Copy + Debug>(path: P) -> Result<BufWriter<File>> {
+fn create_sig_file<P>(path: P) -> Result<BufWriter<File>>
+    where P: AsRef<Path> + Copy + Debug
+{
     OpenOptions::new()
         .write(true)
         .create(true)
@@ -96,11 +102,16 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
         })
 }
 
-fn pk_load<P: AsRef<Path>>(pk_path: P) -> Result<PubkeyStruct> {
+fn pk_load<P>(pk_path: P) -> Result<PubkeyStruct> 
+    where P: AsRef<Path> + Copy + Debug 
+{
     let pk = OpenOptions::new()
         .read(true)
         .open(pk_path)
-        .map_err(|e| PError::new(ErrorKind::Io, e))
+        .map_err(|e| {
+                     PError::new(ErrorKind::Io,
+                                 format!("couldn't retrieve public key from {:?}: {}", pk_path, e))
+                 })
         .and_then(|file| {
             let mut pk_buf = BufReader::new(file);
             let mut _comment = String::new();
