@@ -17,11 +17,7 @@ It uses an [asymmetric encryption](https://en.wikipedia.org/wiki/Public-key_cryp
 
 * [Scrypt](https://download.libsodium.org/doc/password_hashing/)
 
-Tarballs and pre-compiled binaries can be found [here](https://bitbucket.org/danielrangel/rsign/downloads/) and can be verified with the following:
-
-    $ rsign verify <file> -P RWSLGHruNsr7F6OAsCLKF8Gz76R7pwCrdQM0UNFZys6fZfQbjG5U/dKx
-
-just make sure that its signature file is in the same folder or specify a path to it with `-x`
+Tarballs and pre-compiled binaries can be found [here](https://bitbucket.org/danielrangel/rsign/downloads/)
 
 Compilation / Installation
 --------------------------

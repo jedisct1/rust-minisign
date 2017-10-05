@@ -32,7 +32,7 @@ fn signing_without_pk() {
     assert_eq!(unwrap!(String::from_utf8(sig_buf)).trim(), unwrap!(String::from_utf8(SIG.to_vec())) );
 }
 
-#[test]
+/* #[test]
 fn signing_with_pk() {
     let sk_bytes = unwrap!(base64::decode(SK));
     let sk = unwrap!(SeckeyStruct::from(&sk_bytes[..]));
@@ -71,4 +71,4 @@ fn signing_hashed_message() {
     let untrusted_comment: &'static str = "untrusted comment: signature from rsign secret key";
    
     assert!(sign(sk, Some(pk), &mut sig_buf , &message[..], hashed, trusted_comment, untrusted_comment).is_ok());
-}
+} */

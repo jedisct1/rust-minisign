@@ -6,7 +6,7 @@ use std::io::Write;
 use std::fs::remove_file;
 use std::path::Path;
 
-// https://stackoverflow.com/questions/29963449/golang-like-defer-in-rust
+/* // https://stackoverflow.com/questions/29963449/golang-like-defer-in-rust
 struct ScopeCall<F: FnOnce()> {
     c: Option<F>
 }
@@ -24,13 +24,13 @@ macro_rules! defer {
         };
     )
 }
-
+*/
 macro_rules! t {
     ($e:expr) => (match $e {
         Ok(e) => e,
         Err(e) => panic!("{} failed with {}", stringify!($e), e),
     })
-}
+} 
 
 fn get_test_dir() -> String {
     use std::env;
