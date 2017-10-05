@@ -1,6 +1,6 @@
 [package]
 name = "rsign"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Daniel Rangel <daniel@rangel.in>"]
 description = "A command-line tool to sign files and verify signatures."
 license = "MIT"
