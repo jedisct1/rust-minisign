@@ -192,64 +192,63 @@ fn sig_load<P>(
 where
     P: AsRef<Path> + Copy + Debug,
 {
-    File::open(sig_file)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("{} {:?}", e, sig_file)))
-        .and_then(|file| {
-            let mut buf = BufReader::new(file);
-            let mut untrusted_comment = String::with_capacity(COMMENTBYTES);
-            buf.read_line(&mut untrusted_comment)
-                .map_err(|e| PError::new(ErrorKind::Io, e))
-                .and_then(|_| {
-                    let mut sig_string = String::with_capacity(SigStruct::len());
-                    buf.read_line(&mut sig_string)
-                        .map_err(|e| PError::new(ErrorKind::Io, e))
-                        .and_then(|_| {
-                            let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
-                            buf.read_line(&mut t_comment)
-                                .map_err(|e| PError::new(ErrorKind::Io, e))
-                                .and_then(|_| {
-                                    let mut g_sig = String::with_capacity(SIGNATUREBYTES);
-                                    buf.read_line(&mut g_sig)
-                                        .map_err(|e| PError::new(ErrorKind::Io, e))
-                                        .and_then(|_| {
-                                            if !untrusted_comment.starts_with(COMMENT_PREFIX) {
-                                                return Err(PError::new(ErrorKind::Verify,
-                                                                       format!("Untrusted comment must start with: {}", COMMENT_PREFIX)));
-                                            }
-                                            base64::decode(sig_string.trim().as_bytes())
-                                                .map_err(|e| PError::new(ErrorKind::Io, e))
-                                                .and_then(|sig_bytes| {
-                                                    SigStruct::from(&sig_bytes).and_then(|sig| {
-                                                        if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {
-                                                            return Err(PError::new(ErrorKind::Verify,
-                                                                                   format!("trusted comment should start with: {}",
-                                                                                           TRUSTED_COMMENT_PREFIX)));
-                                                        }
-                                                        if sig.sig_alg == SIGALG {
-                                                            *hashed = false;
-                                                        } else if sig.sig_alg == SIGALG_HASHED {
-                                                            *hashed = true;
-                                                        } else {
-                                                            return Err(PError::new(ErrorKind::Verify,
-                                                                                   "Unsupported signature algorithm".to_string()));
-                                                        }
-                                                        let _ = t_comment.drain(..TR_COMMENT_PREFIX_LEN).count();
-                                                        trusted_comment.extend(sig.sig.iter());
-                                                        trusted_comment.extend_from_slice(t_comment.trim().as_bytes());
-                                                        base64::decode(g_sig.trim().as_bytes())
-                                                            .map_err(|e| PError::new(ErrorKind::Io, e))
-                                                            .and_then(|comm_sig| {
-                                                                          global_sig.extend_from_slice(&comm_sig);
-                                                                          Ok(sig)
-                                                                      })
-                                                    })
-                                                })
+    let file = File::open(sig_file)
+        .map_err(|e| PError::new(ErrorKind::Io, format!("{} {:?}", e, sig_file)))?;
 
-                                        })
-                                })
-                        })
-                })
-        })
+    let mut buf = BufReader::new(file);
+    let mut untrusted_comment = String::with_capacity(COMMENTBYTES);
+    buf.read_line(&mut untrusted_comment)
+        .map_err(|e| PError::new(ErrorKind::Io, e))?;
+
+    let mut sig_string = String::with_capacity(SigStruct::len());
+    buf.read_line(&mut sig_string)
+        .map_err(|e| PError::new(ErrorKind::Io, e))?;
+
+    let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
+    buf.read_line(&mut t_comment)
+        .map_err(|e| PError::new(ErrorKind::Io, e))?;
+
+    let mut g_sig = String::with_capacity(SIGNATUREBYTES);
+    buf.read_line(&mut g_sig)
+        .map_err(|e| PError::new(ErrorKind::Io, e))?;
+
+    if !untrusted_comment.starts_with(COMMENT_PREFIX) {
+        return Err(PError::new(
+            ErrorKind::Verify,
+            format!("Untrusted comment must start with: {}", COMMENT_PREFIX),
+        ));
+    }
+
+    let sig_bytes =
+        base64::decode(sig_string.trim().as_bytes()).map_err(|e| PError::new(ErrorKind::Io, e))?;
+    let sig = SigStruct::from(&sig_bytes)?;
+    if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {
+        return Err(PError::new(
+            ErrorKind::Verify,
+            format!(
+                "trusted comment should start with: {}",
+                TRUSTED_COMMENT_PREFIX
+            ),
+        ));
+    }
+    if sig.sig_alg == SIGALG {
+        *hashed = false;
+    } else if sig.sig_alg == SIGALG_HASHED {
+        *hashed = true;
+    } else {
+        return Err(PError::new(
+            ErrorKind::Verify,
+            "Unsupported signature algorithm".to_string(),
+        ));
+    }
+    let _ = t_comment.drain(..TR_COMMENT_PREFIX_LEN).count();
+    trusted_comment.extend(sig.sig.iter());
+    trusted_comment.extend_from_slice(t_comment.trim().as_bytes());
+    let comm_sig =
+        base64::decode(g_sig.trim().as_bytes()).map_err(|e| PError::new(ErrorKind::Io, e))?;
+    global_sig.extend_from_slice(&comm_sig);
+
+    Ok(sig)
 }
 
 fn load_message_file<P>(message_file: P, hashed: bool) -> Result<Vec<u8>>
