@@ -25,8 +25,8 @@ where
     DirBuilder::new()
         .recursive(true)
         .create(&path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
-        .and_then(|_| Ok(()))
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+    Ok(())
 }
 
 #[cfg(windows)]
@@ -34,12 +34,12 @@ fn create_file<P>(path: P, _mode: u32) -> Result<BufWriter<File>>
 where
     P: AsRef<Path> + Copy + Debug,
 {
-    OpenOptions::new()
+    let file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
-        .and_then(|file| Ok(BufWriter::new(file)))
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+    Ok(BufWriter::new(file))
 }
 
 #[cfg(not(windows))]
@@ -47,42 +47,42 @@ fn create_file<P>(path: P, mode: u32) -> Result<BufWriter<File>>
 where
     P: AsRef<Path> + Copy + Debug,
 {
-    OpenOptions::new()
+    let file = OpenOptions::new()
         .mode(mode)
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
-        .and_then(|file| Ok(BufWriter::new(file)))
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+    Ok(BufWriter::new(file))
 }
 
 fn create_sig_file<P>(path: P) -> Result<BufWriter<File>>
 where
     P: AsRef<Path> + Copy + Debug,
 {
-    OpenOptions::new()
+    let file = OpenOptions::new()
         .write(true)
         .create(true)
         .open(path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
-        .and_then(|file| Ok(BufWriter::new(file)))
+        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+    Ok(BufWriter::new(file))
 }
 
 fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
-    let mut sk_str = OpenOptions::new()
+    let file = OpenOptions::new()
         .read(true)
         .open(sk_path)
-        .map_err(|e| PError::new(ErrorKind::Io, e))
-        .and_then(|file| {
-            let mut sk_buf = BufReader::new(file);
-            let mut _comment = String::new();
-            sk_buf.read_line(&mut _comment)?;
-            let mut encoded_buf = String::new();
-            sk_buf.read_line(&mut encoded_buf)?;
-            base64::decode(encoded_buf.trim())
-                .map_err(|e| PError::new(ErrorKind::Io, e))
-                .and_then(|decoded_buf| SeckeyStruct::from(&decoded_buf[..]))
-        })?;
+        .map_err(|e| PError::new(ErrorKind::Io, e))?;
+    let mut sk_str = {
+        let mut sk_buf = BufReader::new(file);
+        let mut _comment = String::new();
+        sk_buf.read_line(&mut _comment)?;
+        let mut encoded_buf = String::new();
+        sk_buf.read_line(&mut encoded_buf)?;
+        let decoded_buf =
+            base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
+        SeckeyStruct::from(&decoded_buf[..])
+    }?;
 
     let pwd = get_password("Password: ")?;
     write!(
@@ -95,92 +95,76 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
         derive_and_crypt(&mut sk_str, &pwd.as_bytes())
     })
     .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
-    sk_str
-        .read_checksum()
-        .map_err(|e| e)
-        .and_then(|checksum_vec| {
-            let mut chk = [0u8; CHK_BYTES];
-            chk.copy_from_slice(&checksum_vec[..]);
-            if chk != sk_str.keynum_sk.chk {
-                Err(PError::new(
-                    ErrorKind::Verify,
-                    "Wrong password for that key",
-                ))
-            } else {
-                Ok(sk_str)
-            }
-        })
+    let checksum_vec = sk_str.read_checksum().map_err(|e| e)?;
+    let mut chk = [0u8; CHK_BYTES];
+    chk.copy_from_slice(&checksum_vec[..]);
+    if chk != sk_str.keynum_sk.chk {
+        Err(PError::new(
+            ErrorKind::Verify,
+            "Wrong password for that key",
+        ))
+    } else {
+        Ok(sk_str)
+    }
 }
 
 fn pk_load<P>(pk_path: P) -> Result<PubkeyStruct>
 where
     P: AsRef<Path> + Copy + Debug,
 {
-    let pk = OpenOptions::new()
-        .read(true)
-        .open(pk_path)
-        .map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!("couldn't retrieve public key from {:?}: {}", pk_path, e),
-            )
-        })
-        .and_then(|file| {
-            let mut pk_buf = BufReader::new(file);
-            let mut _comment = String::new();
-            pk_buf.read_line(&mut _comment)?;
-            let mut encoded_buf = String::new();
-            pk_buf.read_line(&mut encoded_buf)?;
-            if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
-                return Err(PError::new(
-                    ErrorKind::Io,
-                    "base64 conversion failed - was an actual \
-                     public key given?"
-                        .to_string(),
-                ));
-            }
-            base64::decode(encoded_buf.trim())
-                .map_err(|e| {
-                    PError::new(
-                        ErrorKind::Io,
-                        format!(
-                            "base64 conversion failed -
+    let file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
+        PError::new(
+            ErrorKind::Io,
+            format!("couldn't retrieve public key from {:?}: {}", pk_path, e),
+        )
+    })?;
+    let mut pk_buf = BufReader::new(file);
+    let mut _comment = String::new();
+    pk_buf.read_line(&mut _comment)?;
+    let mut encoded_buf = String::new();
+    pk_buf.read_line(&mut encoded_buf)?;
+    if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
+        return Err(PError::new(
+            ErrorKind::Io,
+            "base64 conversion failed - was an actual \
+             public key given?"
+                .to_string(),
+        ));
+    }
+    let decoded_buf = base64::decode(encoded_buf.trim()).map_err(|e| {
+        PError::new(
+            ErrorKind::Io,
+            format!(
+                "base64 conversion failed -
                             was an actual public key given?: {}",
-                            e
-                        ),
-                    )
-                })
-                .and_then(|decoded_buf| PubkeyStruct::from(&decoded_buf))
-        })?;
-    Ok(pk)
+                e
+            ),
+        )
+    })?;
+    Ok(PubkeyStruct::from(&decoded_buf)?)
 }
 
 fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
-    let pk = String::from_str(pk_string)
-        .map_err(|e| PError::new(ErrorKind::Io, e))
-        .and_then(|encoded_string| {
-            if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
-                return Err(PError::new(
-                    ErrorKind::Io,
-                    "base64 conversion failed -
+    let encoded_string = String::from_str(pk_string).map_err(|e| PError::new(ErrorKind::Io, e))?;
+    if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
+        return Err(PError::new(
+            ErrorKind::Io,
+            "base64 conversion failed -
                  was an actual public key given?"
-                        .to_string(),
-                ));
-            }
-            base64::decode(encoded_string.as_bytes())
-                .map_err(|e| {
-                    PError::new(
-                        ErrorKind::Io,
-                        format!(
-                            "base64 conversion
+                .to_string(),
+        ));
+    }
+    let decoded_string = base64::decode(encoded_string.as_bytes()).map_err(|e| {
+        PError::new(
+            ErrorKind::Io,
+            format!(
+                "base64 conversion
                           failed - was an actual public key given?: {}",
-                            e
-                        ),
-                    )
-                })
-                .and_then(|decoded_string| PubkeyStruct::from(&decoded_string))
-        })?;
-    Ok(pk)
+                e
+            ),
+        )
+    })?;
+    PubkeyStruct::from(&decoded_string)
 }
 
 fn sig_load<P>(
@@ -258,42 +242,39 @@ where
     if hashed {
         return hash_message_file(message_file);
     }
-    OpenOptions::new()
+    let mut file = OpenOptions::new()
         .read(true)
         .open(message_file)
-        .map_err(|e| PError::new(ErrorKind::Io, e))
-        .and_then(|mut file| {
-            if file.metadata().unwrap().len() > (1u64 << 30) {
-                return Err(PError::new(
-                    ErrorKind::Io,
-                    format!("{:?} is larger than 1G try using -H", message_file),
-                ));
-            }
-            let mut msg_buf: Vec<u8> = Vec::new();
-            file.read_to_end(&mut msg_buf)?;
-            Ok(msg_buf)
-        })
+        .map_err(|e| PError::new(ErrorKind::Io, e))?;
+    if file.metadata().unwrap().len() > (1u64 << 30) {
+        return Err(PError::new(
+            ErrorKind::Io,
+            format!("{:?} is larger than 1G try using -H", message_file),
+        ));
+    }
+    let mut msg_buf: Vec<u8> = Vec::new();
+    file.read_to_end(&mut msg_buf)?;
+    Ok(msg_buf)
 }
 
 fn hash_message_file<P>(message_file: P) -> Result<Vec<u8>>
 where
     P: AsRef<Path> + Copy,
 {
-    OpenOptions::new()
+    let file = OpenOptions::new()
         .read(true)
         .open(message_file)
-        .map_err(|e| PError::new(ErrorKind::Io, e))
-        .and_then(|file| {
-            let mut buf_reader = BufReader::new(file);
-            let mut buf_chunk = [0u8; 65536];
-            let mut state = Blake2b::new(PREHASH_BYTES);
-            while buf_reader.read(&mut buf_chunk).unwrap() > 0 {
-                state.input(&buf_chunk);
-            }
-            let mut out = vec![0u8; PREHASH_BYTES];
-            state.result(&mut out);
-            Ok(out)
-        })
+        .map_err(|e| PError::new(ErrorKind::Io, e))?;
+
+    let mut buf_reader = BufReader::new(file);
+    let mut buf_chunk = [0u8; 65536];
+    let mut state = Blake2b::new(PREHASH_BYTES);
+    while buf_reader.read(&mut buf_chunk).unwrap() > 0 {
+        state.input(&buf_chunk);
+    }
+    let mut out = vec![0u8; PREHASH_BYTES];
+    state.result(&mut out);
+    Ok(out)
 }
 
 fn run(args: clap::ArgMatches) -> Result<()> {
