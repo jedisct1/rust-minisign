@@ -196,7 +196,7 @@ where
         ))?;
     }
     let signature_box_writer = create_sig_file(&signature_path)?;
-    let sk = sk_load(sk_path)?;
+    let sk = SecretKey::from_file(sk_path)?;
     let trusted_comment = if let Some(trusted_comment) = trusted_comment {
         trusted_comment.to_string()
     } else {
@@ -331,11 +331,11 @@ fn run(args: clap::ArgMatches) -> Result<()> {
         let mut pk = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
-                pk = Some(pk_load(filename)?);
+                pk = Some(PublicKey::from_file(filename)?);
             }
         } else if sign_action.is_present("public_key") {
             if let Some(string) = sign_action.value_of("public_key") {
-                pk = Some(pk_load_string(string)?);
+                pk = Some(PublicKey::from_string(string)?);
             }
         };
         let hashed = sign_action.is_present("hash");
@@ -363,12 +363,12 @@ fn run(args: clap::ArgMatches) -> Result<()> {
         let pk = match pk_path_str {
             Some(path_or_string) => {
                 if verify_action.is_present("pk_path") {
-                    pk_load(path_or_string)?
+                    PublicKey::from_file(path_or_string)?
                 } else {
-                    pk_load_string(path_or_string)?
+                    PublicKey::from_string(path_or_string)?
                 }
             }
-            None => pk_load(SIG_DEFAULT_PKFILE)?,
+            None => PublicKey::from_file(SIG_DEFAULT_PKFILE)?,
         };
         let message_path = verify_action.value_of("file").unwrap();
         let signature_path = if let Some(path) = verify_action.value_of("sig_file") {
@@ -393,6 +393,11 @@ fn main() {
 
 #[test]
 fn load_public_key_string() {
-    assert!(pk_load_string("RWRzq51bKcS8oJvZ4xEm+nRvGYPdsNRD3ciFPu1YJEL8Bl/3daWaj72r").is_ok());
-    assert!(pk_load_string("RWQt7oYqpar/yePp+nonossdnononovlOSkkckMMfvHuGc+0+oShmJyN5Y").is_err());
+    assert!(
+        PublicKey::from_string("RWRzq51bKcS8oJvZ4xEm+nRvGYPdsNRD3ciFPu1YJEL8Bl/3daWaj72r").is_ok()
+    );
+    assert!(
+        PublicKey::from_string("RWQt7oYqpar/yePp+nonossdnononovlOSkkckMMfvHuGc+0+oShmJyN5Y")
+            .is_err()
+    );
 }

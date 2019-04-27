@@ -229,100 +229,104 @@ pub fn verify(
     Ok(())
 }
 
-pub fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SecretKey> {
-    let file = OpenOptions::new()
-        .read(true)
-        .open(sk_path)
-        .map_err(|e| PError::new(ErrorKind::Io, e))?;
-    let mut sk_str = {
-        let mut sk_buf = BufReader::new(file);
+impl SecretKey {
+    pub fn from_file<P: AsRef<Path>>(sk_path: P) -> Result<SecretKey> {
+        let file = OpenOptions::new()
+            .read(true)
+            .open(sk_path)
+            .map_err(|e| PError::new(ErrorKind::Io, e))?;
+        let mut sk_str = {
+            let mut sk_buf = BufReader::new(file);
+            let mut _comment = String::new();
+            sk_buf.read_line(&mut _comment)?;
+            let mut encoded_buf = String::new();
+            sk_buf.read_line(&mut encoded_buf)?;
+            let decoded_buf =
+                base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
+            SecretKey::from_bytes(&decoded_buf[..])
+        }?;
+
+        let pwd = get_password("Password: ")?;
+        write!(
+            io::stdout(),
+            "Deriving a key from the password and decrypting the secret key... "
+        )
+        .map_err(|e| PError::new(ErrorKind::Io, e))
+        .and_then(|_| {
+            io::stdout().flush()?;
+            derive_and_crypt(&mut sk_str, &pwd.as_bytes())
+        })
+        .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
+        let checksum_vec = sk_str.read_checksum().map_err(|e| e)?;
+        let mut chk = [0u8; CHK_BYTES];
+        chk.copy_from_slice(&checksum_vec[..]);
+        if chk != sk_str.keynum_sk.chk {
+            Err(PError::new(
+                ErrorKind::Verify,
+                "Wrong password for that key",
+            ))
+        } else {
+            Ok(sk_str)
+        }
+    }
+}
+
+impl PublicKey {
+    pub fn from_file<P>(pk_path: P) -> Result<PublicKey>
+    where
+        P: AsRef<Path>,
+    {
+        let pk_path = pk_path.as_ref();
+        let file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!(
+                    "couldn't retrieve public key from {}: {}",
+                    pk_path.display(),
+                    e
+                ),
+            )
+        })?;
+        let mut pk_buf = BufReader::new(file);
         let mut _comment = String::new();
-        sk_buf.read_line(&mut _comment)?;
+        pk_buf.read_line(&mut _comment)?;
         let mut encoded_buf = String::new();
-        sk_buf.read_line(&mut encoded_buf)?;
-        let decoded_buf =
-            base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
-        SecretKey::from_bytes(&decoded_buf[..])
-    }?;
-
-    let pwd = get_password("Password: ")?;
-    write!(
-        io::stdout(),
-        "Deriving a key from the password and decrypting the secret key... "
-    )
-    .map_err(|e| PError::new(ErrorKind::Io, e))
-    .and_then(|_| {
-        io::stdout().flush()?;
-        derive_and_crypt(&mut sk_str, &pwd.as_bytes())
-    })
-    .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
-    let checksum_vec = sk_str.read_checksum().map_err(|e| e)?;
-    let mut chk = [0u8; CHK_BYTES];
-    chk.copy_from_slice(&checksum_vec[..]);
-    if chk != sk_str.keynum_sk.chk {
-        Err(PError::new(
-            ErrorKind::Verify,
-            "Wrong password for that key",
-        ))
-    } else {
-        Ok(sk_str)
+        pk_buf.read_line(&mut encoded_buf)?;
+        if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
+            return Err(PError::new(
+                ErrorKind::Io,
+                "base64 conversion failed - was an actual public key given?".to_string(),
+            ));
+        }
+        let decoded_buf = base64::decode(encoded_buf.trim()).map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!(
+                    "base64 conversion failed - was an actual public key given?: {}",
+                    e
+                ),
+            )
+        })?;
+        Ok(PublicKey::from_bytes(&decoded_buf)?)
     }
-}
 
-pub fn pk_load<P>(pk_path: P) -> Result<PublicKey>
-where
-    P: AsRef<Path>,
-{
-    let pk_path = pk_path.as_ref();
-    let file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
-        PError::new(
-            ErrorKind::Io,
-            format!(
-                "couldn't retrieve public key from {}: {}",
-                pk_path.display(),
-                e
-            ),
-        )
-    })?;
-    let mut pk_buf = BufReader::new(file);
-    let mut _comment = String::new();
-    pk_buf.read_line(&mut _comment)?;
-    let mut encoded_buf = String::new();
-    pk_buf.read_line(&mut encoded_buf)?;
-    if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
-        return Err(PError::new(
-            ErrorKind::Io,
-            "base64 conversion failed - was an actual public key given?".to_string(),
-        ));
+    pub fn from_string(pk_string: &str) -> Result<PublicKey> {
+        let encoded_string = pk_string.to_string();
+        if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
+            return Err(PError::new(
+                ErrorKind::Io,
+                "base64 conversion failed - was an actual public key given?".to_string(),
+            ));
+        }
+        let decoded_string = base64::decode(encoded_string.as_bytes()).map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!(
+                    "base64 conversion failed - was an actual public key given?: {}",
+                    e
+                ),
+            )
+        })?;
+        PublicKey::from_bytes(&decoded_string)
     }
-    let decoded_buf = base64::decode(encoded_buf.trim()).map_err(|e| {
-        PError::new(
-            ErrorKind::Io,
-            format!(
-                "base64 conversion failed - was an actual public key given?: {}",
-                e
-            ),
-        )
-    })?;
-    Ok(PublicKey::from_bytes(&decoded_buf)?)
-}
-
-pub fn pk_load_string(pk_string: &str) -> Result<PublicKey> {
-    let encoded_string = pk_string.to_string();
-    if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
-        return Err(PError::new(
-            ErrorKind::Io,
-            "base64 conversion failed - was an actual public key given?".to_string(),
-        ));
-    }
-    let decoded_string = base64::decode(encoded_string.as_bytes()).map_err(|e| {
-        PError::new(
-            ErrorKind::Io,
-            format!(
-                "base64 conversion failed - was an actual public key given?: {}",
-                e
-            ),
-        )
-    })?;
-    PublicKey::from_bytes(&decoded_string)
 }
