@@ -235,7 +235,7 @@ impl SecretKey {
             .read(true)
             .open(sk_path)
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
-        let mut sk_str = {
+        let mut sk = {
             let mut sk_buf = BufReader::new(file);
             let mut _comment = String::new();
             sk_buf.read_line(&mut _comment)?;
@@ -259,20 +259,20 @@ impl SecretKey {
                 password
             }
         };
-        derive_and_crypt(&mut sk_str, &password.as_bytes())?;
+        derive_and_crypt(&mut sk, &password.as_bytes())?;
         if interactive {
             writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?
         }
-        let checksum_vec = sk_str.read_checksum().map_err(|e| e)?;
+        let checksum_vec = sk.read_checksum().map_err(|e| e)?;
         let mut chk = [0u8; CHK_BYTES];
         chk.copy_from_slice(&checksum_vec[..]);
-        if chk != sk_str.keynum_sk.chk {
+        if chk != sk.keynum_sk.chk {
             Err(PError::new(
                 ErrorKind::Verify,
                 "Wrong password for that key",
             ))
         } else {
-            Ok(sk_str)
+            Ok(sk)
         }
     }
 }
