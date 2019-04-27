@@ -37,7 +37,8 @@ impl PError {
         ::std::process::exit(1)
     }
     pub fn new<E>(kind: ErrorKind, err: E) -> PError
-        where E: Into<Box<StdError + Send + Sync>>
+    where
+        E: Into<Box<StdError + Send + Sync>>,
     {
         PError {
             kind: kind,

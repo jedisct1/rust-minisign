@@ -1,30 +1,25 @@
-extern crate sodiumoxide;
 extern crate libc;
+extern crate sodiumoxide;
 
-extern crate rpassword;
 extern crate base64;
+extern crate rpassword;
 
-use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::crypto::pwhash;
-use sodiumoxide::crypto::sign::*;
+use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::crypto::sign;
+use sodiumoxide::crypto::sign::*;
 use sodiumoxide::randombytes::randombytes;
-
 
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 
-
 pub mod parse_args;
-pub mod generichash;
 pub mod perror;
 pub mod types;
 
-pub use generichash::*;
-pub use parse_args::*;
-pub use perror::*;
-pub use types::*;
-
+pub use crate::parse_args::*;
+pub use crate::perror::*;
+pub use crate::types::*;
 
 pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
     let (pk, sk) = gen_keypair();
@@ -59,7 +54,7 @@ pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
         keynum_sk: KeynumSK {
             keynum: keynum.clone(),
             sk: sk,
-            chk: [0; BYTES],
+            chk: [0; CHK_BYTES],
         },
     };
     (p_struct, s_struct)
@@ -71,7 +66,10 @@ pub fn get_password(prompt: &str) -> Result<String> {
         println!("<empty>");
         Ok(pwd)
     } else if pwd.len() > PASSWORDMAXBYTES {
-        Err(PError::new(ErrorKind::Misc, "passphrase can't exceed 1024 bytes lenght"))
+        Err(PError::new(
+            ErrorKind::Misc,
+            "passphrase can't exceed 1024 bytes lenght",
+        ))
     } else {
         Ok(pwd)
     }
@@ -90,87 +88,109 @@ pub fn store_usize_le(x: usize) -> [u8; 8] {
 }
 
 pub fn load_usize_le(x: &[u8]) -> usize {
-    (x[0] as usize) | (x[1] as usize) << 8 | (x[2] as usize) << 16 | (x[3] as usize) << 24 |
-    (x[4] as usize) << 32 | (x[5] as usize) << 40 |
-    (x[6] as usize) << 48 | (x[7] as usize) << 56
+    (x[0] as usize)
+        | (x[1] as usize) << 8
+        | (x[2] as usize) << 16
+        | (x[3] as usize) << 24
+        | (x[4] as usize) << 32
+        | (x[5] as usize) << 40
+        | (x[6] as usize) << 48
+        | (x[7] as usize) << 56
 }
-pub fn verify(pk_key: PubkeyStruct,
-              sig: SigStruct,
-              global_sig: &[u8],
-              trusted_comment: &[u8],
-              message: &[u8],
-              quiet: bool,
-              output: bool)
-              -> Result<()> {
-
+pub fn verify(
+    pk_key: PubkeyStruct,
+    sig: SigStruct,
+    global_sig: &[u8],
+    trusted_comment: &[u8],
+    message: &[u8],
+    quiet: bool,
+    output: bool,
+) -> Result<()> {
     if sig.keynum != pk_key.keynum_pk.keynum {
-        return Err(PError::new(ErrorKind::Verify,
-                               format!("Signature key id: {:X} is different from public key: {:X}",
-                                       load_usize_le(&sig.keynum[..]),
-                                       load_usize_le(&pk_key.keynum_pk.keynum[..]))));
+        return Err(PError::new(
+            ErrorKind::Verify,
+            format!(
+                "Signature key id: {:X} is different from public key: {:X}",
+                load_usize_le(&sig.keynum[..]),
+                load_usize_le(&pk_key.keynum_pk.keynum[..])
+            ),
+        ));
     }
     Signature::from_slice(&sig.sig)
-        .ok_or(PError::new(ErrorKind::Verify,
-                           "Couldn't compose message file signature from bytes"))
+        .ok_or(PError::new(
+            ErrorKind::Verify,
+            "Couldn't compose message file signature from bytes",
+        ))
         .and_then(|signature| {
             PublicKey::from_slice(&pk_key.keynum_pk.pk)
-                .ok_or(PError::new(ErrorKind::Verify,
-                                   "Couldn't compose a public key from bytes"))
-                .and_then(|pk| if sign::verify_detached(&signature, &message, &pk) {
-                              Ok(pk)
-                          } else {
-                              Err(PError::new(ErrorKind::Verify, "Signature verification failed"))
-                          })
+                .ok_or(PError::new(
+                    ErrorKind::Verify,
+                    "Couldn't compose a public key from bytes",
+                ))
+                .and_then(|pk| {
+                    if sign::verify_detached(&signature, &message, &pk) {
+                        Ok(pk)
+                    } else {
+                        Err(PError::new(
+                            ErrorKind::Verify,
+                            "Signature verification failed",
+                        ))
+                    }
+                })
                 .and_then(|pk| {
                     Signature::from_slice(&global_sig[..])
-                        .ok_or(PError::new(ErrorKind::Verify,
-                                           "Couldn't compose trusted comment signature from bytes"))
-                        .and_then(|global_sig| if sign::verify_detached(&global_sig,
-                                                                        &trusted_comment,
-                                                                        &pk) {
-                                      let just_comment =
-                                          String::from_utf8(trusted_comment[SIGNATUREBYTES..]
-                                                                .to_vec())?;
-                                      if !quiet {
-                                          println!("Signature and comment signature verified");
-                                          println!("Trusted comment: {}", just_comment);
-                                      }
-                                      if output {
-                                          print!("{}", String::from_utf8_lossy(&message[..]));
-                                      }
-                                      Ok(())
-                                  } else {
-                                      return Err(PError::new(ErrorKind::Verify,
-                                                             "Comment signature verification \
-                                                              failed"));
-                                  })
+                        .ok_or(PError::new(
+                            ErrorKind::Verify,
+                            "Couldn't compose trusted comment signature from bytes",
+                        ))
+                        .and_then(|global_sig| {
+                            if sign::verify_detached(&global_sig, &trusted_comment, &pk) {
+                                let just_comment =
+                                    String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;
+                                if !quiet {
+                                    println!("Signature and comment signature verified");
+                                    println!("Trusted comment: {}", just_comment);
+                                }
+                                if output {
+                                    print!("{}", String::from_utf8_lossy(&message[..]));
+                                }
+                                Ok(())
+                            } else {
+                                return Err(PError::new(
+                                    ErrorKind::Verify,
+                                    "Comment signature verification \
+                                     failed",
+                                ));
+                            }
+                        })
                 })
         })
 }
 
-pub fn sign<W>(sk_key: SeckeyStruct,
-            pk_key: Option<PubkeyStruct>,
-            mut sig_buf: W,
-            message: &[u8],
-            hashed: bool,
-            trusted_comment: &str,
-            untrusted_comment: &str)
-            -> Result<()>
-    where W: Write            
+pub fn sign<W>(
+    sk_key: SeckeyStruct,
+    pk_key: Option<PubkeyStruct>,
+    mut sig_buf: W,
+    message: &[u8],
+    hashed: bool,
+    trusted_comment: &str,
+    untrusted_comment: &str,
+) -> Result<()>
+where
+    W: Write,
 {
-
     let mut sig_str = SigStruct::default();
     if !hashed {
         sig_str.sig_alg = sk_key.sig_alg.clone();
     } else {
         sig_str.sig_alg = SIGALG_HASHED;
     }
-    sig_str
-        .keynum
-        .copy_from_slice(&sk_key.keynum_sk.keynum[..]);
+    sig_str.keynum.copy_from_slice(&sk_key.keynum_sk.keynum[..]);
 
-    let sk = SecretKey::from_slice(&sk_key.keynum_sk.sk)
-        .ok_or(PError::new(ErrorKind::Sign, "Couldn't generate secret key from bytes"))?;
+    let sk = SecretKey::from_slice(&sk_key.keynum_sk.sk).ok_or(PError::new(
+        ErrorKind::Sign,
+        "Couldn't generate secret key from bytes",
+    ))?;
 
     let signature = sodiumoxide::crypto::sign::sign_detached(message, &sk);
 
@@ -184,16 +204,31 @@ pub fn sign<W>(sk_key: SeckeyStruct,
 
     if let Some(pk_str) = pk_key {
         PublicKey::from_slice(&pk_str.keynum_pk.pk[..])
-            .ok_or(PError::new(ErrorKind::Sign, "failed to obtain public key from bytes"))
-            .and_then(|pk|{
-                   if !sodiumoxide::crypto::sign::verify_detached(&global_sig, &sig_and_trust_comment, &pk) {
-                       Err(PError::new(ErrorKind::Verify,format!("Could not verify signature with the \
-                        provided public key ID: {:X}", load_usize_le(&pk_str.keynum_pk.keynum[..]))))
-                    } else {
-                        println!("\nSignature checked with the public key ID: {:X}",
-                                load_usize_le(&pk_str.keynum_pk.keynum[..]));
-                                Ok(())
-                    } 
+            .ok_or(PError::new(
+                ErrorKind::Sign,
+                "failed to obtain public key from bytes",
+            ))
+            .and_then(|pk| {
+                if !sodiumoxide::crypto::sign::verify_detached(
+                    &global_sig,
+                    &sig_and_trust_comment,
+                    &pk,
+                ) {
+                    Err(PError::new(
+                        ErrorKind::Verify,
+                        format!(
+                            "Could not verify signature with the \
+                             provided public key ID: {:X}",
+                            load_usize_le(&pk_str.keynum_pk.keynum[..])
+                        ),
+                    ))
+                } else {
+                    println!(
+                        "\nSignature checked with the public key ID: {:X}",
+                        load_usize_le(&pk_str.keynum_pk.keynum[..])
+                    );
+                    Ok(())
+                }
             })?;
     }
 
@@ -205,37 +240,40 @@ pub fn sign<W>(sk_key: SeckeyStruct,
     Ok(())
 }
 
-pub fn generate(mut pk_file: BufWriter<File>,
-                mut sk_file: BufWriter<File>,
-                comment: Option<&str>)
-                -> Result<(PubkeyStruct, SeckeyStruct)> {
+pub fn generate(
+    mut pk_file: BufWriter<File>,
+    mut sk_file: BufWriter<File>,
+    comment: Option<&str>,
+) -> Result<(PubkeyStruct, SeckeyStruct)> {
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str
         .write_checksum()
         .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
-    write!(io::stdout(),
-           "Please enter a password to protect the secret key.\n")?;
+    write!(
+        io::stdout(),
+        "Please enter a password to protect the secret key.\n"
+    )?;
     let pwd = get_password("Password: ")?;
     let pwd2 = get_password("Password (one more time): ")?;
     if pwd != pwd2 {
         return Err(PError::new(ErrorKind::Generate, "passwords don't match!"));
     }
 
-    write!(io::stdout(),
-           "Deriving a key from the password in order to encrypt the secret key... ")
-            .map_err(|e| PError::new(ErrorKind::Io, e))
-            .and_then(|_| {
-                          io::stdout().flush()?;
-                          derive_and_crypt(&mut sk_str, &pwd.as_bytes())
-                      })
-            .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
+    write!(
+        io::stdout(),
+        "Deriving a key from the password in order to encrypt the secret key... "
+    )
+    .map_err(|e| PError::new(ErrorKind::Io, e))
+    .and_then(|_| {
+        io::stdout().flush()?;
+        derive_and_crypt(&mut sk_str, &pwd.as_bytes())
+    })
+    .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
 
-
-    write!(pk_file, "{}rsign public key: ", COMMENT_PREFIX)?;
+    write!(pk_file, "{}rsign2 public key: ", COMMENT_PREFIX)?;
     writeln!(pk_file, "{:X}", load_usize_le(&pk_str.keynum_pk.keynum[..]))?;
     writeln!(pk_file, "{}", base64::encode(&pk_str.bytes()))?;
     pk_file.flush()?;
-
 
     write!(sk_file, "{}", COMMENT_PREFIX)?;
     if let Some(comment) = comment {
@@ -250,18 +288,21 @@ pub fn generate(mut pk_file: BufWriter<File>,
 }
 
 pub fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
-    let mut stream = [0u8; BYTES + SECRETKEYBYTES + KEYNUMBYTES];
+    let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
     pwhash::Salt::from_slice(&sk_str.kdf_salt)
-        .ok_or(PError::new(ErrorKind::Misc, "failed to generate Salt from random bytes"))
+        .ok_or(PError::new(
+            ErrorKind::Misc,
+            "failed to generate Salt from random bytes",
+        ))
         .and_then(|salt| {
-
-            pwhash::derive_key(&mut stream,
-                               &pwd,
-                               &salt,
-                               OpsLimit(load_usize_le(&sk_str.kdf_opslimit_le)),
-                               MemLimit(load_usize_le(&sk_str.kdf_memlimit_le)))
-                    .map_err(|_| PError::new(ErrorKind::Misc, "failed to derive key from password"))
-
+            pwhash::derive_key(
+                &mut stream,
+                &pwd,
+                &salt,
+                OpsLimit(load_usize_le(&sk_str.kdf_opslimit_le)),
+                MemLimit(load_usize_le(&sk_str.kdf_memlimit_le)),
+            )
+            .map_err(|_| PError::new(ErrorKind::Misc, "failed to derive key from password"))
         })?;
     sk_str.xor_keynum(&stream);
     Ok(())
@@ -272,34 +313,34 @@ mod tests {
 
     #[test]
     fn byte_array_store() {
-        use store_usize_le;
+        use crate::store_usize_le;
         assert_eq!([0xFF, 0, 0, 0, 0, 0, 0, 0], store_usize_le(0xFF));
     }
     #[test]
     fn byte_array_load() {
-        use load_usize_le;
+        use crate::load_usize_le;
         assert_eq!(255, load_usize_le(&[0xFF, 0, 0, 0, 0, 0, 0, 0]));
     }
 
     #[test]
     fn pk_key_struct_conversion() {
-        use gen_keystruct;
-        use PubkeyStruct;
+        use crate::gen_keystruct;
+        use crate::PubkeyStruct;
         let (pk, _) = gen_keystruct();
         assert_eq!(pk, PubkeyStruct::from(&pk.bytes()).unwrap());
     }
     #[test]
     fn sk_key_struct_conversion() {
-        use gen_keystruct;
-        use SeckeyStruct;
+        use crate::gen_keystruct;
+        use crate::SeckeyStruct;
         let (_, sk) = gen_keystruct();
         assert_eq!(sk, SeckeyStruct::from(&sk.bytes()).unwrap());
     }
 
     #[test]
     fn xor_keynum() {
-        use randombytes;
-        use gen_keystruct;
+        use crate::gen_keystruct;
+        use crate::randombytes;
         let (_, mut sk) = gen_keystruct();
         let key = randombytes(sk.keynum_sk.len());
         let original_keynum = sk.keynum_sk.clone();
@@ -307,14 +348,12 @@ mod tests {
         assert_ne!(original_keynum, sk.keynum_sk);
         sk.xor_keynum(&key);
         assert_eq!(original_keynum, sk.keynum_sk);
-
     }
     #[test]
     fn sk_checksum() {
-        use gen_keystruct;
+        use crate::gen_keystruct;
         let (_, mut sk) = gen_keystruct();
         assert!(sk.write_checksum().is_ok());
         assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap());
-
     }
 }

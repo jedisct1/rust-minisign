@@ -1,22 +1,23 @@
 [package]
-name = "rsign"
-version = "0.1.2"
-authors = ["Daniel Rangel <daniel@rangel.in>"]
+name = "rsign2"
+version = "0.2.0"
+authors = ["Frank Denis <github@pureftpd.org>", "Daniel Rangel <daniel@rangel.in>"]
 description = "A command-line tool to sign files and verify signatures."
 license = "MIT"
 readme = "README.md"
 categories = ["command-line-utilities", "cryptography"]
 keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
-repository = "https://bitbucket.org/danielrangel/rsign"
+repository = "https://github.com/jedisct1/rsign2"
 
 [dependencies]
-sodiumoxide = "0.0.15"
-libsodium-sys = "0.0.15"
-base64 = "0.6.0"
-clap = "2.26.0"
+sodiumoxide = "0.2"
+libsodium-sys = "0.2"
+base64 = "0.10"
+clap = "2.33"
 libc = "0.2"
-rpassword = "1.0.0"
+rpassword = "3.0"
 chrono = "0.4"
+dirs = "1.0"
 
 [dev-dependencies]
-unwrap = "~1.1.0"
+unwrap = "1.2"

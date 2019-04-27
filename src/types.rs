@@ -1,11 +1,11 @@
 extern crate libsodium_sys as ffi;
 
-use sodiumoxide::crypto::sign::*;
+use crate::Result;
+use sodiumoxide::crypto::generichash;
 use sodiumoxide::crypto::pwhash::*;
-use generichash::{self, BYTES};
-use std::fmt::{self, Formatter};
-use ::Result;
+use sodiumoxide::crypto::sign::*;
 use std::cmp;
+use std::fmt::{self, Formatter};
 use std::io::{Cursor, Read};
 
 pub const KEYNUMBYTES: usize = 8;
@@ -27,12 +27,14 @@ pub const SIG_DEFAULT_CONFIG_DIR: &'static str = ".rsign";
 pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &'static str = "RSIGN_CONFIG_DIR";
 pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
 pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
-pub const SIG_SUFFIX: &'static str = ".rsign";
+pub const SIG_SUFFIX: &'static str = ".minisig";
+pub const CHK_BYTES: usize = 32;
+pub const PREHASH_BYTES: usize = 64;
 
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
     pub sk: [u8; SECRETKEYBYTES],
-    pub chk: [u8; BYTES],
+    pub chk: [u8; CHK_BYTES],
 }
 
 impl Clone for KeynumSK {
@@ -55,7 +57,7 @@ impl KeynumSK {
 impl fmt::Debug for KeynumSK {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for byte in self.sk.iter() {
-            try!(write!(f, "{:x}", byte))
+            r#try!(write!(f, "{:x}", byte))
         }
         Ok(())
     }
@@ -90,7 +92,7 @@ impl SeckeyStruct {
         let mut mem_limit = [0u8; KEYNUMBYTES];
         let mut keynum = [0u8; KEYNUMBYTES];
         let mut sk = [0u8; SECRETKEYBYTES];
-        let mut chk = [0u8; BYTES];
+        let mut chk = [0u8; CHK_BYTES];
         buf.read(&mut sig_alg)?;
         buf.read(&mut kdf_alg)?;
         buf.read(&mut chk_alg)?;
@@ -102,18 +104,18 @@ impl SeckeyStruct {
         buf.read(&mut chk)?;
 
         Ok(SeckeyStruct {
-               sig_alg: sig_alg,
-               kdf_alg: kdf_alg,
-               chk_alg: chk_alg,
-               kdf_salt: kdf_salt,
-               kdf_opslimit_le: ops_limit,
-               kdf_memlimit_le: mem_limit,
-               keynum_sk: KeynumSK {
-                   keynum: keynum,
-                   sk: sk,
-                   chk: chk,
-               },
-           })
+            sig_alg: sig_alg,
+            kdf_alg: kdf_alg,
+            chk_alg: chk_alg,
+            kdf_salt: kdf_salt,
+            kdf_opslimit_le: ops_limit,
+            kdf_memlimit_le: mem_limit,
+            keynum_sk: KeynumSK {
+                keynum: keynum,
+                sk: sk,
+                chk: chk,
+            },
+        })
     }
     pub fn bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
@@ -129,9 +131,9 @@ impl SeckeyStruct {
         let v: Vec<u8> = iters
             .iter()
             .flat_map(|b| {
-                          let b = b.clone();
-                          b.into_iter().cloned()
-                      })
+                let b = b.clone();
+                b.into_iter().cloned()
+            })
             .collect();
         v
     }
@@ -142,34 +144,33 @@ impl SeckeyStruct {
     }
 
     pub fn read_checksum(&self) -> Result<Vec<u8>> {
-        let state_sz = unsafe { ffi::crypto_generichash_statebytes() };
-        let mut state: Vec<u8> = vec![0;state_sz];
-        let ptr_state = state.as_mut_ptr() as *mut ffi::crypto_generichash_state;
-        generichash::init(ptr_state)?;
-        generichash::update(ptr_state, &self.sig_alg)?;
-        generichash::update(ptr_state, &self.keynum_sk.keynum)?;
-        generichash::update(ptr_state, &self.keynum_sk.sk)?;
-        let h = generichash::finalize(ptr_state)?;
+        let mut state = generichash::State::new(CHK_BYTES, None).unwrap();
+        state.update(&self.sig_alg).unwrap();
+        state.update(&self.keynum_sk.keynum).unwrap();
+        state.update(&self.keynum_sk.sk).unwrap();
+        let h = state.finalize().unwrap();
         Ok(Vec::from(&h[..]))
     }
 
     pub fn xor_keynum(&mut self, stream: &[u8]) {
-
-        let b8 = self.keynum_sk
+        let b8 = self
+            .keynum_sk
             .keynum
             .iter_mut()
             .zip(stream.iter())
             .map(|(byte, stream)| *byte = *byte ^ *stream)
             .count();
 
-        let b64 = self.keynum_sk
+        let b64 = self
+            .keynum_sk
             .sk
             .iter_mut()
             .zip(stream[b8..].iter())
             .map(|(byte, stream)| *byte = *byte ^ *stream)
             .count();
 
-        let _b32 = self.keynum_sk
+        let _b32 = self
+            .keynum_sk
             .chk
             .iter_mut()
             .zip(stream[b8 + b64..].iter())
@@ -181,7 +182,7 @@ impl SeckeyStruct {
 impl fmt::Debug for SeckeyStruct {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for byte in self.keynum_sk.sk.iter() {
-            try!(write!(f, "{:x}", byte))
+            r#try!(write!(f, "{:x}", byte))
         }
         Ok(())
     }
@@ -229,12 +230,12 @@ impl PubkeyStruct {
         buf.read(&mut keynum)?;
         buf.read(&mut pk)?;
         Ok(PubkeyStruct {
-               sig_alg: sig_alg,
-               keynum_pk: KeynumPK {
-                   keynum: keynum,
-                   pk: pk,
-               },
-           })
+            sig_alg: sig_alg,
+            keynum_pk: KeynumPK {
+                keynum: keynum,
+                pk: pk,
+            },
+        })
     }
 
     pub fn bytes(&self) -> Vec<u8> {
@@ -245,9 +246,9 @@ impl PubkeyStruct {
         let v: Vec<u8> = iters
             .iter()
             .flat_map(|b| {
-                          let b = b.clone();
-                          b.into_iter().cloned()
-                      })
+                let b = b.clone();
+                b.into_iter().cloned()
+            })
             .collect();
         v
     }
@@ -271,9 +272,9 @@ impl SigStruct {
         let v: Vec<u8> = iters
             .iter()
             .flat_map(|b| {
-                          let b = b.clone();
-                          b.into_iter().cloned()
-                      })
+                let b = b.clone();
+                b.into_iter().cloned()
+            })
             .collect();
         v
     }
@@ -286,10 +287,10 @@ impl SigStruct {
         buf.read(&mut keynum)?;
         buf.read(&mut sig)?;
         Ok(SigStruct {
-               sig_alg: sig_alg,
-               keynum: keynum,
-               sig: sig,
-           })
+            sig_alg: sig_alg,
+            keynum: keynum,
+            sig: sig,
+        })
     }
 }
 
