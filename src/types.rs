@@ -2,7 +2,6 @@ extern crate libsodium_sys as ffi;
 
 use crate::Result;
 use sodiumoxide::crypto::generichash;
-use sodiumoxide::crypto::pwhash::*;
 use sodiumoxide::crypto::sign::*;
 use std::cmp;
 use std::fmt::{self, Formatter};
@@ -30,6 +29,9 @@ pub const SIG_DEFAULT_SKFILE: &str = "rsign.key";
 pub const SIG_SUFFIX: &str = ".minisig";
 pub const CHK_BYTES: usize = 32;
 pub const PREHASH_BYTES: usize = 64;
+pub const KDF_SALTBYTES: usize = 32;
+pub const OPSLIMIT: u64 = 1_048_576;
+pub const MEMLIMIT: usize = 33_554_432;
 
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
@@ -47,10 +49,10 @@ impl Clone for KeynumSK {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl KeynumSK {
     pub fn len(&self) -> usize {
-        use std::mem;
-        mem::size_of::<KeynumSK>()
+        std::mem::size_of::<KeynumSK>()
     }
 }
 
@@ -75,7 +77,7 @@ pub struct SeckeyStruct {
     pub sig_alg: [u8; TWOBYTES],
     pub kdf_alg: [u8; TWOBYTES],
     pub chk_alg: [u8; TWOBYTES],
-    pub kdf_salt: [u8; SALTBYTES],
+    pub kdf_salt: [u8; KDF_SALTBYTES],
     pub kdf_opslimit_le: [u8; KEYNUMBYTES],
     pub kdf_memlimit_le: [u8; KEYNUMBYTES],
     pub keynum_sk: KeynumSK,
@@ -87,7 +89,7 @@ impl SeckeyStruct {
         let mut sig_alg = [0u8; TWOBYTES];
         let mut kdf_alg = [0u8; TWOBYTES];
         let mut chk_alg = [0u8; TWOBYTES];
-        let mut kdf_salt = [0u8; SALTBYTES];
+        let mut kdf_salt = [0u8; KDF_SALTBYTES];
         let mut ops_limit = [0u8; KEYNUMBYTES];
         let mut mem_limit = [0u8; KEYNUMBYTES];
         let mut keynum = [0u8; KEYNUMBYTES];

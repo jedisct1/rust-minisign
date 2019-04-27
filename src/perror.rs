@@ -23,6 +23,8 @@ pub enum ErrorKind {
     Io,
     Misc,
     Hash,
+    KDF,
+    RNG,
 }
 
 #[derive(Debug)]
@@ -56,6 +58,8 @@ impl fmt::Display for PError {
             ErrorKind::Misc => write!(f, "{}", self.err),
             ErrorKind::Io => write!(f, "{}", self.err),
             ErrorKind::Hash => write!(f, "{}", self.err),
+            ErrorKind::KDF => write!(f, "{}", self.err),
+            ErrorKind::RNG => write!(f, "{}", self.err),
         }
     }
 }
@@ -68,6 +72,8 @@ impl StdError for PError {
             ErrorKind::Misc => "misc error",
             ErrorKind::Io => "io error",
             ErrorKind::Hash => "hash error",
+            ErrorKind::KDF => "key derivation error",
+            ErrorKind::RNG => "random number generator error",
         }
     }
 }
@@ -96,5 +102,23 @@ impl From<base64::DecodeError> for PError {
 impl From<std::string::FromUtf8Error> for PError {
     fn from(err: std::string::FromUtf8Error) -> PError {
         PError::new(ErrorKind::Misc, err)
+    }
+}
+
+impl From<scrypt::errors::InvalidParams> for PError {
+    fn from(err: scrypt::errors::InvalidParams) -> PError {
+        PError::new(ErrorKind::KDF, err)
+    }
+}
+
+impl From<scrypt::errors::InvalidOutputLen> for PError {
+    fn from(err: scrypt::errors::InvalidOutputLen) -> PError {
+        PError::new(ErrorKind::KDF, err)
+    }
+}
+
+impl From<rand::Error> for PError {
+    fn from(err: rand::Error) -> PError {
+        PError::new(ErrorKind::RNG, err)
     }
 }
