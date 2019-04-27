@@ -3,6 +3,9 @@ extern crate clap;
 extern crate dirs;
 extern crate rsign2;
 
+mod parse_args;
+
+use parse_args::*;
 use rsign2::crypto::blake2b::Blake2b;
 use rsign2::crypto::digest::Digest;
 use rsign2::*;
