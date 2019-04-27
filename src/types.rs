@@ -57,7 +57,7 @@ impl KeynumSK {
 impl fmt::Debug for KeynumSK {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for byte in self.sk.iter() {
-            r#try!(write!(f, "{:x}", byte))
+            write!(f, "{:x}", byte)?
         }
         Ok(())
     }
@@ -178,7 +178,7 @@ impl SeckeyStruct {
 impl fmt::Debug for SeckeyStruct {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for byte in self.keynum_sk.sk.iter() {
-            r#try!(write!(f, "{:x}", byte))
+            write!(f, "{:x}", byte)?
         }
         Ok(())
     }

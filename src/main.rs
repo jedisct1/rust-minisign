@@ -96,7 +96,7 @@ fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
     .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
     sk_str
         .read_checksum()
-        .map_err(|e| From::from(e))
+        .map_err(|e| e)
         .and_then(|checksum_vec| {
             let mut chk = [0u8; CHK_BYTES];
             chk.copy_from_slice(&checksum_vec[..]);
@@ -133,10 +133,9 @@ where
             if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
                 return Err(PError::new(
                     ErrorKind::Io,
-                    format!(
-                        "base64 conversion failed - was an actual \
-                         public key given?"
-                    ),
+                    "base64 conversion failed - was an actual \
+                     public key given?"
+                        .to_string(),
                 ));
             }
             base64::decode(encoded_buf.trim())
@@ -162,10 +161,9 @@ fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
             if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
                 return Err(PError::new(
                     ErrorKind::Io,
-                    format!(
-                        "base64 conversion failed -
+                    "base64 conversion failed -
                  was an actual public key given?"
-                    ),
+                        .to_string(),
                 ));
             }
             base64::decode(encoded_string.as_bytes())
@@ -232,7 +230,7 @@ where
                                                             *hashed = true;
                                                         } else {
                                                             return Err(PError::new(ErrorKind::Verify,
-                                                                                   format!("Unsupported signature algorithm")));
+                                                                                   "Unsupported signature algorithm".to_string()));
                                                         }
                                                         let _ = t_comment.drain(..TR_COMMENT_PREFIX_LEN).count();
                                                         trusted_comment.extend(sig.sig.iter());
@@ -253,11 +251,11 @@ where
         })
 }
 
-fn load_message_file<P>(message_file: P, hashed: &bool) -> Result<Vec<u8>>
+fn load_message_file<P>(message_file: P, hashed: bool) -> Result<Vec<u8>>
 where
     P: AsRef<Path> + Copy + Debug,
 {
-    if *hashed {
+    if hashed {
         return hash_message_file(message_file);
     }
     OpenOptions::new()
@@ -296,7 +294,7 @@ where
         })
 }
 
-fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
+fn run(args: clap::ArgMatches) -> Result<()> {
     if let Some(generate_action) = args.subcommand_matches("generate") {
         let force = generate_action.is_present("force");
         let pk_path = match generate_action.value_of("pk_path") {
@@ -316,7 +314,7 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
                     ),
                 ));
             } else {
-                r#try!(std::fs::remove_file(&pk_path));
+                std::fs::remove_file(&pk_path)?;
             }
         }
 
@@ -325,7 +323,7 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
                 let complete_path = PathBuf::from(path);
                 let mut dir = complete_path.clone();
                 dir.pop();
-                r#try!(create_dir(dir));
+                create_dir(dir)?;
                 complete_path
             }
             None => {
@@ -351,7 +349,7 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
                     Err(_) => {
                         let home_path = dirs::home_dir()
                             .ok_or_else(|| PError::new(ErrorKind::Io, "can't find home dir"));
-                        let mut complete_path = PathBuf::from(home_path.unwrap());
+                        let mut complete_path = home_path.unwrap();
                         complete_path.push(SIG_DEFAULT_CONFIG_DIR);
                         if !complete_path.exists() {
                             create_dir(&complete_path)?;
@@ -401,9 +399,9 @@ force this operation.",
         let sk_path = match sign_action.value_of("sk_path") {
             Some(path) => PathBuf::from(path),
             None => {
-                let home_path =
-                    dirs::home_dir().ok_or(PError::new(ErrorKind::Io, "can't find home dir"));
-                let mut complete_path = PathBuf::from(home_path.unwrap());
+                let home_path = dirs::home_dir()
+                    .ok_or_else(|| PError::new(ErrorKind::Io, "can't find home dir"));
+                let mut complete_path = home_path.unwrap();
                 complete_path.push(SIG_DEFAULT_CONFIG_DIR);
                 complete_path.push(SIG_DEFAULT_SKFILE);
                 complete_path
@@ -419,27 +417,27 @@ force this operation.",
         let mut pk: Option<PubkeyStruct> = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
-                pk = Some(r#try!(pk_load(filename)));
+                pk = Some(pk_load(filename)?);
             }
         } else if sign_action.is_present("public_key") {
             if let Some(string) = sign_action.value_of("public_key") {
-                pk = Some(r#try!(pk_load_string(string)));
+                pk = Some(pk_load_string(string)?);
             }
         }
         let hashed = sign_action.is_present("hash");
         let message_file = sign_action.value_of("message").unwrap(); // safe to unwrap
 
         let sig_file_name = if let Some(file) = sign_action.value_of("sig_file") {
-            format!("{}", file)
+            file.to_string()
         } else {
             format!("{}{}", message_file, SIG_SUFFIX)
         };
         let sig_buf = create_sig_file(&sig_file_name)?;
 
-        let sk = r#try!(sk_load(sk_path));
+        let sk = sk_load(sk_path)?;
 
         let t_comment = if let Some(trusted_comment) = sign_action.value_of("trusted-comment") {
-            format!("{}", trusted_comment)
+            trusted_comment.to_string()
         } else {
             format!(
                 "timestamp:{}\tfile:{}",
@@ -454,7 +452,7 @@ force this operation.",
         } else {
             format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT)
         };
-        let message = load_message_file(message_file, &hashed)?;
+        let message = load_message_file(message_file, hashed)?;
 
         sign(
             sk,
@@ -468,23 +466,23 @@ force this operation.",
     } else if let Some(verify_action) = args.subcommand_matches("verify") {
         let input = verify_action
             .value_of("pk_path")
-            .or(verify_action.value_of("public_key"));
+            .or_else(|| verify_action.value_of("public_key"));
 
         let pk = match input {
             Some(path_or_string) => {
                 if verify_action.is_present("pk_path") {
-                    r#try!(pk_load(path_or_string))
+                    pk_load(path_or_string)?
                 } else {
-                    r#try!(pk_load_string(path_or_string))
+                    pk_load_string(path_or_string)?
                 }
             }
-            None => r#try!(pk_load(SIG_DEFAULT_PKFILE)),
+            None => pk_load(SIG_DEFAULT_PKFILE)?,
         };
 
         let message_file = verify_action.value_of("file").unwrap(); //safe to unwrap
 
         let sig_file_name = if let Some(file) = verify_action.value_of("sig_file") {
-            format!("{}", file)
+            file.to_string()
         } else {
             format!("{}{}", message_file, SIG_SUFFIX)
         };
@@ -499,7 +497,7 @@ force this operation.",
             &mut hashed,
         )?;
 
-        let message = load_message_file(message_file, &hashed)?;
+        let message = load_message_file(message_file, hashed)?;
 
         verify(
             pk,
