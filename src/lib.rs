@@ -1,6 +1,4 @@
 extern crate base64;
-extern crate chrono;
-extern crate libc;
 extern crate rand;
 extern crate rpassword;
 extern crate scrypt;
@@ -11,13 +9,13 @@ pub mod perror;
 pub mod types;
 
 use crate::crypto::ed25519;
-use chrono::prelude::*;
 use rand::{thread_rng, RngCore};
 use scrypt::ScryptParams;
 use std::cmp;
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::u64;
 
 pub use crate::parse_args::*;
@@ -136,6 +134,14 @@ fn get_password(prompt: &str) -> Result<String> {
     }
 }
 
+fn unix_timestamp() -> u64 {
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock is incorrect");
+    since_the_epoch.as_secs()
+}
+
 pub fn generate_encrypted_keypair(password: Option<String>) -> Result<(PublicKey, SecretKey)> {
     let (pk, mut sk) = generate_unencrypted_keypair()?;
     let interactive = password.is_none();
@@ -206,7 +212,7 @@ where
 {
     let trusted_comment = match trusted_comment {
         Some(trusted_comment) => trusted_comment.to_string(),
-        None => format!("timestamp:{}", Utc::now().timestamp()),
+        None => format!("timestamp:{}", unix_timestamp()),
     };
     let untrusted_comment = match untrusted_comment {
         Some(untrusted_comment) => format!("{}{}", COMMENT_PREFIX, untrusted_comment),

@@ -1,19 +1,17 @@
 extern crate base64;
-extern crate chrono;
 extern crate clap;
 extern crate dirs;
 extern crate rsign2;
 
-use chrono::prelude::*;
 use rsign2::crypto::blake2b::Blake2b;
 use rsign2::crypto::digest::Digest;
 use rsign2::*;
-
 use std::fs::{DirBuilder, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read};
 #[cfg(not(windows))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 fn create_dir<P>(path: P) -> Result<()>
 where
@@ -163,6 +161,14 @@ force this operation.",
     generate_and_write_encrypted_keypair(pk_writer, sk_writer, comment, None)
 }
 
+fn unix_timestamp() -> u64 {
+    let start = SystemTime::now();
+    let since_the_epoch = start
+        .duration_since(UNIX_EPOCH)
+        .expect("system clock is incorrect");
+    since_the_epoch.as_secs()
+}
+
 pub fn cmd_sign<P, Q, R>(
     pk: Option<PublicKey>,
     sk_path: P,
@@ -193,7 +199,7 @@ where
     } else {
         format!(
             "timestamp:{}\tfile:{}",
-            Utc::now().timestamp(),
+            unix_timestamp(),
             message_path.as_ref().display()
         )
     };
