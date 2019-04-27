@@ -12,11 +12,10 @@ use rsign2::*;
 use std::fmt::Debug;
 
 use std::fs::{DirBuilder, File, OpenOptions};
-use std::io::{self, BufRead, BufReader, BufWriter, Read, Write};
+use std::io::{BufRead, BufReader, BufWriter, Read};
 #[cfg(not(windows))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 fn create_dir<P>(path: P) -> Result<()>
 where
@@ -66,105 +65,6 @@ where
         .open(path)
         .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
     Ok(BufWriter::new(file))
-}
-
-fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
-    let file = OpenOptions::new()
-        .read(true)
-        .open(sk_path)
-        .map_err(|e| PError::new(ErrorKind::Io, e))?;
-    let mut sk_str = {
-        let mut sk_buf = BufReader::new(file);
-        let mut _comment = String::new();
-        sk_buf.read_line(&mut _comment)?;
-        let mut encoded_buf = String::new();
-        sk_buf.read_line(&mut encoded_buf)?;
-        let decoded_buf =
-            base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
-        SeckeyStruct::from(&decoded_buf[..])
-    }?;
-
-    let pwd = get_password("Password: ")?;
-    write!(
-        io::stdout(),
-        "Deriving a key from the password and decrypting the secret key... "
-    )
-    .map_err(|e| PError::new(ErrorKind::Io, e))
-    .and_then(|_| {
-        io::stdout().flush()?;
-        derive_and_crypt(&mut sk_str, &pwd.as_bytes())
-    })
-    .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
-    let checksum_vec = sk_str.read_checksum().map_err(|e| e)?;
-    let mut chk = [0u8; CHK_BYTES];
-    chk.copy_from_slice(&checksum_vec[..]);
-    if chk != sk_str.keynum_sk.chk {
-        Err(PError::new(
-            ErrorKind::Verify,
-            "Wrong password for that key",
-        ))
-    } else {
-        Ok(sk_str)
-    }
-}
-
-fn pk_load<P>(pk_path: P) -> Result<PubkeyStruct>
-where
-    P: AsRef<Path> + Copy + Debug,
-{
-    let file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
-        PError::new(
-            ErrorKind::Io,
-            format!("couldn't retrieve public key from {:?}: {}", pk_path, e),
-        )
-    })?;
-    let mut pk_buf = BufReader::new(file);
-    let mut _comment = String::new();
-    pk_buf.read_line(&mut _comment)?;
-    let mut encoded_buf = String::new();
-    pk_buf.read_line(&mut encoded_buf)?;
-    if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
-        return Err(PError::new(
-            ErrorKind::Io,
-            "base64 conversion failed - was an actual \
-             public key given?"
-                .to_string(),
-        ));
-    }
-    let decoded_buf = base64::decode(encoded_buf.trim()).map_err(|e| {
-        PError::new(
-            ErrorKind::Io,
-            format!(
-                "base64 conversion failed -
-                            was an actual public key given?: {}",
-                e
-            ),
-        )
-    })?;
-    Ok(PubkeyStruct::from(&decoded_buf)?)
-}
-
-fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
-    let encoded_string = String::from_str(pk_string).map_err(|e| PError::new(ErrorKind::Io, e))?;
-    if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
-        return Err(PError::new(
-            ErrorKind::Io,
-            "base64 conversion failed -
-                 was an actual public key given?"
-                .to_string(),
-        ));
-    }
-    let decoded_string = base64::decode(encoded_string.as_bytes()).map_err(|e| {
-        PError::new(
-            ErrorKind::Io,
-            format!(
-                "base64 conversion
-                          failed - was an actual public key given?: {}",
-                e
-            ),
-        )
-    })?;
-    PubkeyStruct::from(&decoded_string)
 }
 
 fn sig_load<P>(
@@ -462,7 +362,7 @@ force this operation.",
             None => pk_load(SIG_DEFAULT_PKFILE)?,
         };
 
-        let message_file = verify_action.value_of("file").unwrap(); //safe to unwrap
+        let message_file = verify_action.value_of("file").unwrap();
 
         let sig_file_name = if let Some(file) = verify_action.value_of("sig_file") {
             file.to_string()
@@ -494,7 +394,6 @@ force this operation.",
     } else {
         println!("{}\n", args.usage());
     }
-
     Ok(())
 }
 
