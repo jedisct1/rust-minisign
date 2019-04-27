@@ -47,18 +47,18 @@ rsign verify myfile.txt -P [PUBLIC KEY STRING] -x mysignature.file
 You can find more information using the help subcommand as in:
 
 ```text
-    $ rsign help [SUBCOMMAND]
+rsign help [SUBCOMMAND]
 
-    USAGE:
-        rsign [SUBCOMMAND]
+USAGE:
+    rsign [SUBCOMMAND]
 
-    FLAGS:
-        -h, --help       Prints help information
-        -V, --version    Prints version information
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
 
-    SUBCOMMANDS:
-        generate    Generate public and private keys
-        help        Prints this message or the help of the given subcommand(s)
-        sign        Sign a file with a given private key
-        verify      Verify a signed file with a given public key
+SUBCOMMANDS:
+    generate    Generate public and private keys
+    help        Prints this message or the help of the given subcommand(s)
+    sign        Sign a file with a given private key
+    verify      Verify a signed file with a given public key
 ```
