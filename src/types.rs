@@ -1,7 +1,7 @@
-use crate::Result;
 use crate::crypto::blake2b::Blake2b;
 use crate::crypto::digest::Digest;
 use crate::crypto::util::fixed_time_eq;
+use crate::Result;
 use std::cmp;
 use std::fmt::{self, Formatter};
 use std::io::{Cursor, Read};
@@ -74,7 +74,7 @@ impl cmp::PartialEq for KeynumSK {
 }
 impl cmp::Eq for KeynumSK {}
 
-pub struct SeckeyStruct {
+pub struct SecretKey {
     pub sig_alg: [u8; TWOBYTES],
     pub kdf_alg: [u8; TWOBYTES],
     pub chk_alg: [u8; TWOBYTES],
@@ -84,8 +84,8 @@ pub struct SeckeyStruct {
     pub keynum_sk: KeynumSK,
 }
 
-impl SeckeyStruct {
-    pub fn from(bytes_buf: &[u8]) -> Result<SeckeyStruct> {
+impl SecretKey {
+    pub fn from(bytes_buf: &[u8]) -> Result<SecretKey> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; TWOBYTES];
         let mut kdf_alg = [0u8; TWOBYTES];
@@ -106,7 +106,7 @@ impl SeckeyStruct {
         buf.read_exact(&mut sk)?;
         buf.read_exact(&mut chk)?;
 
-        Ok(SeckeyStruct {
+        Ok(SecretKey {
             sig_alg,
             kdf_alg,
             chk_alg,
@@ -179,7 +179,7 @@ impl SeckeyStruct {
     }
 }
 
-impl fmt::Debug for SeckeyStruct {
+impl fmt::Debug for SecretKey {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for byte in self.keynum_sk.sk.iter() {
             write!(f, "{:x}", byte)?
@@ -188,15 +188,15 @@ impl fmt::Debug for SeckeyStruct {
     }
 }
 
-impl cmp::PartialEq for SeckeyStruct {
-    fn eq(&self, other: &SeckeyStruct) -> bool {
+impl cmp::PartialEq for SecretKey {
+    fn eq(&self, other: &SecretKey) -> bool {
         fixed_time_eq(&self.keynum_sk.sk, &other.keynum_sk.sk)
     }
 }
-impl cmp::Eq for SeckeyStruct {}
+impl cmp::Eq for SecretKey {}
 
 #[derive(Debug)]
-pub struct PubkeyStruct {
+pub struct PublicKey {
     pub sig_alg: [u8; TWOBYTES],
     pub keynum_pk: KeynumPK,
 }
@@ -206,20 +206,20 @@ pub struct KeynumPK {
     pub pk: [u8; PUBLICKEYBYTES],
 }
 
-impl cmp::PartialEq for PubkeyStruct {
-    fn eq(&self, other: &PubkeyStruct) -> bool {
+impl cmp::PartialEq for PublicKey {
+    fn eq(&self, other: &PublicKey) -> bool {
         fixed_time_eq(&self.keynum_pk.pk, &other.keynum_pk.pk)
     }
 }
-impl cmp::Eq for PubkeyStruct {}
+impl cmp::Eq for PublicKey {}
 
-impl PubkeyStruct {
+impl PublicKey {
     pub fn len() -> usize {
         use std::mem;
-        mem::size_of::<PubkeyStruct>()
+        mem::size_of::<PublicKey>()
     }
 
-    pub fn from(buf: &[u8]) -> Result<PubkeyStruct> {
+    pub fn from_bytes(buf: &[u8]) -> Result<PublicKey> {
         let mut buf = Cursor::new(buf);
         let mut sig_alg = [0u8; TWOBYTES];
         let mut keynum = [0u8; KEYNUMBYTES];
@@ -227,13 +227,13 @@ impl PubkeyStruct {
         buf.read_exact(&mut sig_alg)?;
         buf.read_exact(&mut keynum)?;
         buf.read_exact(&mut pk)?;
-        Ok(PubkeyStruct {
+        Ok(PublicKey {
             sig_alg,
             keynum_pk: KeynumPK { keynum, pk },
         })
     }
 
-    pub fn bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
         iters.push(self.keynum_pk.keynum.iter());
@@ -249,17 +249,19 @@ impl PubkeyStruct {
     }
 }
 
-pub struct SigStruct {
+pub struct Signature {
     pub sig_alg: [u8; TWOBYTES],
     pub keynum: [u8; KEYNUMBYTES],
     pub sig: [u8; SIGNATUREBYTES],
 }
-impl SigStruct {
+
+impl Signature {
     pub fn len() -> usize {
         use std::mem;
-        mem::size_of::<SigStruct>()
+        mem::size_of::<Signature>()
     }
-    pub fn bytes(&self) -> Vec<u8> {
+
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
         iters.push(self.keynum.iter());
@@ -273,7 +275,8 @@ impl SigStruct {
             .collect();
         v
     }
-    pub fn from(bytes_buf: &[u8]) -> Result<SigStruct> {
+
+    pub fn from_bytes(bytes_buf: &[u8]) -> Result<Signature> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; 2];
         let mut keynum = [0u8; KEYNUMBYTES];
@@ -281,7 +284,7 @@ impl SigStruct {
         buf.read_exact(&mut sig_alg)?;
         buf.read_exact(&mut keynum)?;
         buf.read_exact(&mut sig)?;
-        Ok(SigStruct {
+        Ok(Signature {
             sig_alg,
             keynum,
             sig,
@@ -289,9 +292,9 @@ impl SigStruct {
     }
 }
 
-impl Default for SigStruct {
+impl Default for Signature {
     fn default() -> Self {
-        SigStruct {
+        Signature {
             sig_alg: [0u8; TWOBYTES],
             keynum: [0u8; KEYNUMBYTES],
             sig: [0u8; SIGNATUREBYTES],

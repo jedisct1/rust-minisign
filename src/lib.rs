@@ -54,7 +54,7 @@ fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams> {
     ScryptParams::new(n_log2, r, p).map_err(Into::into)
 }
 
-pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
+pub fn gen_keystruct() -> (PublicKey, SecretKey) {
     let mut seed = vec![0u8; 32];
     let mut rng = thread_rng();
     rng.fill_bytes(&mut seed);
@@ -67,11 +67,11 @@ pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
     let opslimit = OPSLIMIT;
     let memlimit = MEMLIMIT;
 
-    let p_struct = PubkeyStruct {
+    let p_struct = PublicKey {
         sig_alg: SIGALG,
         keynum_pk: KeynumPK { keynum, pk },
     };
-    let s_struct = SeckeyStruct {
+    let s_struct = SecretKey {
         sig_alg: SIGALG,
         kdf_alg: KDFALG,
         chk_alg: CHKALG,
@@ -127,8 +127,8 @@ pub fn load_u64_le(x: &[u8]) -> u64 {
 }
 
 pub fn verify(
-    pk_key: PubkeyStruct,
-    sig: SigStruct,
+    pk_key: PublicKey,
+    sig: Signature,
     global_sig: &[u8],
     trusted_comment: &[u8],
     message: &[u8],
@@ -170,8 +170,8 @@ pub fn verify(
 }
 
 pub fn sign<W>(
-    sk_key: SeckeyStruct,
-    pk_key: Option<PubkeyStruct>,
+    sk_key: SecretKey,
+    pk_key: Option<PublicKey>,
     mut sig_buf: W,
     message: &[u8],
     hashed: bool,
@@ -181,7 +181,7 @@ pub fn sign<W>(
 where
     W: Write,
 {
-    let mut sig_str = SigStruct::default();
+    let mut sig_str = Signature::default();
     if !hashed {
         sig_str.sig_alg = sk_key.sig_alg;
     } else {
@@ -222,7 +222,7 @@ where
         );
     }
     writeln!(sig_buf, "{}", untrusted_comment)?;
-    writeln!(sig_buf, "{}", base64::encode(&sig_str.bytes()))?;
+    writeln!(sig_buf, "{}", base64::encode(&sig_str.to_bytes()))?;
     writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, trusted_comment)?;
     writeln!(sig_buf, "{}", base64::encode(&global_sig[..]))?;
     sig_buf.flush()?;
@@ -233,7 +233,7 @@ pub fn generate(
     mut pk_file: BufWriter<File>,
     mut sk_file: BufWriter<File>,
     comment: Option<&str>,
-) -> Result<(PubkeyStruct, SeckeyStruct)> {
+) -> Result<(PublicKey, SecretKey)> {
     let (pk_str, mut sk_str) = gen_keystruct();
     sk_str
         .write_checksum()
@@ -260,7 +260,7 @@ pub fn generate(
 
     write!(pk_file, "{}rsign2 public key: ", COMMENT_PREFIX)?;
     writeln!(pk_file, "{:X}", load_u64_le(&pk_str.keynum_pk.keynum[..]))?;
-    writeln!(pk_file, "{}", base64::encode(&pk_str.bytes()))?;
+    writeln!(pk_file, "{}", base64::encode(&pk_str.to_bytes()))?;
     pk_file.flush()?;
 
     write!(sk_file, "{}", COMMENT_PREFIX)?;
@@ -275,7 +275,7 @@ pub fn generate(
     Ok((pk_str, sk_str))
 }
 
-pub fn derive_and_crypt(sk_str: &mut SeckeyStruct, pwd: &[u8]) -> Result<()> {
+pub fn derive_and_crypt(sk_str: &mut SecretKey, pwd: &[u8]) -> Result<()> {
     let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
     let opslimit = load_u64_le(&sk_str.kdf_opslimit_le);
     let memlimit = load_u64_le(&sk_str.kdf_memlimit_le) as usize;
@@ -304,18 +304,18 @@ mod tests {
     #[test]
     fn pk_key_struct_conversion() {
         use crate::gen_keystruct;
-        use crate::PubkeyStruct;
+        use crate::PublicKey;
 
         let (pk, _) = gen_keystruct();
-        assert_eq!(pk, PubkeyStruct::from(&pk.bytes()).unwrap());
+        assert_eq!(pk, PublicKey::from_bytes(&pk.to_bytes()).unwrap());
     }
     #[test]
     fn sk_key_struct_conversion() {
         use crate::gen_keystruct;
-        use crate::SeckeyStruct;
+        use crate::SecretKey;
 
         let (_, sk) = gen_keystruct();
-        assert_eq!(sk, SeckeyStruct::from(&sk.bytes()).unwrap());
+        assert_eq!(sk, SecretKey::from(&sk.bytes()).unwrap());
     }
 
     #[test]
@@ -343,7 +343,7 @@ mod tests {
     }
 }
 
-pub fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
+pub fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SecretKey> {
     let file = OpenOptions::new()
         .read(true)
         .open(sk_path)
@@ -356,7 +356,7 @@ pub fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
         sk_buf.read_line(&mut encoded_buf)?;
         let decoded_buf =
             base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
-        SeckeyStruct::from(&decoded_buf[..])
+        SecretKey::from(&decoded_buf[..])
     }?;
 
     let pwd = get_password("Password: ")?;
@@ -383,7 +383,7 @@ pub fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SeckeyStruct> {
     }
 }
 
-pub fn pk_load<P>(pk_path: P) -> Result<PubkeyStruct>
+pub fn pk_load<P>(pk_path: P) -> Result<PublicKey>
 where
     P: AsRef<Path> + Copy + Debug,
 {
@@ -416,10 +416,10 @@ where
             ),
         )
     })?;
-    Ok(PubkeyStruct::from(&decoded_buf)?)
+    Ok(PublicKey::from_bytes(&decoded_buf)?)
 }
 
-pub fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
+pub fn pk_load_string(pk_string: &str) -> Result<PublicKey> {
     let encoded_string = pk_string.to_string();
     if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
         return Err(PError::new(
@@ -439,5 +439,5 @@ pub fn pk_load_string(pk_string: &str) -> Result<PubkeyStruct> {
             ),
         )
     })?;
-    PubkeyStruct::from(&decoded_string)
+    PublicKey::from_bytes(&decoded_string)
 }

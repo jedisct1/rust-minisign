@@ -72,7 +72,7 @@ fn sig_load<P>(
     global_sig: &mut Vec<u8>,
     trusted_comment: &mut Vec<u8>,
     hashed: &mut bool,
-) -> Result<SigStruct>
+) -> Result<Signature>
 where
     P: AsRef<Path> + Copy + Debug,
 {
@@ -84,7 +84,7 @@ where
     buf.read_line(&mut untrusted_comment)
         .map_err(|e| PError::new(ErrorKind::Io, e))?;
 
-    let mut sig_string = String::with_capacity(SigStruct::len());
+    let mut sig_string = String::with_capacity(Signature::len());
     buf.read_line(&mut sig_string)
         .map_err(|e| PError::new(ErrorKind::Io, e))?;
 
@@ -105,7 +105,7 @@ where
 
     let sig_bytes =
         base64::decode(sig_string.trim().as_bytes()).map_err(|e| PError::new(ErrorKind::Io, e))?;
-    let sig = SigStruct::from(&sig_bytes)?;
+    let sig = Signature::from_bytes(&sig_bytes)?;
     if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {
         return Err(PError::new(
             ErrorKind::Verify,
@@ -276,7 +276,7 @@ force this operation.",
         println!("Files signed using this key pair can be verified with the following command:\n");
         println!(
             "rsign verify <file> -P {}",
-            base64::encode(pk_str.bytes().as_slice())
+            base64::encode(pk_str.to_bytes().as_slice())
         );
     } else if let Some(sign_action) = args.subcommand_matches("sign") {
         let sk_path = match sign_action.value_of("sk_path") {
@@ -297,7 +297,7 @@ force this operation.",
             ));
         }
 
-        let mut pk: Option<PubkeyStruct> = None;
+        let mut pk: Option<PublicKey> = None;
         if sign_action.is_present("pk_path") {
             if let Some(filename) = sign_action.value_of("pk_path") {
                 pk = Some(pk_load(filename)?);
