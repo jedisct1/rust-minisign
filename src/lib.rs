@@ -54,7 +54,7 @@ fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams> {
     ScryptParams::new(n_log2, r, p).map_err(Into::into)
 }
 
-pub fn gen_keystruct() -> (PublicKey, SecretKey) {
+pub fn gen_keypair() -> (PublicKey, SecretKey) {
     let mut seed = vec![0u8; 32];
     let mut rng = thread_rng();
     rng.fill_bytes(&mut seed);
@@ -95,14 +95,14 @@ pub fn get_password(prompt: &str) -> Result<String> {
     } else if pwd.len() > PASSWORDMAXBYTES {
         Err(PError::new(
             ErrorKind::Misc,
-            "passphrase can't exceed 1024 bytes lenght",
+            "passphrase can't exceed 1024 bytes length",
         ))
     } else {
         Ok(pwd)
     }
 }
 
-pub fn store_u64_le(x: u64) -> [u8; 8] {
+fn store_u64_le(x: u64) -> [u8; 8] {
     let b1: u8 = (x & 0xff) as u8;
     let b2: u8 = ((x >> 8) & 0xff) as u8;
     let b3: u8 = ((x >> 16) & 0xff) as u8;
@@ -115,7 +115,7 @@ pub fn store_u64_le(x: u64) -> [u8; 8] {
 }
 
 #[allow(clippy::cast_lossless)]
-pub fn load_u64_le(x: &[u8]) -> u64 {
+fn load_u64_le(x: &[u8]) -> u64 {
     (x[0] as u64)
         | (x[1] as u64) << 8
         | (x[2] as u64) << 16
@@ -154,8 +154,7 @@ pub fn verify(
     if !ed25519::verify(&trusted_comment, &pk_key.keynum_pk.pk, &global_sig) {
         Err(PError::new(
             ErrorKind::Verify,
-            "Comment signature verification \
-             failed",
+            "Comment signature verification failed",
         ))?
     }
     let just_comment = String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;
@@ -229,12 +228,12 @@ where
     Ok(())
 }
 
-pub fn generate(
+pub fn generate_keypair(
     mut pk_file: BufWriter<File>,
     mut sk_file: BufWriter<File>,
     comment: Option<&str>,
 ) -> Result<(PublicKey, SecretKey)> {
-    let (pk_str, mut sk_str) = gen_keystruct();
+    let (pk_str, mut sk_str) = gen_keypair();
     sk_str
         .write_checksum()
         .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
@@ -275,7 +274,7 @@ pub fn generate(
     Ok((pk_str, sk_str))
 }
 
-pub fn derive_and_crypt(sk_str: &mut SecretKey, pwd: &[u8]) -> Result<()> {
+fn derive_and_crypt(sk_str: &mut SecretKey, pwd: &[u8]) -> Result<()> {
     let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
     let opslimit = load_u64_le(&sk_str.kdf_opslimit_le);
     let memlimit = load_u64_le(&sk_str.kdf_memlimit_le) as usize;
@@ -303,27 +302,27 @@ mod tests {
 
     #[test]
     fn pk_key_struct_conversion() {
-        use crate::gen_keystruct;
+        use crate::gen_keypair;
         use crate::PublicKey;
 
-        let (pk, _) = gen_keystruct();
+        let (pk, _) = gen_keypair();
         assert_eq!(pk, PublicKey::from_bytes(&pk.to_bytes()).unwrap());
     }
     #[test]
     fn sk_key_struct_conversion() {
-        use crate::gen_keystruct;
+        use crate::gen_keypair;
         use crate::SecretKey;
 
-        let (_, sk) = gen_keystruct();
+        let (_, sk) = gen_keypair();
         assert_eq!(sk, SecretKey::from(&sk.bytes()).unwrap());
     }
 
     #[test]
     fn xor_keynum() {
-        use crate::gen_keystruct;
+        use crate::gen_keypair;
         use rand::{thread_rng, RngCore};
 
-        let (_, mut sk) = gen_keystruct();
+        let (_, mut sk) = gen_keypair();
         let mut rng = thread_rng();
         let mut key = vec![0u8; sk.keynum_sk.len()];
         rng.fill_bytes(&mut key);
@@ -335,9 +334,9 @@ mod tests {
     }
     #[test]
     fn sk_checksum() {
-        use crate::gen_keystruct;
+        use crate::gen_keypair;
 
-        let (_, mut sk) = gen_keystruct();
+        let (_, mut sk) = gen_keypair();
         assert!(sk.write_checksum().is_ok());
         assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap());
     }
@@ -401,17 +400,14 @@ where
     if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
         return Err(PError::new(
             ErrorKind::Io,
-            "base64 conversion failed - was an actual \
-             public key given?"
-                .to_string(),
+            "base64 conversion failed - was an actual public key given?".to_string(),
         ));
     }
     let decoded_buf = base64::decode(encoded_buf.trim()).map_err(|e| {
         PError::new(
             ErrorKind::Io,
             format!(
-                "base64 conversion failed -
-                            was an actual public key given?: {}",
+                "base64 conversion failed - was an actual public key given?: {}",
                 e
             ),
         )
@@ -424,17 +420,14 @@ pub fn pk_load_string(pk_string: &str) -> Result<PublicKey> {
     if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
         return Err(PError::new(
             ErrorKind::Io,
-            "base64 conversion failed -
-                 was an actual public key given?"
-                .to_string(),
+            "base64 conversion failed - was an actual public key given?".to_string(),
         ));
     }
     let decoded_string = base64::decode(encoded_string.as_bytes()).map_err(|e| {
         PError::new(
             ErrorKind::Io,
             format!(
-                "base64 conversion
-                          failed - was an actual public key given?: {}",
+                "base64 conversion failed - was an actual public key given?: {}",
                 e
             ),
         )

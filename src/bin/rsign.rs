@@ -190,7 +190,7 @@ force this operation.",
     }
     let pk_file = create_file(&pk_path, 0o644)?;
     let sk_file = create_file(&sk_path, 0o600)?;
-    let (pk_str, _) = generate(pk_file, sk_file, comment)?;
+    let (pk_str, _) = generate_keypair(pk_file, sk_file, comment)?;
 
     println!(
         "\nThe secret key was saved as {:?} - Keep it secret!",
@@ -346,7 +346,7 @@ fn run(args: clap::ArgMatches) -> Result<()> {
         cmd_verify(pk, message_file, sig_file_name, quiet, output)
     } else {
         println!("{}\n", args.usage());
-        Ok(())
+        std::process::exit(1);
     }
 }
 
