@@ -30,7 +30,6 @@ pub fn verify(message: &[u8], public_key: &[u8], signature: &[u8]) -> bool {
     if check_s_lt_l(&signature[32..64]) {
         return false;
     }
-
     let a = match GeP3::from_bytes_negate_vartime(public_key) {
         Some(g) => g,
         None => {

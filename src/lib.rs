@@ -5,18 +5,19 @@ extern crate rpassword;
 extern crate scrypt;
 extern crate sodiumoxide;
 
-use rand::{thread_rng, RngCore};
-use scrypt::ScryptParams;
-use sodiumoxide::crypto::sign::{self, gen_keypair, PublicKey, SecretKey, Signature};
-use std::cmp;
-use std::fs::File;
-use std::io::{self, BufWriter, Write};
-use std::u64;
-
 pub mod crypto;
 pub mod parse_args;
 pub mod perror;
 pub mod types;
+
+use crypto::ed25519;
+use rand::{thread_rng, RngCore};
+use scrypt::ScryptParams;
+use sodiumoxide::crypto::sign::{gen_keypair, PublicKey, SecretKey};
+use std::cmp;
+use std::fs::File;
+use std::io::{self, BufWriter, Write};
+use std::u64;
 
 pub use crate::parse_args::*;
 pub use crate::perror::*;
@@ -145,61 +146,28 @@ pub fn verify(
             ),
         ));
     }
-    Signature::from_slice(&sig.sig)
-        .ok_or_else(|| {
-            PError::new(
-                ErrorKind::Verify,
-                "Couldn't compose message file signature from bytes",
-            )
-        })
-        .and_then(|signature| {
-            PublicKey::from_slice(&pk_key.keynum_pk.pk)
-                .ok_or_else(|| {
-                    PError::new(
-                        ErrorKind::Verify,
-                        "Couldn't compose a public key from bytes",
-                    )
-                })
-                .and_then(|pk| {
-                    if sign::verify_detached(&signature, &message, &pk) {
-                        Ok(pk)
-                    } else {
-                        Err(PError::new(
-                            ErrorKind::Verify,
-                            "Signature verification failed",
-                        ))
-                    }
-                })
-                .and_then(|pk| {
-                    Signature::from_slice(&global_sig[..])
-                        .ok_or_else(|| {
-                            PError::new(
-                                ErrorKind::Verify,
-                                "Couldn't compose trusted comment signature from bytes",
-                            )
-                        })
-                        .and_then(|global_sig| {
-                            if sign::verify_detached(&global_sig, &trusted_comment, &pk) {
-                                let just_comment =
-                                    String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;
-                                if !quiet {
-                                    println!("Signature and comment signature verified");
-                                    println!("Trusted comment: {}", just_comment);
-                                }
-                                if output {
-                                    print!("{}", String::from_utf8_lossy(&message[..]));
-                                }
-                                Ok(())
-                            } else {
-                                Err(PError::new(
-                                    ErrorKind::Verify,
-                                    "Comment signature verification \
-                                     failed",
-                                ))
-                            }
-                        })
-                })
-        })
+    if !ed25519::verify(&message, &pk_key.keynum_pk.pk, &sig.sig) {
+        Err(PError::new(
+            ErrorKind::Verify,
+            "Signature verification failed",
+        ))?
+    }
+    if !ed25519::verify(&trusted_comment, &pk_key.keynum_pk.pk, &global_sig) {
+        Err(PError::new(
+            ErrorKind::Verify,
+            "Comment signature verification \
+             failed",
+        ))?
+    }
+    let just_comment = String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;
+    if !quiet {
+        println!("Signature and comment signature verified");
+        println!("Trusted comment: {}", just_comment);
+    }
+    if output {
+        print!("{}", String::from_utf8_lossy(&message[..]));
+    }
+    Ok(())
 }
 
 pub fn sign<W>(
@@ -234,34 +202,23 @@ where
     sig_and_trust_comment.extend(trusted_comment.as_bytes().iter());
 
     let global_sig = sodiumoxide::crypto::sign::sign_detached(&sig_and_trust_comment, &sk);
-
+    let global_sig = global_sig.as_ref();
     if let Some(pk_str) = pk_key {
-        PublicKey::from_slice(&pk_str.keynum_pk.pk[..])
-            .ok_or_else(|| PError::new(ErrorKind::Sign, "failed to obtain public key from bytes"))
-            .and_then(|pk| {
-                if !sodiumoxide::crypto::sign::verify_detached(
-                    &global_sig,
-                    &sig_and_trust_comment,
-                    &pk,
-                ) {
-                    Err(PError::new(
-                        ErrorKind::Verify,
-                        format!(
-                            "Could not verify signature with the \
-                             provided public key ID: {:X}",
-                            load_u64_le(&pk_str.keynum_pk.keynum[..])
-                        ),
-                    ))
-                } else {
-                    println!(
-                        "\nSignature checked with the public key ID: {:X}",
-                        load_u64_le(&pk_str.keynum_pk.keynum[..])
-                    );
-                    Ok(())
-                }
-            })?;
+        if !ed25519::verify(&sig_and_trust_comment, &pk_str.keynum_pk.pk[..], global_sig) {
+            Err(PError::new(
+                ErrorKind::Verify,
+                format!(
+                    "Could not verify signature with the \
+                     provided public key ID: {:X}",
+                    load_u64_le(&pk_str.keynum_pk.keynum[..])
+                ),
+            ))?
+        }
+        println!(
+            "\nSignature checked with the public key ID: {:X}",
+            load_u64_le(&pk_str.keynum_pk.keynum[..])
+        );
     }
-
     writeln!(sig_buf, "{}", untrusted_comment)?;
     writeln!(sig_buf, "{}", base64::encode(&sig_str.bytes()))?;
     writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, trusted_comment)?;
@@ -288,7 +245,6 @@ pub fn generate(
     if pwd != pwd2 {
         return Err(PError::new(ErrorKind::Generate, "passwords don't match!"));
     }
-
     write!(
         io::stdout(),
         "Deriving a key from the password in order to encrypt the secret key... "

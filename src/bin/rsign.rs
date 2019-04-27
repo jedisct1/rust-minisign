@@ -2,7 +2,6 @@ extern crate base64;
 extern crate chrono;
 extern crate clap;
 extern crate dirs;
-extern crate libsodium_sys as ffi;
 extern crate rsign2;
 
 use chrono::prelude::*;
@@ -29,6 +28,7 @@ where
         .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
         .and_then(|_| Ok(()))
 }
+
 #[cfg(windows)]
 fn create_file<P>(path: P, _mode: u32) -> Result<BufWriter<File>>
 where
@@ -41,6 +41,7 @@ where
         .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))
         .and_then(|file| Ok(BufWriter::new(file)))
 }
+
 #[cfg(not(windows))]
 fn create_file<P>(path: P, mode: u32) -> Result<BufWriter<File>>
 where
