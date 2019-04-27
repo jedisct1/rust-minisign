@@ -1,7 +1,7 @@
 use crate::Result;
-use crypto::blake2b::Blake2b;
-use crypto::digest::Digest;
-use crypto::util::fixed_time_eq;
+use crate::crypto::blake2b::Blake2b;
+use crate::crypto::digest::Digest;
+use crate::crypto::util::fixed_time_eq;
 use std::cmp;
 use std::fmt::{self, Formatter};
 use std::io::{Cursor, Read};

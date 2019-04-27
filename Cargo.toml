@@ -8,7 +8,6 @@ readme = "README.md"
 categories = ["command-line-utilities", "cryptography"]
 keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
 repository = "https://github.com/jedisct1/rsign2"
-edition = "2015"
 
 [dependencies]
 base64 = "0.10"

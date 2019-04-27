@@ -9,7 +9,7 @@ pub mod parse_args;
 pub mod perror;
 pub mod types;
 
-use crypto::ed25519;
+use crate::crypto::ed25519;
 use rand::{thread_rng, RngCore};
 use scrypt::ScryptParams;
 use std::cmp;
