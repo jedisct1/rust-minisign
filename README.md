@@ -8,7 +8,12 @@ In Rust, signatures can also be verified with the [minisign-verify](https://docs
 
 rsign2 is a maintained fork of [rsign](https://docs.rs/crate/rsign/), originally written by Daniel Rangel.
 
-It only uses pure Rust, and doesn't require external dependencies such as libsodium.
+Main differences with rsign:
+
+- rsign2 only uses pure Rust.
+- rsign2 has way less dependencies.
+- rsign2 includes bug fixes and improvements.
+- rsign2 tries to be usable as a library, not just as a command-line tool.
 
 ## Usage
 
