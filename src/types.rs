@@ -249,6 +249,7 @@ impl PublicKey {
     }
 }
 
+#[derive(Clone)]
 pub struct Signature {
     pub sig_alg: [u8; TWOBYTES],
     pub keynum: [u8; KEYNUMBYTES],
