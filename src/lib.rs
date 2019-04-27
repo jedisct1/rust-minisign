@@ -22,6 +22,30 @@ pub use crate::parse_args::*;
 pub use crate::perror::*;
 pub use crate::types::*;
 
+fn store_u64_le(x: u64) -> [u8; 8] {
+    let b1: u8 = (x & 0xff) as u8;
+    let b2: u8 = ((x >> 8) & 0xff) as u8;
+    let b3: u8 = ((x >> 16) & 0xff) as u8;
+    let b4: u8 = ((x >> 24) & 0xff) as u8;
+    let b5: u8 = ((x >> 32) & 0xff) as u8;
+    let b6: u8 = ((x >> 40) & 0xff) as u8;
+    let b7: u8 = ((x >> 48) & 0xff) as u8;
+    let b8: u8 = ((x >> 56) & 0xff) as u8;
+    [b1, b2, b3, b4, b5, b6, b7, b8]
+}
+
+#[allow(clippy::cast_lossless)]
+fn load_u64_le(x: &[u8]) -> u64 {
+    (x[0] as u64)
+        | (x[1] as u64) << 8
+        | (x[2] as u64) << 16
+        | (x[3] as u64) << 24
+        | (x[4] as u64) << 32
+        | (x[5] as u64) << 40
+        | (x[6] as u64) << 48
+        | (x[7] as u64) << 56
+}
+
 fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams> {
     let opslimit = cmp::max(32768, opslimit);
     let mut n_log2 = 1u8;
@@ -53,19 +77,18 @@ fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams> {
     ScryptParams::new(n_log2, r, p).map_err(Into::into)
 }
 
-pub fn generate_unencrypted_keypair() -> (PublicKey, SecretKey) {
+pub fn generate_unencrypted_keypair() -> Result<(PublicKey, SecretKey)> {
     let mut seed = vec![0u8; 32];
     let mut rng = thread_rng();
-    rng.fill_bytes(&mut seed);
+    rng.try_fill_bytes(&mut seed)?;
     let (sk, pk) = ed25519::keypair(&seed);
     let mut keynum = [0u8; KEYNUMBYTES];
-    rng.fill_bytes(&mut keynum);
+    rng.try_fill_bytes(&mut keynum)?;
     let mut kdf_salt = [0u8; KDF_SALTBYTES];
-    rng.fill_bytes(&mut kdf_salt);
+    rng.try_fill_bytes(&mut kdf_salt)?;
 
     let opslimit = OPSLIMIT;
     let memlimit = MEMLIMIT;
-
     let p_struct = PublicKey {
         sig_alg: SIGALG,
         keynum_pk: KeynumPK { keynum, pk },
@@ -83,31 +106,88 @@ pub fn generate_unencrypted_keypair() -> (PublicKey, SecretKey) {
             chk: [0; CHK_BYTES],
         },
     };
-    (p_struct, s_struct)
+    Ok((p_struct, s_struct))
 }
 
-fn store_u64_le(x: u64) -> [u8; 8] {
-    let b1: u8 = (x & 0xff) as u8;
-    let b2: u8 = ((x >> 8) & 0xff) as u8;
-    let b3: u8 = ((x >> 16) & 0xff) as u8;
-    let b4: u8 = ((x >> 24) & 0xff) as u8;
-    let b5: u8 = ((x >> 32) & 0xff) as u8;
-    let b6: u8 = ((x >> 40) & 0xff) as u8;
-    let b7: u8 = ((x >> 48) & 0xff) as u8;
-    let b8: u8 = ((x >> 56) & 0xff) as u8;
-    [b1, b2, b3, b4, b5, b6, b7, b8]
+fn derive_and_crypt(sk_str: &mut SecretKey, pwd: &[u8]) -> Result<()> {
+    let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
+    let opslimit = load_u64_le(&sk_str.kdf_opslimit_le);
+    let memlimit = load_u64_le(&sk_str.kdf_memlimit_le) as usize;
+    let params = raw_scrypt_params(memlimit, opslimit)?;
+    scrypt::scrypt(&pwd, &sk_str.kdf_salt, &params, &mut stream)?;
+    sk_str.xor_keynum(&stream);
+    Ok(())
 }
 
-#[allow(clippy::cast_lossless)]
-fn load_u64_le(x: &[u8]) -> u64 {
-    (x[0] as u64)
-        | (x[1] as u64) << 8
-        | (x[2] as u64) << 16
-        | (x[3] as u64) << 24
-        | (x[4] as u64) << 32
-        | (x[5] as u64) << 40
-        | (x[6] as u64) << 48
-        | (x[7] as u64) << 56
+fn get_password(prompt: &str) -> Result<String> {
+    let pwd = rpassword::prompt_password_stdout(prompt)?;
+    if pwd.is_empty() {
+        println!("<empty>");
+        Ok(pwd)
+    } else if pwd.len() > PASSWORDMAXBYTES {
+        Err(PError::new(
+            ErrorKind::Misc,
+            "passphrase can't exceed 1024 bytes length",
+        ))
+    } else {
+        Ok(pwd)
+    }
+}
+
+pub fn generate_encrypted_keypair(password: Option<String>) -> Result<(PublicKey, SecretKey)> {
+    let (pk, mut sk) = generate_unencrypted_keypair()?;
+    let interactive = password.is_none();
+    sk.write_checksum()
+        .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
+    let password = match password {
+        Some(password) => password,
+        None => {
+            writeln!(
+                io::stdout(),
+                "Please enter a password to protect the secret key."
+            )?;
+            let password = get_password("Password: ")?;
+            let password2 = get_password("Password (one more time): ")?;
+            if password != password2 {
+                return Err(PError::new(ErrorKind::Generate, "passwords don't match!"));
+            }
+            write!(
+                io::stdout(),
+                "Deriving a key from the password in order to encrypt the secret key... "
+            )
+            .map_err(|e| PError::new(ErrorKind::Io, e))?;
+            io::stdout().flush()?;
+            password
+        }
+    };
+    derive_and_crypt(&mut sk, &password.as_bytes())?;
+    if interactive {
+        writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?;
+    }
+    Ok((pk, sk))
+}
+
+pub fn generate_and_write_encrypted_keypair(
+    mut pk_writer: BufWriter<File>,
+    mut sk_writer: BufWriter<File>,
+    comment: Option<&str>,
+    password: Option<String>,
+) -> Result<(PublicKey, SecretKey)> {
+    let (pk, sk) = generate_encrypted_keypair(password)?;
+    write!(pk_writer, "{}rsign2 public key: ", COMMENT_PREFIX)?;
+    writeln!(pk_writer, "{:X}", load_u64_le(&pk.keynum_pk.keynum[..]))?;
+    writeln!(pk_writer, "{}", pk.to_string())?;
+    pk_writer.flush()?;
+
+    write!(sk_writer, "{}", COMMENT_PREFIX)?;
+    if let Some(comment) = comment {
+        writeln!(sk_writer, "{}", comment)?;
+    } else {
+        writeln!(sk_writer, "{}", SECRETKEY_DEFAULT_COMMENT)?;
+    }
+    writeln!(sk_writer, "{}", sk.to_string())?;
+    sk_writer.flush()?;
+    Ok((pk, sk))
 }
 
 pub fn verify(
@@ -213,80 +293,6 @@ where
     Ok(())
 }
 
-fn derive_and_crypt(sk_str: &mut SecretKey, pwd: &[u8]) -> Result<()> {
-    let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
-    let opslimit = load_u64_le(&sk_str.kdf_opslimit_le);
-    let memlimit = load_u64_le(&sk_str.kdf_memlimit_le) as usize;
-    let params = raw_scrypt_params(memlimit, opslimit)?;
-    scrypt::scrypt(&pwd, &sk_str.kdf_salt, &params, &mut stream)?;
-    sk_str.xor_keynum(&stream);
-    Ok(())
-}
-
-fn get_password(prompt: &str) -> Result<String> {
-    let pwd = rpassword::prompt_password_stdout(prompt)?;
-    if pwd.is_empty() {
-        println!("<empty>");
-        Ok(pwd)
-    } else if pwd.len() > PASSWORDMAXBYTES {
-        Err(PError::new(
-            ErrorKind::Misc,
-            "passphrase can't exceed 1024 bytes length",
-        ))
-    } else {
-        Ok(pwd)
-    }
-}
-
-pub fn generate_keypair() -> Result<(PublicKey, SecretKey)> {
-    let (pk, mut sk) = generate_unencrypted_keypair();
-    sk.write_checksum()
-        .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
-    writeln!(
-        io::stdout(),
-        "Please enter a password to protect the secret key."
-    )?;
-    let pwd = get_password("Password: ")?;
-    let pwd2 = get_password("Password (one more time): ")?;
-    if pwd != pwd2 {
-        return Err(PError::new(ErrorKind::Generate, "passwords don't match!"));
-    }
-    write!(
-        io::stdout(),
-        "Deriving a key from the password in order to encrypt the secret key... "
-    )
-    .map_err(|e| PError::new(ErrorKind::Io, e))
-    .and_then(|_| {
-        io::stdout().flush()?;
-        derive_and_crypt(&mut sk, &pwd.as_bytes())
-    })
-    .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
-    Ok((pk, sk))
-}
-
-pub fn generate_and_write_keypair(
-    mut pk_file: BufWriter<File>,
-    mut sk_file: BufWriter<File>,
-    comment: Option<&str>,
-) -> Result<(PublicKey, SecretKey)> {
-    let (pk, sk) = generate_keypair()?;
-    write!(pk_file, "{}rsign2 public key: ", COMMENT_PREFIX)?;
-    writeln!(pk_file, "{:X}", load_u64_le(&pk.keynum_pk.keynum[..]))?;
-    writeln!(pk_file, "{}", pk.to_string())?;
-    pk_file.flush()?;
-
-    write!(sk_file, "{}", COMMENT_PREFIX)?;
-    if let Some(comment) = comment {
-        writeln!(sk_file, "{}", comment)?;
-    } else {
-        writeln!(sk_file, "{}", SECRETKEY_DEFAULT_COMMENT)?;
-    }
-    writeln!(sk_file, "{}", sk.to_string())?;
-    sk_file.flush()?;
-
-    Ok((pk, sk))
-}
-
 #[cfg(test)]
 mod tests {
     #[test]
@@ -307,7 +313,7 @@ mod tests {
         use crate::generate_unencrypted_keypair;
         use crate::PublicKey;
 
-        let (pk, _) = generate_unencrypted_keypair();
+        let (pk, _) = generate_unencrypted_keypair().unwrap();
         assert_eq!(pk, PublicKey::from_bytes(&pk.to_bytes()).unwrap());
     }
     #[test]
@@ -315,7 +321,7 @@ mod tests {
         use crate::generate_unencrypted_keypair;
         use crate::SecretKey;
 
-        let (_, sk) = generate_unencrypted_keypair();
+        let (_, sk) = generate_unencrypted_keypair().unwrap();
         assert_eq!(sk, SecretKey::from_bytes(&sk.to_bytes()).unwrap());
     }
 
@@ -324,7 +330,7 @@ mod tests {
         use crate::generate_unencrypted_keypair;
         use rand::{thread_rng, RngCore};
 
-        let (_, mut sk) = generate_unencrypted_keypair();
+        let (_, mut sk) = generate_unencrypted_keypair().unwrap();
         let mut rng = thread_rng();
         let mut key = vec![0u8; sk.keynum_sk.len()];
         rng.fill_bytes(&mut key);
@@ -338,7 +344,7 @@ mod tests {
     fn sk_checksum() {
         use crate::generate_unencrypted_keypair;
 
-        let (_, mut sk) = generate_unencrypted_keypair();
+        let (_, mut sk) = generate_unencrypted_keypair().unwrap();
         assert!(sk.write_checksum().is_ok());
         assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap());
     }

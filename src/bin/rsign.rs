@@ -158,9 +158,9 @@ force this operation.",
             std::fs::remove_file(&pk_path)?;
         }
     }
-    let pk_file = create_file(&pk_path, 0o644)?;
-    let sk_file = create_file(&sk_path, 0o600)?;
-    generate_and_write_keypair(pk_file, sk_file, comment)
+    let pk_writer = create_file(&pk_path, 0o644)?;
+    let sk_writer = create_file(&sk_path, 0o600)?;
+    generate_and_write_encrypted_keypair(pk_writer, sk_writer, comment, None)
 }
 
 pub fn cmd_sign<P, Q>(
