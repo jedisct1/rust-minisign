@@ -9,8 +9,8 @@ mod curve25519;
 mod sha2;
 mod simd;
 mod step_by;
-mod util;
 
 pub mod blake2b;
 pub mod digest;
 pub mod ed25519;
+pub mod util;

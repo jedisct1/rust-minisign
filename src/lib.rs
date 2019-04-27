@@ -3,7 +3,6 @@ extern crate libc;
 extern crate rand;
 extern crate rpassword;
 extern crate scrypt;
-extern crate sodiumoxide;
 
 pub mod crypto;
 pub mod parse_args;
@@ -13,7 +12,6 @@ pub mod types;
 use crypto::ed25519;
 use rand::{thread_rng, RngCore};
 use scrypt::ScryptParams;
-use sodiumoxide::crypto::sign::{gen_keypair, PublicKey, SecretKey};
 use std::cmp;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
@@ -55,11 +53,10 @@ fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams> {
 }
 
 pub fn gen_keystruct() -> (PubkeyStruct, SeckeyStruct) {
-    let (pk, sk) = gen_keypair();
-    let SecretKey(sk) = sk;
-    let PublicKey(pk) = pk;
-
+    let mut seed = vec![0u8; 32];
     let mut rng = thread_rng();
+    rng.fill_bytes(&mut seed);
+    let (sk, pk) = ed25519::keypair(&seed);
     let mut keynum = [0u8; KEYNUMBYTES];
     rng.fill_bytes(&mut keynum);
     let mut kdf_salt = [0u8; KDF_SALTBYTES];
@@ -190,21 +187,20 @@ where
     }
     sig_str.keynum.copy_from_slice(&sk_key.keynum_sk.keynum[..]);
 
-    let sk = SecretKey::from_slice(&sk_key.keynum_sk.sk)
-        .ok_or_else(|| PError::new(ErrorKind::Sign, "Couldn't generate secret key from bytes"))?;
-
-    let signature = sodiumoxide::crypto::sign::sign_detached(message, &sk);
-
+    let signature = ed25519::signature(message, &sk_key.keynum_sk.sk);
     sig_str.sig.copy_from_slice(&signature[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
     sig_and_trust_comment.extend(sig_str.sig.iter());
     sig_and_trust_comment.extend(trusted_comment.as_bytes().iter());
 
-    let global_sig = sodiumoxide::crypto::sign::sign_detached(&sig_and_trust_comment, &sk);
-    let global_sig = global_sig.as_ref();
+    let global_sig = ed25519::signature(&sig_and_trust_comment, &sk_key.keynum_sk.sk);
     if let Some(pk_str) = pk_key {
-        if !ed25519::verify(&sig_and_trust_comment, &pk_str.keynum_pk.pk[..], global_sig) {
+        if !ed25519::verify(
+            &sig_and_trust_comment,
+            &pk_str.keynum_pk.pk[..],
+            &global_sig,
+        ) {
             Err(PError::new(
                 ErrorKind::Verify,
                 format!(

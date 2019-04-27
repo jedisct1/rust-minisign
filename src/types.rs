@@ -1,6 +1,7 @@
 use crate::Result;
 use crypto::blake2b::Blake2b;
 use crypto::digest::Digest;
+use crypto::util::fixed_time_eq;
 use std::cmp;
 use std::fmt::{self, Formatter};
 use std::io::{Cursor, Read};
@@ -68,8 +69,7 @@ impl fmt::Debug for KeynumSK {
 
 impl cmp::PartialEq for KeynumSK {
     fn eq(&self, other: &KeynumSK) -> bool {
-        use sodiumoxide::utils::memcmp;
-        memcmp(&self.sk, &other.sk)
+        fixed_time_eq(&self.sk, &other.sk)
     }
 }
 impl cmp::Eq for KeynumSK {}
@@ -190,8 +190,7 @@ impl fmt::Debug for SeckeyStruct {
 
 impl cmp::PartialEq for SeckeyStruct {
     fn eq(&self, other: &SeckeyStruct) -> bool {
-        use sodiumoxide::utils::memcmp;
-        memcmp(&self.keynum_sk.sk, &other.keynum_sk.sk)
+        fixed_time_eq(&self.keynum_sk.sk, &other.keynum_sk.sk)
     }
 }
 impl cmp::Eq for SeckeyStruct {}
@@ -209,8 +208,7 @@ pub struct KeynumPK {
 
 impl cmp::PartialEq for PubkeyStruct {
     fn eq(&self, other: &PubkeyStruct) -> bool {
-        use sodiumoxide::utils::memcmp;
-        memcmp(&self.keynum_pk.pk, &other.keynum_pk.pk)
+        fixed_time_eq(&self.keynum_pk.pk, &other.keynum_pk.pk)
     }
 }
 impl cmp::Eq for PubkeyStruct {}

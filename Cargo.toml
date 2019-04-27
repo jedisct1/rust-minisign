@@ -20,7 +20,6 @@ libsodium-sys = "0.2"
 rand = "0.6"
 rpassword = "3.0"
 scrypt = { version = "0.2", default-features = false }
-sodiumoxide = "0.2"
 
 [dev-dependencies]
 unwrap = "1.2"

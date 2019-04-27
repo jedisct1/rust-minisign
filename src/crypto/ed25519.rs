@@ -1,4 +1,4 @@
-use super::curve25519::{sc_reduce, GeP2, GeP3};
+use super::curve25519::{ge_scalarmult_base, sc_muladd, sc_reduce, GeP2, GeP3};
 use super::digest::Digest;
 use super::sha2::Sha512;
 use super::util::fixed_time_eq;
@@ -56,4 +56,73 @@ pub fn verify(message: &[u8], public_key: &[u8], signature: &[u8]) -> bool {
     let rcheck = r.to_bytes();
 
     fixed_time_eq(rcheck.as_ref(), &signature[0..32])
+}
+
+pub fn keypair(seed: &[u8]) -> ([u8; 64], [u8; 32]) {
+    let mut secret: [u8; 64] = {
+        let mut hash_output: [u8; 64] = [0; 64];
+        let mut hasher = Sha512::new();
+        hasher.input(seed);
+        hasher.result(&mut hash_output);
+        hash_output[0] &= 248;
+        hash_output[31] &= 63;
+        hash_output[31] |= 64;
+        hash_output
+    };
+    let a = ge_scalarmult_base(&secret[0..32]);
+    let public_key = a.to_bytes();
+    for (dest, src) in (&mut secret[32..64]).iter_mut().zip(public_key.iter()) {
+        *dest = *src;
+    }
+    for (dest, src) in (&mut secret[0..32]).iter_mut().zip(seed.iter()) {
+        *dest = *src;
+    }
+    (secret, public_key)
+}
+
+pub fn signature(message: &[u8], secret_key: &[u8]) -> [u8; 64] {
+    let seed = &secret_key[0..32];
+    let public_key = &secret_key[32..64];
+    let az: [u8; 64] = {
+        let mut hash_output: [u8; 64] = [0; 64];
+        let mut hasher = Sha512::new();
+        hasher.input(seed);
+        hasher.result(&mut hash_output);
+        hash_output[0] &= 248;
+        hash_output[31] &= 63;
+        hash_output[31] |= 64;
+        hash_output
+    };
+    let nonce = {
+        let mut hash_output: [u8; 64] = [0; 64];
+        let mut hasher = Sha512::new();
+        hasher.input(&az[32..64]);
+        hasher.input(message);
+        hasher.result(&mut hash_output);
+        sc_reduce(&mut hash_output[0..64]);
+        hash_output
+    };
+    let mut signature: [u8; 64] = [0; 64];
+    let r: GeP3 = ge_scalarmult_base(&nonce[0..32]);
+    for (result_byte, source_byte) in (&mut signature[0..32]).iter_mut().zip(r.to_bytes().iter()) {
+        *result_byte = *source_byte;
+    }
+    for (result_byte, source_byte) in (&mut signature[32..64]).iter_mut().zip(public_key.iter()) {
+        *result_byte = *source_byte;
+    }
+    {
+        let mut hasher = Sha512::new();
+        hasher.input(signature.as_ref());
+        hasher.input(message);
+        let mut hram: [u8; 64] = [0; 64];
+        hasher.result(&mut hram);
+        sc_reduce(&mut hram);
+        sc_muladd(
+            &mut signature[32..64],
+            &hram[0..32],
+            &az[0..32],
+            &nonce[0..32],
+        );
+    }
+    signature
 }
