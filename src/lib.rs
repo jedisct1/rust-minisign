@@ -37,11 +37,11 @@ pub fn generate_unencrypted_keypair() -> Result<(PublicKey, SecretKey)> {
 
     let opslimit = OPSLIMIT;
     let memlimit = MEMLIMIT;
-    let p_struct = PublicKey {
+    let pk = PublicKey {
         sig_alg: SIGALG,
         keynum_pk: KeynumPK { keynum, pk },
     };
-    let s_struct = SecretKey {
+    let sk = SecretKey {
         sig_alg: SIGALG,
         kdf_alg: KDFALG,
         chk_alg: CHKALG,
@@ -54,15 +54,15 @@ pub fn generate_unencrypted_keypair() -> Result<(PublicKey, SecretKey)> {
             chk: [0; CHK_BYTES],
         },
     };
-    Ok((p_struct, s_struct))
+    Ok((pk, sk))
 }
 
-fn derive_and_crypt(sk: &mut SecretKey, pwd: &[u8]) -> Result<()> {
+fn derive_and_crypt(sk: &mut SecretKey, password: &[u8]) -> Result<()> {
     let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
     let opslimit = load_u64_le(&sk.kdf_opslimit_le);
     let memlimit = load_u64_le(&sk.kdf_memlimit_le) as usize;
     let params = raw_scrypt_params(memlimit, opslimit)?;
-    scrypt::scrypt(&pwd, &sk.kdf_salt, &params, &mut stream)?;
+    scrypt::scrypt(&password, &sk.kdf_salt, &params, &mut stream)?;
     sk.xor_keynum(&stream);
     Ok(())
 }
@@ -230,7 +230,7 @@ pub fn verify(
 }
 
 impl SecretKey {
-    pub fn from_file<P: AsRef<Path>>(sk_path: P) -> Result<SecretKey> {
+    pub fn from_file<P: AsRef<Path>>(sk_path: P, password: Option<String>) -> Result<SecretKey> {
         let file = OpenOptions::new()
             .read(true)
             .open(sk_path)
@@ -245,18 +245,24 @@ impl SecretKey {
                 base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
             SecretKey::from_bytes(&decoded_buf[..])
         }?;
-
-        let pwd = get_password("Password: ")?;
-        write!(
-            io::stdout(),
-            "Deriving a key from the password and decrypting the secret key... "
-        )
-        .map_err(|e| PError::new(ErrorKind::Io, e))
-        .and_then(|_| {
-            io::stdout().flush()?;
-            derive_and_crypt(&mut sk_str, &pwd.as_bytes())
-        })
-        .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
+        let interactive = password.is_none();
+        let password = match password {
+            Some(password) => password,
+            None => {
+                let password = get_password("Password: ")?;
+                write!(
+                    io::stdout(),
+                    "Deriving a key from the password and decrypting the secret key... "
+                )
+                .map_err(|e| PError::new(ErrorKind::Io, e))?;
+                io::stdout().flush()?;
+                password
+            }
+        };
+        derive_and_crypt(&mut sk_str, &password.as_bytes())?;
+        if interactive {
+            writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?
+        }
         let checksum_vec = sk_str.read_checksum().map_err(|e| e)?;
         let mut chk = [0u8; CHK_BYTES];
         chk.copy_from_slice(&checksum_vec[..]);

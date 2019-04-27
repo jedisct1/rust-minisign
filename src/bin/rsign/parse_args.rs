@@ -130,7 +130,7 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .long("sig-file"),
                 )
                 .arg(
-                    Arg::with_name("message")
+                    Arg::with_name("data")
                         .index(1)
                         .takes_value(true)
                         .required(true)

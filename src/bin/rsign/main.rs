@@ -196,7 +196,7 @@ where
         ))?;
     }
     let signature_box_writer = create_sig_file(&signature_path)?;
-    let sk = SecretKey::from_file(sk_path)?;
+    let sk = SecretKey::from_file(sk_path, None)?;
     let trusted_comment = if let Some(trusted_comment) = trusted_comment {
         trusted_comment.to_string()
     } else {
