@@ -1,4 +1,5 @@
 extern crate base64;
+extern crate chrono;
 extern crate libc;
 extern crate rand;
 extern crate rpassword;
@@ -10,6 +11,7 @@ pub mod perror;
 pub mod types;
 
 use crate::crypto::ed25519;
+use chrono::prelude::*;
 use rand::{thread_rng, RngCore};
 use scrypt::ScryptParams;
 use std::cmp;
@@ -192,16 +194,24 @@ pub fn generate_and_write_encrypted_keypair(
 
 pub fn sign<W>(
     mut signature_box_writer: W,
-    sk: &SecretKey,
     pk: Option<&PublicKey>,
+    sk: &SecretKey,
     message: &[u8],
     hashed: bool,
-    trusted_comment: &str,
-    untrusted_comment: &str,
+    trusted_comment: Option<&str>,
+    untrusted_comment: Option<&str>,
 ) -> Result<()>
 where
     W: Write,
 {
+    let trusted_comment = match trusted_comment {
+        Some(trusted_comment) => trusted_comment.to_string(),
+        None => format!("timestamp:{}", Utc::now().timestamp()),
+    };
+    let untrusted_comment = match untrusted_comment {
+        Some(untrusted_comment) => format!("{}{}", COMMENT_PREFIX, untrusted_comment),
+        None => format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT),
+    };
     let mut signature = Signature::default();
     if !hashed {
         signature.sig_alg = sk.sig_alg;

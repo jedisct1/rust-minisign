@@ -163,11 +163,11 @@ force this operation.",
     generate_and_write_encrypted_keypair(pk_writer, sk_writer, comment, None)
 }
 
-pub fn cmd_sign<P, Q>(
-    sk_path: P,
+pub fn cmd_sign<P, Q, R>(
     pk: Option<PublicKey>,
-    signature_file: P,
-    message_file: Q,
+    sk_path: P,
+    signature_path: Q,
+    message_path: R,
     hashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
@@ -175,6 +175,7 @@ pub fn cmd_sign<P, Q>(
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
+    R: AsRef<Path>,
 {
     if !sk_path.as_ref().exists() {
         Err(PError::new(
@@ -185,7 +186,7 @@ where
             ),
         ))?;
     }
-    let signature_box_writer = create_sig_file(&signature_file)?;
+    let signature_box_writer = create_sig_file(&signature_path)?;
     let sk = sk_load(sk_path)?;
     let trusted_comment = if let Some(trusted_comment) = trusted_comment {
         trusted_comment.to_string()
@@ -193,23 +194,18 @@ where
         format!(
             "timestamp:{}\tfile:{}",
             Utc::now().timestamp(),
-            message_file.as_ref().display()
+            message_path.as_ref().display()
         )
     };
-    let untrusted_comment = if let Some(untrusted_comment) = untrusted_comment {
-        format!("{}{}", COMMENT_PREFIX, untrusted_comment)
-    } else {
-        format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT)
-    };
-    let message = load_message_file(message_file, hashed)?;
+    let message = load_message_file(message_path, hashed)?;
     sign(
         signature_box_writer,
-        &sk,
         pk.as_ref(),
+        &sk,
         &message,
         hashed,
-        trusted_comment.as_str(),
-        untrusted_comment.as_str(),
+        Some(trusted_comment.as_str()),
+        untrusted_comment,
     )
 }
 
@@ -343,8 +339,8 @@ fn run(args: clap::ArgMatches) -> Result<()> {
         let trusted_comment = sign_action.value_of("trusted-comment");
         let untrusted_comment = sign_action.value_of("untrusted-comment");
         cmd_sign(
-            &sk_path,
             pk,
+            &sk_path,
             &signature_path,
             &message_path,
             hashed,
