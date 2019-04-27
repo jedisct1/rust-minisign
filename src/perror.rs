@@ -41,7 +41,7 @@ impl PError {
         E: Into<Box<StdError + Send + Sync>>,
     {
         PError {
-            kind: kind,
+            kind,
             err: err.into(),
         }
     }

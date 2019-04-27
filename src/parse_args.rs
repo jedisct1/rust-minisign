@@ -2,7 +2,7 @@ extern crate clap;
 use self::clap::{App, Arg, SubCommand};
 
 pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
-    let matches = App::new("rsign")
+    App::new("rsign")
         .version("0.1.1")
         .author("Daniel Rangel <daniel@rangel.in>")
         .about("Rust implementation of minisign")
@@ -161,7 +161,5 @@ pub fn parse_args<'a>() -> clap::ArgMatches<'a> {
                         .help("pre-hash in order to sign large files (>1G)"),
                 ),
         )
-        .get_matches();
-
-    matches
+        .get_matches()
 }

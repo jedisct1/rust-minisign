@@ -330,7 +330,7 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
             }
             None => {
                 let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
-                let path = match env_path {
+                match env_path {
                     Ok(env_path) => {
                         let mut complete_path = PathBuf::from(env_path);
                         if !complete_path.exists() {
@@ -350,17 +350,16 @@ fn run<'a>(args: clap::ArgMatches<'a>) -> Result<()> {
                     }
                     Err(_) => {
                         let home_path = dirs::home_dir()
-                            .ok_or(PError::new(ErrorKind::Io, "can't find home dir"));
+                            .ok_or_else(|| PError::new(ErrorKind::Io, "can't find home dir"));
                         let mut complete_path = PathBuf::from(home_path.unwrap());
                         complete_path.push(SIG_DEFAULT_CONFIG_DIR);
                         if !complete_path.exists() {
-                            r#try!(create_dir(&complete_path));
+                            create_dir(&complete_path)?;
                         }
                         complete_path.push(SIG_DEFAULT_SKFILE);
                         complete_path
                     }
-                };
-                path
+                }
             }
         };
 
@@ -378,7 +377,7 @@ force this operation.",
                     ),
                 ));
             } else {
-                r#try!(std::fs::remove_file(&sk_path));
+                std::fs::remove_file(&sk_path)?;
             }
         }
         let pk_file = create_file(&pk_path, 0o644)?;

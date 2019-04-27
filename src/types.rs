@@ -19,15 +19,15 @@ pub const SIGALG: [u8; 2] = *b"Ed";
 pub const SIGALG_HASHED: [u8; 2] = *b"ED";
 pub const KDFALG: [u8; 2] = *b"Sc";
 pub const CHKALG: [u8; 2] = *b"B2";
-pub const COMMENT_PREFIX: &'static str = "untrusted comment: ";
-pub const DEFAULT_COMMENT: &'static str = "signature from rsign secret key";
-pub const SECRETKEY_DEFAULT_COMMENT: &'static str = "rsign encrypted secret key";
-pub const TRUSTED_COMMENT_PREFIX: &'static str = "trusted comment: ";
-pub const SIG_DEFAULT_CONFIG_DIR: &'static str = ".rsign";
-pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &'static str = "RSIGN_CONFIG_DIR";
-pub const SIG_DEFAULT_PKFILE: &'static str = "rsign.pub";
-pub const SIG_DEFAULT_SKFILE: &'static str = "rsign.key";
-pub const SIG_SUFFIX: &'static str = ".minisig";
+pub const COMMENT_PREFIX: &str = "untrusted comment: ";
+pub const DEFAULT_COMMENT: &str = "signature from rsign secret key";
+pub const SECRETKEY_DEFAULT_COMMENT: &str = "rsign encrypted secret key";
+pub const TRUSTED_COMMENT_PREFIX: &str = "trusted comment: ";
+pub const SIG_DEFAULT_CONFIG_DIR: &str = ".rsign";
+pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &str = "RSIGN_CONFIG_DIR";
+pub const SIG_DEFAULT_PKFILE: &str = "rsign.pub";
+pub const SIG_DEFAULT_SKFILE: &str = "rsign.key";
+pub const SIG_SUFFIX: &str = ".minisig";
 pub const CHK_BYTES: usize = 32;
 pub const PREHASH_BYTES: usize = 64;
 
@@ -93,28 +93,24 @@ impl SeckeyStruct {
         let mut keynum = [0u8; KEYNUMBYTES];
         let mut sk = [0u8; SECRETKEYBYTES];
         let mut chk = [0u8; CHK_BYTES];
-        buf.read(&mut sig_alg)?;
-        buf.read(&mut kdf_alg)?;
-        buf.read(&mut chk_alg)?;
-        buf.read(&mut kdf_salt)?;
-        buf.read(&mut ops_limit)?;
-        buf.read(&mut mem_limit)?;
-        buf.read(&mut keynum)?;
-        buf.read(&mut sk)?;
-        buf.read(&mut chk)?;
+        buf.read_exact(&mut sig_alg)?;
+        buf.read_exact(&mut kdf_alg)?;
+        buf.read_exact(&mut chk_alg)?;
+        buf.read_exact(&mut kdf_salt)?;
+        buf.read_exact(&mut ops_limit)?;
+        buf.read_exact(&mut mem_limit)?;
+        buf.read_exact(&mut keynum)?;
+        buf.read_exact(&mut sk)?;
+        buf.read_exact(&mut chk)?;
 
         Ok(SeckeyStruct {
-            sig_alg: sig_alg,
-            kdf_alg: kdf_alg,
-            chk_alg: chk_alg,
-            kdf_salt: kdf_salt,
+            sig_alg,
+            kdf_alg,
+            chk_alg,
+            kdf_salt,
             kdf_opslimit_le: ops_limit,
             kdf_memlimit_le: mem_limit,
-            keynum_sk: KeynumSK {
-                keynum: keynum,
-                sk: sk,
-                chk: chk,
-            },
+            keynum_sk: KeynumSK { keynum, sk, chk },
         })
     }
     pub fn bytes(&self) -> Vec<u8> {
@@ -132,7 +128,7 @@ impl SeckeyStruct {
             .iter()
             .flat_map(|b| {
                 let b = b.clone();
-                b.into_iter().cloned()
+                b.cloned()
             })
             .collect();
         v
@@ -158,7 +154,7 @@ impl SeckeyStruct {
             .keynum
             .iter_mut()
             .zip(stream.iter())
-            .map(|(byte, stream)| *byte = *byte ^ *stream)
+            .map(|(byte, stream)| *byte ^= *stream)
             .count();
 
         let b64 = self
@@ -166,7 +162,7 @@ impl SeckeyStruct {
             .sk
             .iter_mut()
             .zip(stream[b8..].iter())
-            .map(|(byte, stream)| *byte = *byte ^ *stream)
+            .map(|(byte, stream)| *byte ^= *stream)
             .count();
 
         let _b32 = self
@@ -174,7 +170,7 @@ impl SeckeyStruct {
             .chk
             .iter_mut()
             .zip(stream[b8 + b64..].iter())
-            .map(|(byte, stream)| *byte = *byte ^ *stream)
+            .map(|(byte, stream)| *byte ^= *stream)
             .count();
     }
 }
@@ -226,15 +222,12 @@ impl PubkeyStruct {
         let mut sig_alg = [0u8; TWOBYTES];
         let mut keynum = [0u8; KEYNUMBYTES];
         let mut pk = [0u8; PUBLICKEYBYTES];
-        buf.read(&mut sig_alg)?;
-        buf.read(&mut keynum)?;
-        buf.read(&mut pk)?;
+        buf.read_exact(&mut sig_alg)?;
+        buf.read_exact(&mut keynum)?;
+        buf.read_exact(&mut pk)?;
         Ok(PubkeyStruct {
-            sig_alg: sig_alg,
-            keynum_pk: KeynumPK {
-                keynum: keynum,
-                pk: pk,
-            },
+            sig_alg,
+            keynum_pk: KeynumPK { keynum, pk },
         })
     }
 
@@ -247,7 +240,7 @@ impl PubkeyStruct {
             .iter()
             .flat_map(|b| {
                 let b = b.clone();
-                b.into_iter().cloned()
+                b.cloned()
             })
             .collect();
         v
@@ -273,7 +266,7 @@ impl SigStruct {
             .iter()
             .flat_map(|b| {
                 let b = b.clone();
-                b.into_iter().cloned()
+                b.cloned()
             })
             .collect();
         v
@@ -283,13 +276,13 @@ impl SigStruct {
         let mut sig_alg = [0u8; 2];
         let mut keynum = [0u8; KEYNUMBYTES];
         let mut sig = [0u8; SIGNATUREBYTES];
-        buf.read(&mut sig_alg)?;
-        buf.read(&mut keynum)?;
-        buf.read(&mut sig)?;
+        buf.read_exact(&mut sig_alg)?;
+        buf.read_exact(&mut keynum)?;
+        buf.read_exact(&mut sig)?;
         Ok(SigStruct {
-            sig_alg: sig_alg,
-            keynum: keynum,
-            sig: sig,
+            sig_alg,
+            keynum,
+            sig,
         })
     }
 }
