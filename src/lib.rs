@@ -13,7 +13,6 @@ use crate::crypto::ed25519;
 use rand::{thread_rng, RngCore};
 use scrypt::ScryptParams;
 use std::cmp;
-use std::fmt::Debug;
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
@@ -383,12 +382,17 @@ pub fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SecretKey> {
 
 pub fn pk_load<P>(pk_path: P) -> Result<PublicKey>
 where
-    P: AsRef<Path> + Copy + Debug,
+    P: AsRef<Path>,
 {
+    let pk_path = pk_path.as_ref();
     let file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
         PError::new(
             ErrorKind::Io,
-            format!("couldn't retrieve public key from {:?}: {}", pk_path, e),
+            format!(
+                "couldn't retrieve public key from {}: {}",
+                pk_path.display(),
+                e
+            ),
         )
     })?;
     let mut pk_buf = BufReader::new(file);
@@ -443,12 +447,13 @@ pub struct SignatureBox {
 }
 
 impl SignatureBox {
-    pub fn from_file<P>(sig_file: P) -> Result<SignatureBox>
+    pub fn from_file<P>(sig_path: P) -> Result<SignatureBox>
     where
-        P: AsRef<Path> + Copy + Debug,
+        P: AsRef<Path>,
     {
-        let file = File::open(sig_file)
-            .map_err(|e| PError::new(ErrorKind::Io, format!("{} {:?}", e, sig_file)))?;
+        let sig_path = sig_path.as_ref();
+        let file = File::open(sig_path)
+            .map_err(|e| PError::new(ErrorKind::Io, format!("{} {}", e, sig_path.display())))?;
 
         let mut buf = BufReader::new(file);
         let mut untrusted_comment = String::with_capacity(COMMENTBYTES);

@@ -8,7 +8,6 @@ use chrono::prelude::*;
 use rsign2::crypto::blake2b::Blake2b;
 use rsign2::crypto::digest::Digest;
 use rsign2::*;
-use std::fmt::Debug;
 
 use std::fs::{DirBuilder, File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read};
@@ -18,63 +17,85 @@ use std::path::{Path, PathBuf};
 
 fn create_dir<P>(path: P) -> Result<()>
 where
-    P: AsRef<Path> + Debug,
+    P: AsRef<Path>,
 {
     DirBuilder::new()
         .recursive(true)
         .create(&path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+        .map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!("while creating: {} - {}", path.as_ref().display(), e),
+            )
+        })?;
     Ok(())
 }
 
 #[cfg(windows)]
 fn create_file<P>(path: P, _mode: u32) -> Result<BufWriter<File>>
 where
-    P: AsRef<Path> + Copy + Debug,
+    P: AsRef<Path>,
 {
     let file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+        .map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!("while creating: {} - {}", path.as_ref().display(), e),
+            )
+        })?;
     Ok(BufWriter::new(file))
 }
 
 #[cfg(not(windows))]
 fn create_file<P>(path: P, mode: u32) -> Result<BufWriter<File>>
 where
-    P: AsRef<Path> + Copy + Debug,
+    P: AsRef<Path>,
 {
+    let path = path.as_ref();
     let file = OpenOptions::new()
         .mode(mode)
         .write(true)
         .create_new(true)
         .open(path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+        .map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!("while creating: {} - {}", path.display(), e),
+            )
+        })?;
     Ok(BufWriter::new(file))
 }
 
 fn create_sig_file<P>(path: P) -> Result<BufWriter<File>>
 where
-    P: AsRef<Path> + Copy + Debug,
+    P: AsRef<Path>,
 {
+    let path = path.as_ref();
     let file = OpenOptions::new()
         .write(true)
         .create(true)
         .open(path)
-        .map_err(|e| PError::new(ErrorKind::Io, format!("while creating: {:?} - {}", path, e)))?;
+        .map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!("while creating: {} - {}", path.display(), e),
+            )
+        })?;
     Ok(BufWriter::new(file))
 }
 
-fn load_and_hash_message_file<P>(message_file: P) -> Result<Vec<u8>>
+fn load_and_hash_message_file<P>(message_path: P) -> Result<Vec<u8>>
 where
-    P: AsRef<Path> + Copy,
+    P: AsRef<Path>,
 {
+    let message_path = message_path.as_ref();
     let file = OpenOptions::new()
         .read(true)
-        .open(message_file)
+        .open(message_path)
         .map_err(|e| PError::new(ErrorKind::Io, e))?;
-
     let mut buf_reader = BufReader::new(file);
     let mut buf_chunk = [0u8; 65536];
     let mut state = Blake2b::new(PREHASH_BYTES);
@@ -86,21 +107,22 @@ where
     Ok(out)
 }
 
-fn load_message_file<P>(message_file: P, hashed: bool) -> Result<Vec<u8>>
+fn load_message_file<P>(message_path: P, hashed: bool) -> Result<Vec<u8>>
 where
-    P: AsRef<Path> + Copy + Debug,
+    P: AsRef<Path>,
 {
+    let message_path = message_path.as_ref();
     if hashed {
-        return load_and_hash_message_file(message_file);
+        return load_and_hash_message_file(message_path);
     }
     let mut file = OpenOptions::new()
         .read(true)
-        .open(message_file)
+        .open(message_path)
         .map_err(|e| PError::new(ErrorKind::Io, e))?;
     if file.metadata().unwrap().len() > (1u64 << 30) {
         Err(PError::new(
             ErrorKind::Io,
-            format!("{:?} is larger than 1G try using -H", message_file),
+            format!("{} is larger than 1G try using -H", message_path.display()),
         ))?;
     }
     let mut msg_buf: Vec<u8> = Vec::new();
@@ -108,22 +130,23 @@ where
     Ok(msg_buf)
 }
 
-pub fn cmd_generate(
-    force: bool,
-    pk_path: PathBuf,
-    sk_path: PathBuf,
-    comment: Option<&str>,
-) -> Result<()> {
+pub fn cmd_generate<P, Q>(force: bool, pk_path: P, sk_path: Q, comment: Option<&str>) -> Result<()>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    let pk_path = pk_path.as_ref();
+    let sk_path = sk_path.as_ref();
     if pk_path.exists() {
         if !force {
             Err(PError::new(
                 ErrorKind::Io,
                 format!(
                     "Key generation aborted:\n
-{:?} already exists\n
+{} already exists\n
 If you really want to overwrite the existing key pair, add the -f switch to\n
 force this operation.",
-                    pk_path
+                    pk_path.display()
                 ),
             ))?;
         } else {
@@ -136,12 +159,12 @@ force this operation.",
     let (pk_str, _) = generate_keypair(pk_file, sk_file, comment)?;
 
     println!(
-        "\nThe secret key was saved as {:?} - Keep it secret!",
-        sk_path
+        "\nThe secret key was saved as {} - Keep it secret!",
+        sk_path.display()
     );
     println!(
-        "The public key was saved as {:?} - That one can be public.\n",
-        pk_path
+        "The public key was saved as {} - That one can be public.\n",
+        pk_path.display()
     );
     println!("Files signed using this key pair can be verified with the following command:\n");
     println!(
@@ -151,22 +174,29 @@ force this operation.",
     Ok(())
 }
 
-pub fn cmd_sign(
-    sk_path: PathBuf,
+pub fn cmd_sign<P, Q>(
+    sk_path: P,
     pk: Option<PublicKey>,
     hashed: bool,
-    sig_file_name: String,
-    message_file: &str,
+    signature_file: P,
+    message_file: Q,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
-) -> Result<()> {
-    if !sk_path.exists() {
+) -> Result<()>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    if !sk_path.as_ref().exists() {
         Err(PError::new(
             ErrorKind::Io,
-            format!("can't find secret key file at {:?}, try using -s", sk_path),
+            format!(
+                "can't find secret key file at {}, try using -s",
+                sk_path.as_ref().display()
+            ),
         ))?;
     }
-    let sig_buf = create_sig_file(&sig_file_name)?;
+    let sig_buf = create_sig_file(&signature_file)?;
     let sk = sk_load(sk_path)?;
     let t_comment = if let Some(trusted_comment) = trusted_comment {
         trusted_comment.to_string()
@@ -174,7 +204,7 @@ pub fn cmd_sign(
         format!(
             "timestamp:{}\tfile:{}",
             Utc::now().timestamp(),
-            message_file
+            message_file.as_ref().display()
         )
     };
     let unt_comment = if let Some(untrusted_comment) = untrusted_comment {
@@ -194,15 +224,19 @@ pub fn cmd_sign(
     )
 }
 
-pub fn cmd_verify(
+pub fn cmd_verify<P, Q>(
     pk: PublicKey,
-    message_file: &str,
-    sig_file_name: String,
+    message_path: P,
+    signature_path: Q,
     quiet: bool,
     output: bool,
-) -> Result<()> {
-    let signature_box = SignatureBox::from_file(&sig_file_name)?;
-    let message = load_message_file(message_file, signature_box.hashed)?;
+) -> Result<()>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    let signature_box = SignatureBox::from_file(signature_path)?;
+    let message = load_message_file(message_path, signature_box.hashed)?;
     verify(
         pk,
         signature_box.signature,
@@ -220,7 +254,7 @@ fn sk_path_or_default(sk_path_str: Option<&str>, force: bool) -> Result<PathBuf>
             let complete_path = PathBuf::from(path);
             let mut dir = complete_path.clone();
             dir.pop();
-            create_dir(dir)?;
+            create_dir(&dir)?;
             complete_path
         }
         None => {
@@ -232,8 +266,8 @@ fn sk_path_or_default(sk_path_str: Option<&str>, force: bool) -> Result<PathBuf>
                         Err(PError::new(
                             ErrorKind::Io,
                             format!(
-                                "folder {:?} referenced by {} doesn't exists, you'll have to create yourself",
-                                complete_path, SIG_DEFAULT_CONFIG_DIR_ENV_VAR
+                                "folder {} referenced by {} doesn't exists, you'll have to create yourself",
+                                complete_path.display(), SIG_DEFAULT_CONFIG_DIR_ENV_VAR
                             ),
                         ))?;
                     }
@@ -260,11 +294,11 @@ fn sk_path_or_default(sk_path_str: Option<&str>, force: bool) -> Result<PathBuf>
                 ErrorKind::Io,
                 format!(
                     "Key generation aborted:
-{:?} already exists
+{} already exists
 
 If you really want to overwrite the existing key pair, add the -f switch to
 force this operation.",
-                    sk_path
+                    sk_path.display()
                 ),
             ))?;
         } else {
@@ -308,20 +342,20 @@ fn run(args: clap::ArgMatches) -> Result<()> {
             }
         };
         let hashed = sign_action.is_present("hash");
-        let message_file = sign_action.value_of("message").unwrap(); // safe to unwrap
-        let sig_file_name = if let Some(file) = sign_action.value_of("sig_file") {
-            file.to_string()
+        let message_path = PathBuf::from(sign_action.value_of("message").unwrap()); // safe to unwrap
+        let signature_path = if let Some(file) = sign_action.value_of("sig_file") {
+            PathBuf::from(file)
         } else {
-            format!("{}{}", message_file, SIG_SUFFIX)
+            PathBuf::from(format!("{}{}", message_path.display(), SIG_SUFFIX))
         };
         let trusted_comment = sign_action.value_of("trusted-comment");
         let untrusted_comment = sign_action.value_of("untrusted-comment");
         cmd_sign(
-            sk_path,
+            &sk_path,
             pk,
             hashed,
-            sig_file_name,
-            message_file,
+            &signature_path,
+            &message_path,
             trusted_comment,
             untrusted_comment,
         )
@@ -339,15 +373,15 @@ fn run(args: clap::ArgMatches) -> Result<()> {
             }
             None => pk_load(SIG_DEFAULT_PKFILE)?,
         };
-        let message_file = verify_action.value_of("file").unwrap();
-        let sig_file_name = if let Some(file) = verify_action.value_of("sig_file") {
-            file.to_string()
+        let message_path = verify_action.value_of("file").unwrap();
+        let signature_path = if let Some(path) = verify_action.value_of("sig_file") {
+            PathBuf::from(path)
         } else {
-            format!("{}{}", message_file, SIG_SUFFIX)
+            PathBuf::from(format!("{}{}", message_path, SIG_SUFFIX))
         };
         let quiet = verify_action.is_present("quiet");
         let output = verify_action.is_present("output");
-        cmd_verify(pk, message_file, sig_file_name, quiet, output)
+        cmd_verify(pk, &message_path, &signature_path, quiet, output)
     } else {
         println!("{}\n", args.usage());
         std::process::exit(1);
