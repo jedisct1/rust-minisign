@@ -3,90 +3,18 @@ extern crate clap;
 extern crate dirs;
 extern crate rsign2;
 
+mod helpers;
 mod parse_args;
 
+use crate::helpers::*;
 use crate::parse_args::*;
 use rsign2::crypto::blake2b::Blake2b;
 use rsign2::crypto::digest::Digest;
 use rsign2::*;
-use std::fs::{DirBuilder, File, OpenOptions};
-use std::io::{BufReader, BufWriter, Read};
-#[cfg(not(windows))]
-use std::os::unix::fs::OpenOptionsExt;
+use std::fs::OpenOptions;
+use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-
-fn create_dir<P>(path: P) -> Result<()>
-where
-    P: AsRef<Path>,
-{
-    DirBuilder::new()
-        .recursive(true)
-        .create(&path)
-        .map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!("while creating: {} - {}", path.as_ref().display(), e),
-            )
-        })?;
-    Ok(())
-}
-
-#[cfg(windows)]
-fn create_file<P>(path: P, _mode: u32) -> Result<BufWriter<File>>
-where
-    P: AsRef<Path>,
-{
-    let file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!("while creating: {} - {}", path.as_ref().display(), e),
-            )
-        })?;
-    Ok(BufWriter::new(file))
-}
-
-#[cfg(not(windows))]
-fn create_file<P>(path: P, mode: u32) -> Result<BufWriter<File>>
-where
-    P: AsRef<Path>,
-{
-    let path = path.as_ref();
-    let file = OpenOptions::new()
-        .mode(mode)
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!("while creating: {} - {}", path.display(), e),
-            )
-        })?;
-    Ok(BufWriter::new(file))
-}
-
-fn create_sig_file<P>(path: P) -> Result<BufWriter<File>>
-where
-    P: AsRef<Path>,
-{
-    let path = path.as_ref();
-    let file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .open(path)
-        .map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!("while creating: {} - {}", path.display(), e),
-            )
-        })?;
-    Ok(BufWriter::new(file))
-}
 
 fn load_and_hash_data_file<P>(data_path: P) -> Result<Vec<u8>>
 where
@@ -389,15 +317,4 @@ fn main() {
     let args = parse_args();
     run(args).map_err(|e| e.exit()).unwrap();
     std::process::exit(0);
-}
-
-#[test]
-fn load_public_key_string() {
-    assert!(
-        PublicKey::from_string("RWRzq51bKcS8oJvZ4xEm+nRvGYPdsNRD3ciFPu1YJEL8Bl/3daWaj72r").is_ok()
-    );
-    assert!(
-        PublicKey::from_string("RWQt7oYqpar/yePp+nonossdnononovlOSkkckMMfvHuGc+0+oShmJyN5Y")
-            .is_err()
-    );
 }
