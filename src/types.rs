@@ -1,8 +1,6 @@
-extern crate libsodium_sys as ffi;
-
 use crate::Result;
-use sodiumoxide::crypto::generichash;
-use sodiumoxide::crypto::sign::*;
+use crypto::blake2b::Blake2b;
+use crypto::digest::Digest;
 use std::cmp;
 use std::fmt::{self, Formatter};
 use std::io::{Cursor, Read};
@@ -32,6 +30,9 @@ pub const PREHASH_BYTES: usize = 64;
 pub const KDF_SALTBYTES: usize = 32;
 pub const OPSLIMIT: u64 = 1_048_576;
 pub const MEMLIMIT: usize = 33_554_432;
+pub const PUBLICKEYBYTES: usize = 32;
+pub const SECRETKEYBYTES: usize = 64;
+pub const SIGNATUREBYTES: usize = 64;
 
 pub struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
@@ -142,12 +143,13 @@ impl SeckeyStruct {
     }
 
     pub fn read_checksum(&self) -> Result<Vec<u8>> {
-        let mut state = generichash::State::new(CHK_BYTES, None).unwrap();
-        state.update(&self.sig_alg).unwrap();
-        state.update(&self.keynum_sk.keynum).unwrap();
-        state.update(&self.keynum_sk.sk).unwrap();
-        let h = state.finalize().unwrap();
-        Ok(Vec::from(&h[..]))
+        let mut state = Blake2b::new(CHK_BYTES);
+        state.input(&self.sig_alg);
+        state.input(&self.keynum_sk.keynum);
+        state.input(&self.keynum_sk.sk);
+        let mut h = vec![0u8; CHK_BYTES];
+        state.result(&mut h);
+        Ok(h)
     }
 
     pub fn xor_keynum(&mut self, stream: &[u8]) {

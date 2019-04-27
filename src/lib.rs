@@ -6,15 +6,14 @@ extern crate scrypt;
 extern crate sodiumoxide;
 
 use rand::{thread_rng, RngCore};
-use sodiumoxide::crypto::sign;
-use sodiumoxide::crypto::sign::*;
-
 use scrypt::ScryptParams;
+use sodiumoxide::crypto::sign::{self, gen_keypair, PublicKey, SecretKey, Signature};
 use std::cmp;
 use std::fs::File;
 use std::io::{self, BufWriter, Write};
 use std::u64;
 
+pub mod crypto;
 pub mod parse_args;
 pub mod perror;
 pub mod types;

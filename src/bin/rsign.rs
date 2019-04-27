@@ -4,12 +4,12 @@ extern crate clap;
 extern crate dirs;
 extern crate libsodium_sys as ffi;
 extern crate rsign2;
-extern crate sodiumoxide;
 
 use chrono::prelude::*;
+use rsign2::crypto::blake2b::Blake2b;
+use rsign2::crypto::digest::Digest;
+use rsign2::types::SIGNATUREBYTES;
 use rsign2::*;
-use sodiumoxide::crypto::generichash;
-use sodiumoxide::crypto::sign::SIGNATUREBYTES;
 use std::fmt::Debug;
 
 use std::fs::{DirBuilder, File, OpenOptions};
@@ -286,11 +286,13 @@ where
         .and_then(|file| {
             let mut buf_reader = BufReader::new(file);
             let mut buf_chunk = [0u8; 65536];
-            let mut state = generichash::State::new(PREHASH_BYTES, None).unwrap();
+            let mut state = Blake2b::new(PREHASH_BYTES);
             while buf_reader.read(&mut buf_chunk).unwrap() > 0 {
-                state.update(&buf_chunk).unwrap();
+                state.input(&buf_chunk);
             }
-            Ok(state.finalize().unwrap().as_ref().to_vec())
+            let mut out = vec![0u8; PREHASH_BYTES];
+            state.result(&mut out);
+            Ok(out)
         })
 }
 
