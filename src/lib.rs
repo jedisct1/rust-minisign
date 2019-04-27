@@ -174,7 +174,7 @@ pub fn generate_and_write_encrypted_keypair(
     password: Option<String>,
 ) -> Result<(PublicKey, SecretKey)> {
     let (pk, sk) = generate_encrypted_keypair(password)?;
-    write!(pk_writer, "{}rsign2 public key: ", COMMENT_PREFIX)?;
+    write!(pk_writer, "{}minisign public key: ", COMMENT_PREFIX)?;
     writeln!(pk_writer, "{:X}", load_u64_le(&pk.keynum_pk.keynum[..]))?;
     writeln!(pk_writer, "{}", pk.to_string())?;
     pk_writer.flush()?;
@@ -188,48 +188,6 @@ pub fn generate_and_write_encrypted_keypair(
     writeln!(sk_writer, "{}", sk.to_string())?;
     sk_writer.flush()?;
     Ok((pk, sk))
-}
-
-pub fn verify(
-    pk_key: PublicKey,
-    sig: Signature,
-    global_sig: &[u8],
-    trusted_comment: &[u8],
-    message: &[u8],
-    quiet: bool,
-    output: bool,
-) -> Result<()> {
-    if sig.keynum != pk_key.keynum_pk.keynum {
-        return Err(PError::new(
-            ErrorKind::Verify,
-            format!(
-                "Signature key id: {:X} is different from public key: {:X}",
-                load_u64_le(&sig.keynum[..]),
-                load_u64_le(&pk_key.keynum_pk.keynum[..])
-            ),
-        ));
-    }
-    if !ed25519::verify(&message, &pk_key.keynum_pk.pk, &sig.sig) {
-        Err(PError::new(
-            ErrorKind::Verify,
-            "Signature verification failed",
-        ))?
-    }
-    if !ed25519::verify(&trusted_comment, &pk_key.keynum_pk.pk, &global_sig) {
-        Err(PError::new(
-            ErrorKind::Verify,
-            "Comment signature verification failed",
-        ))?
-    }
-    let just_comment = String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;
-    if !quiet {
-        println!("Signature and comment signature verified");
-        println!("Trusted comment: {}", just_comment);
-    }
-    if output {
-        print!("{}", String::from_utf8_lossy(&message[..]));
-    }
-    Ok(())
 }
 
 pub fn sign<W>(
@@ -290,6 +248,49 @@ where
     )?;
     writeln!(signature_box_writer, "{}", base64::encode(&global_sig[..]))?;
     signature_box_writer.flush()?;
+    Ok(())
+}
+
+pub fn verify(
+    pk_key: PublicKey,
+    signature_box: SignatureBox,
+    message: &[u8],
+    quiet: bool,
+    output: bool,
+) -> Result<()> {
+    let sig = &signature_box.signature;
+    let global_sig = &signature_box.global_sig[..];
+    let trusted_comment = &signature_box.trusted_comment;
+    if sig.keynum != pk_key.keynum_pk.keynum {
+        return Err(PError::new(
+            ErrorKind::Verify,
+            format!(
+                "Signature key id: {:X} is different from public key: {:X}",
+                load_u64_le(&sig.keynum[..]),
+                load_u64_le(&pk_key.keynum_pk.keynum[..])
+            ),
+        ));
+    }
+    if !ed25519::verify(&message, &pk_key.keynum_pk.pk, &sig.sig) {
+        Err(PError::new(
+            ErrorKind::Verify,
+            "Signature verification failed",
+        ))?
+    }
+    if !ed25519::verify(&trusted_comment, &pk_key.keynum_pk.pk, &global_sig) {
+        Err(PError::new(
+            ErrorKind::Verify,
+            "Comment signature verification failed",
+        ))?
+    }
+    if !quiet {
+        let just_comment = String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;
+        eprintln!("Signature and comment signature verified");
+        eprintln!("Trusted comment: {}", just_comment);
+    }
+    if output {
+        io::stdout().write_all(message)?;
+    }
     Ok(())
 }
 

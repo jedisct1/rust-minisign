@@ -226,15 +226,7 @@ where
 {
     let signature_box = SignatureBox::from_file(signature_path)?;
     let message = load_message_file(message_path, signature_box.hashed)?;
-    verify(
-        pk,
-        signature_box.signature,
-        &signature_box.global_sig[..],
-        signature_box.trusted_comment.as_ref(),
-        message.as_ref(),
-        quiet,
-        output,
-    )
+    verify(pk, signature_box, message.as_ref(), quiet, output)
 }
 
 fn sk_path_or_default(sk_path_str: Option<&str>, force: bool) -> Result<PathBuf> {
