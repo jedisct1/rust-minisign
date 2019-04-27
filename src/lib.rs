@@ -87,21 +87,6 @@ pub fn gen_keypair() -> (PublicKey, SecretKey) {
     (p_struct, s_struct)
 }
 
-pub fn get_password(prompt: &str) -> Result<String> {
-    let pwd = rpassword::prompt_password_stdout(prompt)?;
-    if pwd.is_empty() {
-        println!("<empty>");
-        Ok(pwd)
-    } else if pwd.len() > PASSWORDMAXBYTES {
-        Err(PError::new(
-            ErrorKind::Misc,
-            "passphrase can't exceed 1024 bytes length",
-        ))
-    } else {
-        Ok(pwd)
-    }
-}
-
 fn store_u64_le(x: u64) -> [u8; 8] {
     let b1: u8 = (x & 0xff) as u8;
     let b2: u8 = ((x >> 8) & 0xff) as u8;
@@ -228,6 +213,31 @@ where
     Ok(())
 }
 
+fn derive_and_crypt(sk_str: &mut SecretKey, pwd: &[u8]) -> Result<()> {
+    let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
+    let opslimit = load_u64_le(&sk_str.kdf_opslimit_le);
+    let memlimit = load_u64_le(&sk_str.kdf_memlimit_le) as usize;
+    let params = raw_scrypt_params(memlimit, opslimit)?;
+    scrypt::scrypt(&pwd, &sk_str.kdf_salt, &params, &mut stream)?;
+    sk_str.xor_keynum(&stream);
+    Ok(())
+}
+
+fn get_password(prompt: &str) -> Result<String> {
+    let pwd = rpassword::prompt_password_stdout(prompt)?;
+    if pwd.is_empty() {
+        println!("<empty>");
+        Ok(pwd)
+    } else if pwd.len() > PASSWORDMAXBYTES {
+        Err(PError::new(
+            ErrorKind::Misc,
+            "passphrase can't exceed 1024 bytes length",
+        ))
+    } else {
+        Ok(pwd)
+    }
+}
+
 pub fn generate_keypair(
     mut pk_file: BufWriter<File>,
     mut sk_file: BufWriter<File>,
@@ -274,19 +284,8 @@ pub fn generate_keypair(
     Ok((pk_str, sk_str))
 }
 
-fn derive_and_crypt(sk_str: &mut SecretKey, pwd: &[u8]) -> Result<()> {
-    let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
-    let opslimit = load_u64_le(&sk_str.kdf_opslimit_le);
-    let memlimit = load_u64_le(&sk_str.kdf_memlimit_le) as usize;
-    let params = raw_scrypt_params(memlimit, opslimit)?;
-    scrypt::scrypt(&pwd, &sk_str.kdf_salt, &params, &mut stream)?;
-    sk_str.xor_keynum(&stream);
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn byte_array_store() {
         use crate::store_u64_le;

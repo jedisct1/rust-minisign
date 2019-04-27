@@ -108,10 +108,10 @@ where
     Ok(msg_buf)
 }
 
-fn cmd_generate(
+pub fn cmd_generate(
     force: bool,
     pk_path: PathBuf,
-    sk_path_str: Option<&str>,
+    sk_path: PathBuf,
     comment: Option<&str>,
 ) -> Result<()> {
     if pk_path.exists() {
@@ -131,63 +131,6 @@ force this operation.",
         }
     }
 
-    let sk_path = match sk_path_str {
-        Some(path) => {
-            let complete_path = PathBuf::from(path);
-            let mut dir = complete_path.clone();
-            dir.pop();
-            create_dir(dir)?;
-            complete_path
-        }
-        None => {
-            let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
-            match env_path {
-                Ok(env_path) => {
-                    let mut complete_path = PathBuf::from(env_path);
-                    if !complete_path.exists() {
-                        Err(PError::new(
-                            ErrorKind::Io,
-                            format!(
-                                "folder {:?} referenced by {} doesn't exists, you'll have to create yourself",
-                                complete_path, SIG_DEFAULT_CONFIG_DIR_ENV_VAR
-                            ),
-                        ))?;
-                    }
-                    complete_path.push(SIG_DEFAULT_SKFILE);
-                    complete_path
-                }
-                Err(_) => {
-                    let home_path = dirs::home_dir()
-                        .ok_or_else(|| PError::new(ErrorKind::Io, "can't find home dir"));
-                    let mut complete_path = home_path.unwrap();
-                    complete_path.push(SIG_DEFAULT_CONFIG_DIR);
-                    if !complete_path.exists() {
-                        create_dir(&complete_path)?;
-                    }
-                    complete_path.push(SIG_DEFAULT_SKFILE);
-                    complete_path
-                }
-            }
-        }
-    };
-
-    if sk_path.exists() {
-        if !force {
-            Err(PError::new(
-                ErrorKind::Io,
-                format!(
-                    "Key generation aborted:
-{:?} already exists
-
-If you really want to overwrite the existing key pair, add the -f switch to
-force this operation.",
-                    sk_path
-                ),
-            ))?;
-        } else {
-            std::fs::remove_file(&sk_path)?;
-        }
-    }
     let pk_file = create_file(&pk_path, 0o644)?;
     let sk_file = create_file(&sk_path, 0o600)?;
     let (pk_str, _) = generate_keypair(pk_file, sk_file, comment)?;
@@ -208,7 +151,7 @@ force this operation.",
     Ok(())
 }
 
-fn cmd_sign(
+pub fn cmd_sign(
     sk_path: PathBuf,
     pk: Option<PublicKey>,
     hashed: bool,
@@ -251,7 +194,7 @@ fn cmd_sign(
     )
 }
 
-fn cmd_verify(
+pub fn cmd_verify(
     pk: PublicKey,
     message_file: &str,
     sig_file_name: String,
@@ -271,6 +214,66 @@ fn cmd_verify(
     )
 }
 
+fn sk_path_or_default(sk_path_str: Option<&str>, force: bool) -> Result<PathBuf> {
+    let sk_path = match sk_path_str {
+        Some(path) => {
+            let complete_path = PathBuf::from(path);
+            let mut dir = complete_path.clone();
+            dir.pop();
+            create_dir(dir)?;
+            complete_path
+        }
+        None => {
+            let env_path = std::env::var(SIG_DEFAULT_CONFIG_DIR_ENV_VAR);
+            match env_path {
+                Ok(env_path) => {
+                    let mut complete_path = PathBuf::from(env_path);
+                    if !complete_path.exists() {
+                        Err(PError::new(
+                            ErrorKind::Io,
+                            format!(
+                                "folder {:?} referenced by {} doesn't exists, you'll have to create yourself",
+                                complete_path, SIG_DEFAULT_CONFIG_DIR_ENV_VAR
+                            ),
+                        ))?;
+                    }
+                    complete_path.push(SIG_DEFAULT_SKFILE);
+                    complete_path
+                }
+                Err(_) => {
+                    let home_path = dirs::home_dir()
+                        .ok_or_else(|| PError::new(ErrorKind::Io, "can't find home dir"));
+                    let mut complete_path = home_path.unwrap();
+                    complete_path.push(SIG_DEFAULT_CONFIG_DIR);
+                    if !complete_path.exists() {
+                        create_dir(&complete_path)?;
+                    }
+                    complete_path.push(SIG_DEFAULT_SKFILE);
+                    complete_path
+                }
+            }
+        }
+    };
+    if sk_path.exists() {
+        if !force {
+            Err(PError::new(
+                ErrorKind::Io,
+                format!(
+                    "Key generation aborted:
+{:?} already exists
+
+If you really want to overwrite the existing key pair, add the -f switch to
+force this operation.",
+                    sk_path
+                ),
+            ))?;
+        } else {
+            std::fs::remove_file(&sk_path)?;
+        }
+    }
+    Ok(sk_path)
+}
+
 fn run(args: clap::ArgMatches) -> Result<()> {
     if let Some(generate_action) = args.subcommand_matches("generate") {
         let force = generate_action.is_present("force");
@@ -279,8 +282,9 @@ fn run(args: clap::ArgMatches) -> Result<()> {
             None => PathBuf::from(SIG_DEFAULT_PKFILE),
         };
         let sk_path_str = generate_action.value_of("sk_path");
+        let sk_path = sk_path_or_default(sk_path_str, force)?;
         let comment = generate_action.value_of("comment");
-        cmd_generate(force, pk_path, sk_path_str, comment)
+        cmd_generate(force, pk_path, sk_path, comment)
     } else if let Some(sign_action) = args.subcommand_matches("sign") {
         let sk_path = match sign_action.value_of("sk_path") {
             Some(path) => PathBuf::from(path),
