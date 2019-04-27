@@ -11,7 +11,7 @@ mod types;
 pub mod crypto;
 
 use crate::crypto::ed25519;
-use helpers::*;
+use crate::helpers::*;
 use rand::{thread_rng, RngCore};
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
