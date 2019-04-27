@@ -38,7 +38,7 @@ And to verify the signature with a given public key you can use:
 rsign verify myfile.txt -p rsign.pub
 ```
 
-Or if you have saved the signature file with a custom name other than `myfile.txt.rsign` and want to use a public key string you can use:
+Or if you have saved the signature file with a custom name other than `myfile.txt.minisig` and want to use a public key string you can use:
 
 ```sh
 rsign verify myfile.txt -P [PUBLIC KEY STRING] -x mysignature.file
