@@ -88,14 +88,14 @@ where
     Ok(BufWriter::new(file))
 }
 
-fn load_and_hash_message_file<P>(message_path: P) -> Result<Vec<u8>>
+fn load_and_hash_data_file<P>(data_path: P) -> Result<Vec<u8>>
 where
     P: AsRef<Path>,
 {
-    let message_path = message_path.as_ref();
+    let data_path = data_path.as_ref();
     let file = OpenOptions::new()
         .read(true)
-        .open(message_path)
+        .open(data_path)
         .map_err(|e| PError::new(ErrorKind::Io, e))?;
     let mut buf_reader = BufReader::new(file);
     let mut buf_chunk = [0u8; 65536];
@@ -108,22 +108,22 @@ where
     Ok(out)
 }
 
-fn load_message_file<P>(message_path: P, hashed: bool) -> Result<Vec<u8>>
+fn load_data_file<P>(data_path: P, hashed: bool) -> Result<Vec<u8>>
 where
     P: AsRef<Path>,
 {
-    let message_path = message_path.as_ref();
+    let data_path = data_path.as_ref();
     if hashed {
-        return load_and_hash_message_file(message_path);
+        return load_and_hash_data_file(data_path);
     }
     let mut file = OpenOptions::new()
         .read(true)
-        .open(message_path)
+        .open(data_path)
         .map_err(|e| PError::new(ErrorKind::Io, e))?;
     if file.metadata().unwrap().len() > (1u64 << 30) {
         Err(PError::new(
             ErrorKind::Io,
-            format!("{} is larger than 1G try using -H", message_path.display()),
+            format!("{} is larger than 1G try using -H", data_path.display()),
         ))?;
     }
     let mut msg_buf: Vec<u8> = Vec::new();
@@ -176,7 +176,7 @@ pub fn cmd_sign<P, Q, R>(
     pk: Option<PublicKey>,
     sk_path: P,
     signature_path: Q,
-    message_path: R,
+    data_path: R,
     hashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
@@ -203,15 +203,15 @@ where
         format!(
             "timestamp:{}\tfile:{}",
             unix_timestamp(),
-            message_path.as_ref().display()
+            data_path.as_ref().display()
         )
     };
-    let message = load_message_file(message_path, hashed)?;
+    let data = load_data_file(data_path, hashed)?;
     sign(
         signature_box_writer,
         pk.as_ref(),
         &sk,
-        &message,
+        &data,
         hashed,
         Some(trusted_comment.as_str()),
         untrusted_comment,
@@ -220,7 +220,7 @@ where
 
 pub fn cmd_verify<P, Q>(
     pk: PublicKey,
-    message_path: P,
+    data_path: P,
     signature_path: Q,
     quiet: bool,
     output: bool,
@@ -230,8 +230,8 @@ where
     Q: AsRef<Path>,
 {
     let signature_box = SignatureBox::from_file(signature_path)?;
-    let message = load_message_file(message_path, signature_box.hashed)?;
-    verify(&pk, &signature_box, message.as_ref(), quiet, output)
+    let data = load_data_file(data_path, signature_box.hashed)?;
+    verify(&pk, &signature_box, data.as_ref(), quiet, output)
 }
 
 fn sk_path_or_default(sk_path_str: Option<&str>, force: bool) -> Result<PathBuf> {
@@ -339,11 +339,11 @@ fn run(args: clap::ArgMatches) -> Result<()> {
             }
         };
         let hashed = sign_action.is_present("hash");
-        let message_path = PathBuf::from(sign_action.value_of("message").unwrap()); // safe to unwrap
+        let data_path = PathBuf::from(sign_action.value_of("data").unwrap()); // safe to unwrap
         let signature_path = if let Some(file) = sign_action.value_of("sig_file") {
             PathBuf::from(file)
         } else {
-            PathBuf::from(format!("{}{}", message_path.display(), SIG_SUFFIX))
+            PathBuf::from(format!("{}{}", data_path.display(), SIG_SUFFIX))
         };
         let trusted_comment = sign_action.value_of("trusted-comment");
         let untrusted_comment = sign_action.value_of("untrusted-comment");
@@ -351,7 +351,7 @@ fn run(args: clap::ArgMatches) -> Result<()> {
             pk,
             &sk_path,
             &signature_path,
-            &message_path,
+            &data_path,
             hashed,
             trusted_comment,
             untrusted_comment,
@@ -370,15 +370,15 @@ fn run(args: clap::ArgMatches) -> Result<()> {
             }
             None => PublicKey::from_file(SIG_DEFAULT_PKFILE)?,
         };
-        let message_path = verify_action.value_of("file").unwrap();
+        let data_path = verify_action.value_of("file").unwrap();
         let signature_path = if let Some(path) = verify_action.value_of("sig_file") {
             PathBuf::from(path)
         } else {
-            PathBuf::from(format!("{}{}", message_path, SIG_SUFFIX))
+            PathBuf::from(format!("{}{}", data_path, SIG_SUFFIX))
         };
         let quiet = verify_action.is_present("quiet");
         let output = verify_action.is_present("output");
-        cmd_verify(pk, &message_path, &signature_path, quiet, output)
+        cmd_verify(pk, &data_path, &signature_path, quiet, output)
     } else {
         println!("{}\n", args.usage());
         std::process::exit(1);

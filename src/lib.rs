@@ -127,7 +127,7 @@ pub fn sign<W>(
     mut signature_box_writer: W,
     pk: Option<&PublicKey>,
     sk: &SecretKey,
-    message: &[u8],
+    data: &[u8],
     hashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
@@ -153,7 +153,7 @@ where
     let mut rng = thread_rng();
     let mut z = vec![0; 64];
     rng.try_fill_bytes(&mut z)?;
-    let signature_raw = ed25519::signature(message, &sk.keynum_sk.sk, Some(&z));
+    let signature_raw = ed25519::signature(data, &sk.keynum_sk.sk, Some(&z));
     signature.sig.copy_from_slice(&signature_raw[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
@@ -189,7 +189,7 @@ where
 pub fn verify(
     pk_key: &PublicKey,
     signature_box: &SignatureBox,
-    message: &[u8],
+    data: &[u8],
     quiet: bool,
     output: bool,
 ) -> Result<()> {
@@ -206,7 +206,7 @@ pub fn verify(
             ),
         ));
     }
-    if !ed25519::verify(&message, &pk_key.keynum_pk.pk, &sig.sig) {
+    if !ed25519::verify(&data, &pk_key.keynum_pk.pk, &sig.sig) {
         Err(PError::new(
             ErrorKind::Verify,
             "Signature verification failed",
@@ -224,7 +224,7 @@ pub fn verify(
         eprintln!("Trusted comment: {}", just_comment);
     }
     if output {
-        io::stdout().write_all(message)?;
+        io::stdout().write_all(data)?;
     }
     Ok(())
 }
