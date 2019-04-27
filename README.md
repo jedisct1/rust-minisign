@@ -8,6 +8,8 @@ In Rust, signatures can also be verified with the [minisign-verify](https://docs
 
 rsign2 is a maintained fork of [rsign](https://docs.rs/crate/rsign/), originally written by Daniel Rangel.
 
+It only uses pure Rust, and doesn't require external dependencies such as libsodium.
+
 ## Usage
 
 ```sh
