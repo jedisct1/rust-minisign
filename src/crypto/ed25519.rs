@@ -80,7 +80,7 @@ pub fn keypair(seed: &[u8]) -> ([u8; 64], [u8; 32]) {
     (secret, public_key)
 }
 
-pub fn signature(message: &[u8], secret_key: &[u8]) -> [u8; 64] {
+pub fn signature(message: &[u8], secret_key: &[u8], z: Option<&[u8]>) -> [u8; 64] {
     let seed = &secret_key[0..32];
     let public_key = &secret_key[32..64];
     let az: [u8; 64] = {
@@ -96,7 +96,12 @@ pub fn signature(message: &[u8], secret_key: &[u8]) -> [u8; 64] {
     let nonce = {
         let mut hash_output: [u8; 64] = [0; 64];
         let mut hasher = Sha512::new();
-        hasher.input(&az[32..64]);
+        if let Some(z) = z {
+            hasher.input(z);
+            hasher.input(&az);
+        } else {
+            hasher.input(&az[32..64]);
+        }
         hasher.input(message);
         hasher.result(&mut hash_output);
         sc_reduce(&mut hash_output[0..64]);

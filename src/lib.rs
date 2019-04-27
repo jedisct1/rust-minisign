@@ -187,14 +187,18 @@ where
     }
     sig_str.keynum.copy_from_slice(&sk_key.keynum_sk.keynum[..]);
 
-    let signature = ed25519::signature(message, &sk_key.keynum_sk.sk);
+    let mut rng = thread_rng();
+    let mut z = vec![0; 64];
+    rng.try_fill_bytes(&mut z)?;
+    let signature = ed25519::signature(message, &sk_key.keynum_sk.sk, Some(&z));
     sig_str.sig.copy_from_slice(&signature[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
     sig_and_trust_comment.extend(sig_str.sig.iter());
     sig_and_trust_comment.extend(trusted_comment.as_bytes().iter());
 
-    let global_sig = ed25519::signature(&sig_and_trust_comment, &sk_key.keynum_sk.sk);
+    rng.try_fill_bytes(&mut z)?;
+    let global_sig = ed25519::signature(&sig_and_trust_comment, &sk_key.keynum_sk.sk, Some(&z));
     if let Some(pk_str) = pk_key {
         if !ed25519::verify(
             &sig_and_trust_comment,
