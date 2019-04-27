@@ -43,7 +43,7 @@ where
         StepUp {
             next: self.start,
             end: self.end,
-            ammount: ammount,
+            ammount,
         }
     }
 }

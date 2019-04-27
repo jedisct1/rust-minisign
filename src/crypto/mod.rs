@@ -4,6 +4,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![allow(
+    clippy::needless_range_loop,
+    clippy::many_single_char_names,
+    clippy::unreadable_literal,
+    clippy::let_and_return,
+    clippy::needless_lifetimes,
+    clippy::cast_lossless,
+    clippy::suspicious_arithmetic_impl,
+    clippy::identity_op
+)]
 mod cryptoutil;
 mod curve25519;
 mod sha2;

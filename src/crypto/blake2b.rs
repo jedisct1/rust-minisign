@@ -154,7 +154,7 @@ impl Blake2b {
         let mut param_words: [u64; 8] = [0; 8];
         read_u64v_le(&mut param_words, &param_bytes);
         for (h, param_word) in self.h.iter_mut().zip(param_words.iter()) {
-            *h = *h ^ *param_word;
+            *h ^= *param_word;
         }
     }
 

@@ -159,10 +159,10 @@ pub fn add_bytes_to_bits_tuple(bits: (u64, u64), bytes: u64) -> (u64, u64) {
     match low.checked_add(new_low_bits) {
         Some(x) => {
             if new_high_bits == 0 {
-                return (hi, x);
+                (hi, x)
             } else {
                 match hi.checked_add(new_high_bits) {
-                    Some(y) => return (y, x),
+                    Some(y) => (y, x),
                     None => panic!("Numeric overflow occured."),
                 }
             }
@@ -173,7 +173,7 @@ pub fn add_bytes_to_bits_tuple(bits: (u64, u64), bytes: u64) -> (u64, u64) {
                 None => panic!("Numeric overflow occured."),
             };
             match hi.checked_add(z) {
-                Some(y) => return (y, low.wrapping_add(new_low_bits)),
+                Some(y) => (y, low.wrapping_add(new_low_bits)),
                 None => panic!("Numeric overflow occured."),
             }
         }

@@ -1236,12 +1236,7 @@ impl GeP3 {
 
         let t = x * y;
 
-        Some(GeP3 {
-            x: x,
-            y: y,
-            z: z,
-            t: t,
-        })
+        Some(GeP3 { x, y, z, t })
     }
 
     fn to_p2(&self) -> GeP2 {
