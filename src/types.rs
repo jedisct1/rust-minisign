@@ -85,7 +85,7 @@ pub struct SecretKey {
 }
 
 impl SecretKey {
-    pub fn from(bytes_buf: &[u8]) -> Result<SecretKey> {
+    pub fn from_bytes(bytes_buf: &[u8]) -> Result<SecretKey> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; TWOBYTES];
         let mut kdf_alg = [0u8; TWOBYTES];
@@ -116,7 +116,7 @@ impl SecretKey {
             keynum_sk: KeynumSK { keynum, sk, chk },
         })
     }
-    pub fn bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
         iters.push(self.kdf_alg.iter());
@@ -195,11 +195,18 @@ impl cmp::PartialEq for SecretKey {
 }
 impl cmp::Eq for SecretKey {}
 
+impl ToString for SecretKey {
+    fn to_string(&self) -> String {
+        base64::encode(self.to_bytes().as_slice())
+    }
+}
+
 #[derive(Debug)]
 pub struct PublicKey {
     pub sig_alg: [u8; TWOBYTES],
     pub keynum_pk: KeynumPK,
 }
+
 #[derive(Debug, Clone)]
 pub struct KeynumPK {
     pub keynum: [u8; KEYNUMBYTES],
@@ -211,6 +218,7 @@ impl cmp::PartialEq for PublicKey {
         fixed_time_eq(&self.keynum_pk.pk, &other.keynum_pk.pk)
     }
 }
+
 impl cmp::Eq for PublicKey {}
 
 impl PublicKey {
@@ -246,6 +254,12 @@ impl PublicKey {
             })
             .collect();
         v
+    }
+}
+
+impl ToString for PublicKey {
+    fn to_string(&self) -> String {
+        base64::encode(self.to_bytes().as_slice())
     }
 }
 
@@ -300,5 +314,11 @@ impl Default for Signature {
             keynum: [0u8; KEYNUMBYTES],
             sig: [0u8; SIGNATUREBYTES],
         }
+    }
+}
+
+impl ToString for Signature {
+    fn to_string(&self) -> String {
+        base64::encode(self.to_bytes().as_slice())
     }
 }

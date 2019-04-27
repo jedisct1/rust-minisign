@@ -53,7 +53,7 @@ fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams> {
     ScryptParams::new(n_log2, r, p).map_err(Into::into)
 }
 
-pub fn gen_keypair() -> (PublicKey, SecretKey) {
+pub fn generate_unencrypted_keypair() -> (PublicKey, SecretKey) {
     let mut seed = vec![0u8; 32];
     let mut rng = thread_rng();
     rng.fill_bytes(&mut seed);
@@ -153,9 +153,9 @@ pub fn verify(
 }
 
 pub fn sign<W>(
+    mut signature_box_writer: W,
     sk_key: SecretKey,
     pk_key: Option<PublicKey>,
-    mut sig_buf: W,
     message: &[u8],
     hashed: bool,
     trusted_comment: &str,
@@ -164,22 +164,23 @@ pub fn sign<W>(
 where
     W: Write,
 {
-    let mut sig_str = Signature::default();
+    let mut signature = Signature::default();
     if !hashed {
-        sig_str.sig_alg = sk_key.sig_alg;
+        signature.sig_alg = sk_key.sig_alg;
     } else {
-        sig_str.sig_alg = SIGALG_HASHED;
+        signature.sig_alg = SIGALG_HASHED;
     }
-    sig_str.keynum.copy_from_slice(&sk_key.keynum_sk.keynum[..]);
-
+    signature
+        .keynum
+        .copy_from_slice(&sk_key.keynum_sk.keynum[..]);
     let mut rng = thread_rng();
     let mut z = vec![0; 64];
     rng.try_fill_bytes(&mut z)?;
-    let signature = ed25519::signature(message, &sk_key.keynum_sk.sk, Some(&z));
-    sig_str.sig.copy_from_slice(&signature[..]);
+    let signature_raw = ed25519::signature(message, &sk_key.keynum_sk.sk, Some(&z));
+    signature.sig.copy_from_slice(&signature_raw[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
-    sig_and_trust_comment.extend(sig_str.sig.iter());
+    sig_and_trust_comment.extend(signature.sig.iter());
     sig_and_trust_comment.extend(trusted_comment.as_bytes().iter());
 
     rng.try_fill_bytes(&mut z)?;
@@ -199,16 +200,16 @@ where
                 ),
             ))?
         }
-        println!(
-            "\nSignature checked with the public key ID: {:X}",
-            load_u64_le(&pk_str.keynum_pk.keynum[..])
-        );
     }
-    writeln!(sig_buf, "{}", untrusted_comment)?;
-    writeln!(sig_buf, "{}", base64::encode(&sig_str.to_bytes()))?;
-    writeln!(sig_buf, "{}{}", TRUSTED_COMMENT_PREFIX, trusted_comment)?;
-    writeln!(sig_buf, "{}", base64::encode(&global_sig[..]))?;
-    sig_buf.flush()?;
+    writeln!(signature_box_writer, "{}", untrusted_comment)?;
+    writeln!(signature_box_writer, "{}", signature.to_string())?;
+    writeln!(
+        signature_box_writer,
+        "{}{}",
+        TRUSTED_COMMENT_PREFIX, trusted_comment
+    )?;
+    writeln!(signature_box_writer, "{}", base64::encode(&global_sig[..]))?;
+    signature_box_writer.flush()?;
     Ok(())
 }
 
@@ -237,14 +238,9 @@ fn get_password(prompt: &str) -> Result<String> {
     }
 }
 
-pub fn generate_keypair(
-    mut pk_file: BufWriter<File>,
-    mut sk_file: BufWriter<File>,
-    comment: Option<&str>,
-) -> Result<(PublicKey, SecretKey)> {
-    let (pk_str, mut sk_str) = gen_keypair();
-    sk_str
-        .write_checksum()
+pub fn generate_keypair() -> Result<(PublicKey, SecretKey)> {
+    let (pk, mut sk) = generate_unencrypted_keypair();
+    sk.write_checksum()
         .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
     writeln!(
         io::stdout(),
@@ -262,13 +258,21 @@ pub fn generate_keypair(
     .map_err(|e| PError::new(ErrorKind::Io, e))
     .and_then(|_| {
         io::stdout().flush()?;
-        derive_and_crypt(&mut sk_str, &pwd.as_bytes())
+        derive_and_crypt(&mut sk, &pwd.as_bytes())
     })
     .and(writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e)))?;
+    Ok((pk, sk))
+}
 
+pub fn generate_and_write_keypair(
+    mut pk_file: BufWriter<File>,
+    mut sk_file: BufWriter<File>,
+    comment: Option<&str>,
+) -> Result<(PublicKey, SecretKey)> {
+    let (pk, sk) = generate_keypair()?;
     write!(pk_file, "{}rsign2 public key: ", COMMENT_PREFIX)?;
-    writeln!(pk_file, "{:X}", load_u64_le(&pk_str.keynum_pk.keynum[..]))?;
-    writeln!(pk_file, "{}", base64::encode(&pk_str.to_bytes()))?;
+    writeln!(pk_file, "{:X}", load_u64_le(&pk.keynum_pk.keynum[..]))?;
+    writeln!(pk_file, "{}", pk.to_string())?;
     pk_file.flush()?;
 
     write!(sk_file, "{}", COMMENT_PREFIX)?;
@@ -277,10 +281,10 @@ pub fn generate_keypair(
     } else {
         writeln!(sk_file, "{}", SECRETKEY_DEFAULT_COMMENT)?;
     }
-    writeln!(sk_file, "{}", base64::encode(&sk_str.bytes()))?;
+    writeln!(sk_file, "{}", sk.to_string())?;
     sk_file.flush()?;
 
-    Ok((pk_str, sk_str))
+    Ok((pk, sk))
 }
 
 #[cfg(test)]
@@ -300,27 +304,27 @@ mod tests {
 
     #[test]
     fn pk_key_struct_conversion() {
-        use crate::gen_keypair;
+        use crate::generate_unencrypted_keypair;
         use crate::PublicKey;
 
-        let (pk, _) = gen_keypair();
+        let (pk, _) = generate_unencrypted_keypair();
         assert_eq!(pk, PublicKey::from_bytes(&pk.to_bytes()).unwrap());
     }
     #[test]
     fn sk_key_struct_conversion() {
-        use crate::gen_keypair;
+        use crate::generate_unencrypted_keypair;
         use crate::SecretKey;
 
-        let (_, sk) = gen_keypair();
-        assert_eq!(sk, SecretKey::from(&sk.bytes()).unwrap());
+        let (_, sk) = generate_unencrypted_keypair();
+        assert_eq!(sk, SecretKey::from_bytes(&sk.to_bytes()).unwrap());
     }
 
     #[test]
     fn xor_keynum() {
-        use crate::gen_keypair;
+        use crate::generate_unencrypted_keypair;
         use rand::{thread_rng, RngCore};
 
-        let (_, mut sk) = gen_keypair();
+        let (_, mut sk) = generate_unencrypted_keypair();
         let mut rng = thread_rng();
         let mut key = vec![0u8; sk.keynum_sk.len()];
         rng.fill_bytes(&mut key);
@@ -332,9 +336,9 @@ mod tests {
     }
     #[test]
     fn sk_checksum() {
-        use crate::gen_keypair;
+        use crate::generate_unencrypted_keypair;
 
-        let (_, mut sk) = gen_keypair();
+        let (_, mut sk) = generate_unencrypted_keypair();
         assert!(sk.write_checksum().is_ok());
         assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap());
     }
@@ -353,7 +357,7 @@ pub fn sk_load<P: AsRef<Path>>(sk_path: P) -> Result<SecretKey> {
         sk_buf.read_line(&mut encoded_buf)?;
         let decoded_buf =
             base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
-        SecretKey::from(&decoded_buf[..])
+        SecretKey::from_bytes(&decoded_buf[..])
     }?;
 
     let pwd = get_password("Password: ")?;
@@ -460,8 +464,8 @@ impl SignatureBox {
         buf.read_line(&mut untrusted_comment)
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
 
-        let mut sig_string = String::with_capacity(Signature::len());
-        buf.read_line(&mut sig_string)
+        let mut signatureing = String::with_capacity(Signature::len());
+        buf.read_line(&mut signatureing)
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
 
         let mut t_comment = String::with_capacity(TRUSTEDCOMMENTMAXBYTES);
@@ -479,7 +483,7 @@ impl SignatureBox {
             ));
         }
 
-        let sig_bytes = base64::decode(sig_string.trim().as_bytes())
+        let sig_bytes = base64::decode(signatureing.trim().as_bytes())
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
         let signature = Signature::from_bytes(&sig_bytes)?;
         if !t_comment.starts_with(TRUSTED_COMMENT_PREFIX) {

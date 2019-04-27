@@ -130,7 +130,12 @@ where
     Ok(msg_buf)
 }
 
-pub fn cmd_generate<P, Q>(force: bool, pk_path: P, sk_path: Q, comment: Option<&str>) -> Result<()>
+pub fn cmd_generate<P, Q>(
+    force: bool,
+    pk_path: P,
+    sk_path: Q,
+    comment: Option<&str>,
+) -> Result<(PublicKey, SecretKey)>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -153,33 +158,17 @@ force this operation.",
             std::fs::remove_file(&pk_path)?;
         }
     }
-
     let pk_file = create_file(&pk_path, 0o644)?;
     let sk_file = create_file(&sk_path, 0o600)?;
-    let (pk_str, _) = generate_keypair(pk_file, sk_file, comment)?;
-
-    println!(
-        "\nThe secret key was saved as {} - Keep it secret!",
-        sk_path.display()
-    );
-    println!(
-        "The public key was saved as {} - That one can be public.\n",
-        pk_path.display()
-    );
-    println!("Files signed using this key pair can be verified with the following command:\n");
-    println!(
-        "rsign verify <file> -P {}",
-        base64::encode(pk_str.to_bytes().as_slice())
-    );
-    Ok(())
+    generate_and_write_keypair(pk_file, sk_file, comment)
 }
 
 pub fn cmd_sign<P, Q>(
     sk_path: P,
     pk: Option<PublicKey>,
-    hashed: bool,
     signature_file: P,
     message_file: Q,
+    hashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
 ) -> Result<()>
@@ -196,9 +185,9 @@ where
             ),
         ))?;
     }
-    let sig_buf = create_sig_file(&signature_file)?;
+    let signature_box_writer = create_sig_file(&signature_file)?;
     let sk = sk_load(sk_path)?;
-    let t_comment = if let Some(trusted_comment) = trusted_comment {
+    let trusted_comment = if let Some(trusted_comment) = trusted_comment {
         trusted_comment.to_string()
     } else {
         format!(
@@ -207,20 +196,20 @@ where
             message_file.as_ref().display()
         )
     };
-    let unt_comment = if let Some(untrusted_comment) = untrusted_comment {
+    let untrusted_comment = if let Some(untrusted_comment) = untrusted_comment {
         format!("{}{}", COMMENT_PREFIX, untrusted_comment)
     } else {
         format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT)
     };
     let message = load_message_file(message_file, hashed)?;
     sign(
+        signature_box_writer,
         sk,
         pk,
-        sig_buf,
         message.as_ref(),
         hashed,
-        t_comment.as_str(),
-        unt_comment.as_str(),
+        trusted_comment.as_str(),
+        untrusted_comment.as_str(),
     )
 }
 
@@ -318,7 +307,18 @@ fn run(args: clap::ArgMatches) -> Result<()> {
         let sk_path_str = generate_action.value_of("sk_path");
         let sk_path = sk_path_or_default(sk_path_str, force)?;
         let comment = generate_action.value_of("comment");
-        cmd_generate(force, pk_path, sk_path, comment)
+        let (pk, _sk) = cmd_generate(force, &pk_path, &sk_path, comment)?;
+        println!(
+            "\nThe secret key was saved as {} - Keep it secret!",
+            sk_path.display()
+        );
+        println!(
+            "The public key was saved as {} - That one can be public.\n",
+            pk_path.display()
+        );
+        println!("Files signed using this key pair can be verified with the following command:\n");
+        println!("rsign verify <file> -P {}", pk.to_string());
+        Ok(())
     } else if let Some(sign_action) = args.subcommand_matches("sign") {
         let sk_path = match sign_action.value_of("sk_path") {
             Some(path) => PathBuf::from(path),
@@ -353,9 +353,9 @@ fn run(args: clap::ArgMatches) -> Result<()> {
         cmd_sign(
             &sk_path,
             pk,
-            hashed,
             &signature_path,
             &message_path,
+            hashed,
             trusted_comment,
             untrusted_comment,
         )
