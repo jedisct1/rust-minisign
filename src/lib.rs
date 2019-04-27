@@ -192,8 +192,8 @@ pub fn generate_and_write_encrypted_keypair(
 
 pub fn sign<W>(
     mut signature_box_writer: W,
-    sk_key: SecretKey,
-    pk_key: Option<PublicKey>,
+    sk: &SecretKey,
+    pk: Option<&PublicKey>,
     message: &[u8],
     hashed: bool,
     trusted_comment: &str,
@@ -204,17 +204,15 @@ where
 {
     let mut signature = Signature::default();
     if !hashed {
-        signature.sig_alg = sk_key.sig_alg;
+        signature.sig_alg = sk.sig_alg;
     } else {
         signature.sig_alg = SIGALG_HASHED;
     }
-    signature
-        .keynum
-        .copy_from_slice(&sk_key.keynum_sk.keynum[..]);
+    signature.keynum.copy_from_slice(&sk.keynum_sk.keynum[..]);
     let mut rng = thread_rng();
     let mut z = vec![0; 64];
     rng.try_fill_bytes(&mut z)?;
-    let signature_raw = ed25519::signature(message, &sk_key.keynum_sk.sk, Some(&z));
+    let signature_raw = ed25519::signature(message, &sk.keynum_sk.sk, Some(&z));
     signature.sig.copy_from_slice(&signature_raw[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
@@ -222,19 +220,15 @@ where
     sig_and_trust_comment.extend(trusted_comment.as_bytes().iter());
 
     rng.try_fill_bytes(&mut z)?;
-    let global_sig = ed25519::signature(&sig_and_trust_comment, &sk_key.keynum_sk.sk, Some(&z));
-    if let Some(pk_str) = pk_key {
-        if !ed25519::verify(
-            &sig_and_trust_comment,
-            &pk_str.keynum_pk.pk[..],
-            &global_sig,
-        ) {
+    let global_sig = ed25519::signature(&sig_and_trust_comment, &sk.keynum_sk.sk, Some(&z));
+    if let Some(pk) = pk {
+        if !ed25519::verify(&sig_and_trust_comment, &pk.keynum_pk.pk[..], &global_sig) {
             Err(PError::new(
                 ErrorKind::Verify,
                 format!(
                     "Could not verify signature with the \
                      provided public key ID: {:X}",
-                    load_u64_le(&pk_str.keynum_pk.keynum[..])
+                    load_u64_le(&pk.keynum_pk.keynum[..])
                 ),
             ))?
         }
@@ -252,8 +246,8 @@ where
 }
 
 pub fn verify(
-    pk_key: PublicKey,
-    signature_box: SignatureBox,
+    pk_key: &PublicKey,
+    signature_box: &SignatureBox,
     message: &[u8],
     quiet: bool,
     output: bool,
