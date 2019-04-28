@@ -8,6 +8,7 @@ readme = "README.md"
 categories = ["cryptography"]
 keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
 repository = "https://github.com/jedisct1/rust-minisign"
+homepage = "https://github.com/jedisct1/rust-minisign"
 
 [dependencies]
 base64 = "0.10"
