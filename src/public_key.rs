@@ -22,8 +22,8 @@ impl PublicKey {
     pub fn from_bytes(buf: &[u8]) -> Result<PublicKey> {
         let mut buf = Cursor::new(buf);
         let mut sig_alg = [0u8; TWOBYTES];
-        let mut keynum = [0u8; KEYNUMBYTES];
-        let mut pk = [0u8; PUBLICKEYBYTES];
+        let mut keynum = [0u8; KEYNUM_BYTES];
+        let mut pk = [0u8; PUBLICKEY_BYTES];
         buf.read_exact(&mut sig_alg)?;
         buf.read_exact(&mut keynum)?;
         buf.read_exact(&mut pk)?;

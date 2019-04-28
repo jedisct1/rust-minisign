@@ -5,8 +5,8 @@ use std::fmt::{self, Formatter};
 
 #[derive(Debug, Clone)]
 pub(crate) struct KeynumPK {
-    pub(crate) keynum: [u8; KEYNUMBYTES],
-    pub(crate) pk: [u8; PUBLICKEYBYTES],
+    pub(crate) keynum: [u8; KEYNUM_BYTES],
+    pub(crate) pk: [u8; PUBLICKEY_BYTES],
 }
 
 impl cmp::PartialEq for KeynumPK {
@@ -18,8 +18,8 @@ impl cmp::Eq for KeynumPK {}
 
 #[derive(Clone)]
 pub(crate) struct KeynumSK {
-    pub keynum: [u8; KEYNUMBYTES],
-    pub sk: [u8; SECRETKEYBYTES],
+    pub keynum: [u8; KEYNUM_BYTES],
+    pub sk: [u8; SECRETKEY_BYTES],
     pub chk: [u8; CHK_BYTES],
 }
 

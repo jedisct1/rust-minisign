@@ -5,8 +5,8 @@ use std::io::{Cursor, Read};
 #[derive(Clone)]
 pub(crate) struct Signature {
     pub sig_alg: [u8; TWOBYTES],
-    pub keynum: [u8; KEYNUMBYTES],
-    pub sig: [u8; SIGNATUREBYTES],
+    pub keynum: [u8; KEYNUM_BYTES],
+    pub sig: [u8; SIGNATURE_BYTES],
 }
 
 impl Signature {
@@ -28,8 +28,8 @@ impl Signature {
     pub fn from_bytes(bytes_buf: &[u8]) -> Result<Signature> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; 2];
-        let mut keynum = [0u8; KEYNUMBYTES];
-        let mut sig = [0u8; SIGNATUREBYTES];
+        let mut keynum = [0u8; KEYNUM_BYTES];
+        let mut sig = [0u8; SIGNATURE_BYTES];
         buf.read_exact(&mut sig_alg)?;
         buf.read_exact(&mut keynum)?;
         buf.read_exact(&mut sig)?;
@@ -45,8 +45,8 @@ impl Default for Signature {
     fn default() -> Self {
         Signature {
             sig_alg: [0u8; TWOBYTES],
-            keynum: [0u8; KEYNUMBYTES],
-            sig: [0u8; SIGNATUREBYTES],
+            keynum: [0u8; KEYNUM_BYTES],
+            sig: [0u8; SIGNATURE_BYTES],
         }
     }
 }

@@ -22,7 +22,7 @@ impl KeyPair {
         let mut rng = thread_rng();
         rng.try_fill_bytes(&mut seed)?;
         let (sk, pk) = ed25519::keypair(&seed);
-        let mut keynum = [0u8; KEYNUMBYTES];
+        let mut keynum = [0u8; KEYNUM_BYTES];
         rng.try_fill_bytes(&mut keynum)?;
         let mut kdf_salt = [0u8; KDF_SALTBYTES];
         rng.try_fill_bytes(&mut kdf_salt)?;
@@ -35,8 +35,8 @@ impl KeyPair {
         };
         let sk = SecretKey {
             sig_alg: SIGALG,
-            kdf_alg: KDFALG,
-            chk_alg: CHKALG,
+            kdf_alg: KDF_ALG,
+            chk_alg: CHK_ALG,
             kdf_salt,
             kdf_opslimit_le: store_u64_le(opslimit),
             kdf_memlimit_le: store_u64_le(memlimit as u64),

@@ -64,7 +64,7 @@ pub fn get_password(prompt: &str) -> Result<String> {
     if pwd.is_empty() {
         println!("<empty>");
         Ok(pwd)
-    } else if pwd.len() > PASSWORDMAXBYTES {
+    } else if pwd.len() > PASSWORD_MAXBYTES {
         Err(PError::new(
             ErrorKind::Misc,
             "passphrase can't exceed 1024 bytes length",

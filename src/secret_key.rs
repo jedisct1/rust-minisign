@@ -19,8 +19,8 @@ pub struct SecretKey {
     pub(crate) kdf_alg: [u8; TWOBYTES],
     pub(crate) chk_alg: [u8; TWOBYTES],
     pub(crate) kdf_salt: [u8; KDF_SALTBYTES],
-    pub(crate) kdf_opslimit_le: [u8; KEYNUMBYTES],
-    pub(crate) kdf_memlimit_le: [u8; KEYNUMBYTES],
+    pub(crate) kdf_opslimit_le: [u8; KEYNUM_BYTES],
+    pub(crate) kdf_memlimit_le: [u8; KEYNUM_BYTES],
     pub(crate) keynum_sk: KeynumSK,
 }
 
@@ -31,10 +31,10 @@ impl SecretKey {
         let mut kdf_alg = [0u8; TWOBYTES];
         let mut chk_alg = [0u8; TWOBYTES];
         let mut kdf_salt = [0u8; KDF_SALTBYTES];
-        let mut ops_limit = [0u8; KEYNUMBYTES];
-        let mut mem_limit = [0u8; KEYNUMBYTES];
-        let mut keynum = [0u8; KEYNUMBYTES];
-        let mut sk = [0u8; SECRETKEYBYTES];
+        let mut ops_limit = [0u8; KEYNUM_BYTES];
+        let mut mem_limit = [0u8; KEYNUM_BYTES];
+        let mut keynum = [0u8; KEYNUM_BYTES];
+        let mut sk = [0u8; SECRETKEY_BYTES];
         let mut chk = [0u8; CHK_BYTES];
         buf.read_exact(&mut sig_alg)?;
         buf.read_exact(&mut kdf_alg)?;
@@ -165,7 +165,7 @@ impl SecretKey {
     }
 
     pub fn encrypt(mut self, password: String) -> Result<SecretKey> {
-        let mut stream = [0u8; CHK_BYTES + SECRETKEYBYTES + KEYNUMBYTES];
+        let mut stream = [0u8; CHK_BYTES + SECRETKEY_BYTES + KEYNUM_BYTES];
         let opslimit = load_u64_le(&self.kdf_opslimit_le);
         let memlimit = load_u64_le(&self.kdf_memlimit_le) as usize;
         let params = raw_scrypt_params(memlimit, opslimit)?;

@@ -19,14 +19,14 @@ impl SignatureBox {
     }
 
     pub fn trusted_comment(&self) -> Result<String> {
-        if self.sig_and_trusted_comment.len() < SIGNATUREBYTES {
+        if self.sig_and_trusted_comment.len() < SIGNATURE_BYTES {
             Err(PError::new(
                 ErrorKind::Encoding,
                 "invalid trusted comment encoding",
             ))?
         }
         let just_comment =
-            String::from_utf8(self.sig_and_trusted_comment[SIGNATUREBYTES..].to_vec())?;
+            String::from_utf8(self.sig_and_trusted_comment[SIGNATURE_BYTES..].to_vec())?;
         Ok(just_comment)
     }
 
@@ -74,7 +74,9 @@ impl SignatureBox {
                 "Unsupported signature algorithm".to_string(),
             ))?,
         };
-        let _ = trusted_comment_str.drain(..TR_COMMENT_PREFIX_LEN).count();
+        let _ = trusted_comment_str
+            .drain(..TRUSTED_COMMENT_PREFIX_LEN)
+            .count();
         let mut sig_and_trusted_comment = signature.sig.to_vec();
         sig_and_trusted_comment.extend_from_slice(trusted_comment_str.trim().as_bytes());
         let global_sig = base64::decode(global_sig.trim().as_bytes())
