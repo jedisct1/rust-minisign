@@ -1,6 +1,6 @@
 # rust-minisign
 
-A pur Rust implementation of the [Minisign](https://jedisct1.github.io/minisign/) signature system.
+A pure Rust implementation of the [Minisign](https://jedisct1.github.io/minisign/) signature system.
 
 This is a crate, designed to be used within by applications.
 
