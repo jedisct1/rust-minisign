@@ -4,6 +4,20 @@ use crate::scrypt::ScryptParams;
 use std::cmp;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[cfg(any(windows, unix))]
+use rpassword::prompt_password_stdout;
+
+#[cfg(not(any(windows, unix)))]
+fn prompt_password_stdout(prompt: &str) -> Result<String> {
+    use std::io::{stdin, stdout, Write};
+
+    stdout().write_all(prompt.as_bytes())?;
+    stdout().flush()?;
+    let mut password = String::new();
+    stdin().read_line(&mut password)?;
+    Ok(password)
+}
+
 pub fn store_u64_le(x: u64) -> [u8; 8] {
     let b1: u8 = (x & 0xff) as u8;
     let b2: u8 = ((x >> 8) & 0xff) as u8;
@@ -60,7 +74,7 @@ pub fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams>
 }
 
 pub fn get_password(prompt: &str) -> Result<String> {
-    let pwd = rpassword::prompt_password_stdout(prompt)?;
+    let pwd = prompt_password_stdout(prompt)?;
     if pwd.is_empty() {
         println!("<empty>");
         Ok(pwd)

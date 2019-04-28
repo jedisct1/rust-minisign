@@ -81,6 +81,7 @@
 //!```
 extern crate base64;
 extern crate rand;
+#[cfg(any(windows, unix))]
 extern crate rpassword;
 extern crate scrypt;
 
