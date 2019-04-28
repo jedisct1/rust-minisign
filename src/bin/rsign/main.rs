@@ -32,7 +32,7 @@ pub fn cmd_generate<P, Q>(
     pk_path: P,
     sk_path: Q,
     comment: Option<&str>,
-) -> Result<(PublicKey, SecretKey)>
+) -> Result<KeyPair>
 where
     P: AsRef<Path>,
     Q: AsRef<Path>,
@@ -57,7 +57,7 @@ force this operation.",
     }
     let pk_writer = create_file(&pk_path, 0o644)?;
     let sk_writer = create_file(&sk_path, 0o600)?;
-    generate_and_write_encrypted_keypair(pk_writer, sk_writer, comment, None)
+    KeyPair::generate_and_write_encrypted_keypair(pk_writer, sk_writer, comment, None)
 }
 
 fn unix_timestamp() -> u64 {
@@ -200,7 +200,7 @@ fn run(args: clap::ArgMatches) -> Result<()> {
         let sk_path_str = generate_action.value_of("sk_path");
         let sk_path = sk_path_or_default(sk_path_str, force)?;
         let comment = generate_action.value_of("comment");
-        let (pk, _sk) = cmd_generate(force, &pk_path, &sk_path, comment)?;
+        let KeyPair { pk, .. } = cmd_generate(force, &pk_path, &sk_path, comment)?;
         println!(
             "\nThe secret key was saved as {} - Keep it secret!",
             sk_path.display()

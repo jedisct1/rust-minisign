@@ -13,27 +13,25 @@ fn byte_array_load() {
 
 #[test]
 fn pk_key_struct_conversion() {
-    use crate::generate_unencrypted_keypair;
-    use crate::PublicKey;
+    use crate::{KeyPair, PublicKey};
 
-    let (pk, _) = generate_unencrypted_keypair().unwrap();
+    let KeyPair { pk, .. } = KeyPair::generate_unencrypted_keypair().unwrap();
     assert_eq!(pk, PublicKey::from_bytes(&pk.to_bytes()).unwrap());
 }
 #[test]
 fn sk_key_struct_conversion() {
-    use crate::generate_unencrypted_keypair;
-    use crate::SecretKey;
+    use crate::{KeyPair, SecretKey};
 
-    let (_, sk) = generate_unencrypted_keypair().unwrap();
+    let KeyPair { sk, .. } = KeyPair::generate_unencrypted_keypair().unwrap();
     assert_eq!(sk, SecretKey::from_bytes(&sk.to_bytes()).unwrap());
 }
 
 #[test]
 fn xor_keynum() {
-    use crate::generate_unencrypted_keypair;
+    use crate::KeyPair;
     use rand::{thread_rng, RngCore};
 
-    let (_, mut sk) = generate_unencrypted_keypair().unwrap();
+    let KeyPair { mut sk, .. } = KeyPair::generate_unencrypted_keypair().unwrap();
     let mut rng = thread_rng();
     let mut key = vec![0u8; sk.keynum_sk.len()];
     rng.fill_bytes(&mut key);
@@ -45,9 +43,9 @@ fn xor_keynum() {
 }
 #[test]
 fn sk_checksum() {
-    use crate::generate_unencrypted_keypair;
+    use crate::KeyPair;
 
-    let (_, mut sk) = generate_unencrypted_keypair().unwrap();
+    let KeyPair { mut sk, .. } = KeyPair::generate_unencrypted_keypair().unwrap();
     assert!(sk.write_checksum().is_ok());
     assert_eq!(sk.keynum_sk.chk.to_vec(), sk.read_checksum().unwrap());
 }
