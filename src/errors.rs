@@ -1,6 +1,3 @@
-extern crate base64;
-extern crate clap;
-
 use std;
 use std::error::Error as StdError;
 use std::fmt;
@@ -80,18 +77,15 @@ impl StdError for PError {
         }
     }
 }
+
 impl From<io::Error> for PError {
     fn from(err: io::Error) -> PError {
         PError::new(ErrorKind::Io, err)
     }
 }
+
 impl From<std::string::ParseError> for PError {
     fn from(err: std::string::ParseError) -> PError {
-        PError::new(ErrorKind::Misc, err)
-    }
-}
-impl From<clap::Error> for PError {
-    fn from(err: clap::Error) -> PError {
         PError::new(ErrorKind::Misc, err)
     }
 }

@@ -1,18 +1,16 @@
 [package]
-name = "rsign2"
-version = "0.2.2"
+name = "minisign"
+version = "0.3.0"
 authors = ["Frank Denis <github@pureftpd.org>", "Daniel Rangel <daniel@rangel.in>"]
-description = "A command-line tool to sign files and verify signatures."
+description = "A crate to sign files and verify signatures."
 license = "MIT"
 readme = "README.md"
-categories = ["command-line-utilities", "cryptography"]
+categories = ["cryptography"]
 keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
-repository = "https://github.com/jedisct1/rsign2"
+repository = "https://github.com/jedisct1/rust-minisign"
 
 [dependencies]
 base64 = "0.10"
-clap = "2.33"
-dirs = "1.0"
 rand = "0.6"
 rpassword = "3.0"
 scrypt = { version = "0.2", default-features = false }
