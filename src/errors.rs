@@ -25,6 +25,7 @@ pub enum ErrorKind {
     Hash,
     KDF,
     RNG,
+    Encoding,
 }
 
 #[derive(Debug)]
@@ -60,6 +61,7 @@ impl fmt::Display for PError {
             ErrorKind::Hash => write!(f, "{}", self.err),
             ErrorKind::KDF => write!(f, "{}", self.err),
             ErrorKind::RNG => write!(f, "{}", self.err),
+            ErrorKind::Encoding => write!(f, "{}", self.err),
         }
     }
 }
@@ -74,6 +76,7 @@ impl StdError for PError {
             ErrorKind::Hash => "hash error",
             ErrorKind::KDF => "key derivation error",
             ErrorKind::RNG => "random number generator error",
+            ErrorKind::Encoding => "encoding error",
         }
     }
 }
@@ -95,13 +98,13 @@ impl From<clap::Error> for PError {
 
 impl From<base64::DecodeError> for PError {
     fn from(err: base64::DecodeError) -> PError {
-        PError::new(ErrorKind::Misc, err)
+        PError::new(ErrorKind::Encoding, err)
     }
 }
 
 impl From<std::string::FromUtf8Error> for PError {
     fn from(err: std::string::FromUtf8Error) -> PError {
-        PError::new(ErrorKind::Misc, err)
+        PError::new(ErrorKind::Encoding, err)
     }
 }
 

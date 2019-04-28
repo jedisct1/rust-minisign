@@ -8,12 +8,28 @@ use std::path::Path;
 #[derive(Clone)]
 pub struct SignatureBox {
     pub(crate) global_sig: Vec<u8>,
-    pub trusted_comment: Vec<u8>,
+    pub(crate) sig_and_trusted_comment: Vec<u8>,
     pub(crate) signature: Signature,
-    pub hashed: bool,
+    is_hashed: bool,
 }
 
 impl SignatureBox {
+    pub fn is_hashed(&self) -> bool {
+        self.is_hashed
+    }
+
+    pub fn trusted_comment(&self) -> Result<String> {
+        if self.sig_and_trusted_comment.len() < SIGNATUREBYTES {
+            Err(PError::new(
+                ErrorKind::Encoding,
+                "invalid trusted comment encoding",
+            ))?
+        }
+        let just_comment =
+            String::from_utf8(self.sig_and_trusted_comment[SIGNATUREBYTES..].to_vec())?;
+        Ok(just_comment)
+    }
+
     pub fn from_string(s: &str) -> Result<SignatureBox> {
         let mut lines = s.lines();
         let untrusted_comment = lines
@@ -50,7 +66,7 @@ impl SignatureBox {
                 ),
             ));
         }
-        let hashed = match signature.sig_alg {
+        let is_hashed = match signature.sig_alg {
             SIGALG => false,
             SIGALG_HASHED => true,
             _ => Err(PError::new(
@@ -59,15 +75,15 @@ impl SignatureBox {
             ))?,
         };
         let _ = trusted_comment_str.drain(..TR_COMMENT_PREFIX_LEN).count();
-        let mut trusted_comment = signature.sig.to_vec();
-        trusted_comment.extend_from_slice(trusted_comment_str.trim().as_bytes());
+        let mut sig_and_trusted_comment = signature.sig.to_vec();
+        sig_and_trusted_comment.extend_from_slice(trusted_comment_str.trim().as_bytes());
         let global_sig = base64::decode(global_sig.trim().as_bytes())
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
         Ok(SignatureBox {
             global_sig,
-            trusted_comment,
+            sig_and_trusted_comment,
             signature,
-            hashed,
+            is_hashed,
         })
     }
 

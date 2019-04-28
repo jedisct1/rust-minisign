@@ -131,7 +131,7 @@ pub fn verify<R>(
 where
     R: Read + Seek,
 {
-    let data = if signature_box.hashed {
+    let data = if signature_box.is_hashed() {
         prehash(&mut data_reader)?
     } else {
         let mut data = vec![];
@@ -140,7 +140,7 @@ where
     };
     let sig = &signature_box.signature;
     let global_sig = &signature_box.global_sig[..];
-    let trusted_comment = &signature_box.trusted_comment;
+    let sig_and_trusted_comment = &signature_box.sig_and_trusted_comment;
     if sig.keynum != pk_key.keynum_pk.keynum {
         return Err(PError::new(
             ErrorKind::Verify,
@@ -157,16 +157,15 @@ where
             "Signature verification failed",
         ))?
     }
-    if !ed25519::verify(&trusted_comment, &pk_key.keynum_pk.pk, &global_sig) {
+    if !ed25519::verify(&sig_and_trusted_comment, &pk_key.keynum_pk.pk, &global_sig) {
         Err(PError::new(
             ErrorKind::Verify,
             "Comment signature verification failed",
         ))?
     }
     if !quiet {
-        let just_comment = String::from_utf8(trusted_comment[SIGNATUREBYTES..].to_vec())?;
         eprintln!("Signature and comment signature verified");
-        eprintln!("Trusted comment: {}", just_comment);
+        eprintln!("Trusted comment: {}", signature_box.trusted_comment()?);
     }
     if output {
         data_reader.seek(SeekFrom::Start(0))?;
