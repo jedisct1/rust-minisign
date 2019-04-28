@@ -10,12 +10,12 @@ pub struct SignatureBox {
     pub(crate) global_sig: Vec<u8>,
     pub(crate) sig_and_trusted_comment: Vec<u8>,
     pub(crate) signature: Signature,
-    is_hashed: bool,
+    is_prehashed: bool,
 }
 
 impl SignatureBox {
-    pub fn is_hashed(&self) -> bool {
-        self.is_hashed
+    pub fn is_prehashed(&self) -> bool {
+        self.is_prehashed
     }
 
     pub fn trusted_comment(&self) -> Result<String> {
@@ -66,9 +66,9 @@ impl SignatureBox {
                 ),
             ));
         }
-        let is_hashed = match signature.sig_alg {
+        let is_prehashed = match signature.sig_alg {
             SIGALG => false,
-            SIGALG_HASHED => true,
+            SIGALG_PREHASHED => true,
             _ => Err(PError::new(
                 ErrorKind::Verify,
                 "Unsupported signature algorithm".to_string(),
@@ -85,7 +85,7 @@ impl SignatureBox {
             global_sig,
             sig_and_trusted_comment,
             signature,
-            is_hashed,
+            is_prehashed,
         })
     }
 

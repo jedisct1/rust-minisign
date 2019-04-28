@@ -55,7 +55,7 @@ pub fn sign<W, R>(
     pk: Option<&PublicKey>,
     sk: &SecretKey,
     mut data_reader: R,
-    hashed: bool,
+    prehashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
 ) -> Result<()>
@@ -63,7 +63,7 @@ where
     W: Write,
     R: Read,
 {
-    let data = if hashed {
+    let data = if prehashed {
         prehash(&mut data_reader)?
     } else {
         let mut data = vec![];
@@ -79,10 +79,10 @@ where
         None => format!("{}{}", COMMENT_PREFIX, DEFAULT_COMMENT),
     };
     let mut signature = Signature::default();
-    if !hashed {
+    if !prehashed {
         signature.sig_alg = sk.sig_alg;
     } else {
-        signature.sig_alg = SIGALG_HASHED;
+        signature.sig_alg = SIGALG_PREHASHED;
     }
     signature.keynum.copy_from_slice(&sk.keynum_sk.keynum[..]);
     let mut rng = thread_rng();
@@ -131,7 +131,7 @@ pub fn verify<R>(
 where
     R: Read + Seek,
 {
-    let data = if signature_box.is_hashed() {
+    let data = if signature_box.is_prehashed() {
         prehash(&mut data_reader)?
     } else {
         let mut data = vec![];
