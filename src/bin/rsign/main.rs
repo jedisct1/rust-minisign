@@ -8,15 +8,13 @@ mod parse_args;
 
 use crate::helpers::*;
 use crate::parse_args::*;
-use rsign2::crypto::blake2b::Blake2b;
-use rsign2::crypto::digest::Digest;
 use rsign2::*;
-use std::fs::OpenOptions;
-use std::io::{BufReader, Cursor, Read};
+use std::fs::{File, OpenOptions};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn load_and_hash_data_file<P>(data_path: P) -> Result<Vec<u8>>
+fn open_data_file<P>(data_path: P) -> Result<(BufReader<File>, bool)>
 where
     P: AsRef<Path>,
 {
@@ -25,38 +23,8 @@ where
         .read(true)
         .open(data_path)
         .map_err(|e| PError::new(ErrorKind::Io, e))?;
-    let mut buf_reader = BufReader::new(file);
-    let mut buf_chunk = [0u8; 65536];
-    let mut state = Blake2b::new(PREHASH_BYTES);
-    while buf_reader.read(&mut buf_chunk).unwrap() > 0 {
-        state.input(&buf_chunk);
-    }
-    let mut out = vec![0u8; PREHASH_BYTES];
-    state.result(&mut out);
-    Ok(out)
-}
-
-fn load_data_file<P>(data_path: P, hashed: bool) -> Result<Vec<u8>>
-where
-    P: AsRef<Path>,
-{
-    let data_path = data_path.as_ref();
-    if hashed {
-        return load_and_hash_data_file(data_path);
-    }
-    let mut file = OpenOptions::new()
-        .read(true)
-        .open(data_path)
-        .map_err(|e| PError::new(ErrorKind::Io, e))?;
-    if file.metadata().unwrap().len() > (1u64 << 30) {
-        Err(PError::new(
-            ErrorKind::Io,
-            format!("{} is larger than 1G try using -H", data_path.display()),
-        ))?;
-    }
-    let mut msg_buf: Vec<u8> = Vec::new();
-    file.read_to_end(&mut msg_buf)?;
-    Ok(msg_buf)
+    let should_be_hashed = file.metadata().unwrap().len() > (1u64 << 30);
+    Ok((BufReader::new(file), should_be_hashed))
 }
 
 pub fn cmd_generate<P, Q>(
@@ -134,14 +102,13 @@ where
             data_path.as_ref().display()
         )
     };
-    let data = load_data_file(data_path, hashed)?;
-    let data_reader = Cursor::new(data);
+    let (data_reader, should_be_hashed) = open_data_file(data_path)?;
     sign(
         signature_box_writer,
         pk.as_ref(),
         &sk,
         data_reader,
-        hashed,
+        hashed | should_be_hashed,
         Some(trusted_comment.as_str()),
         untrusted_comment,
     )
@@ -159,8 +126,7 @@ where
     Q: AsRef<Path>,
 {
     let signature_box = SignatureBox::from_file(signature_path)?;
-    let data = load_data_file(data_path, signature_box.hashed)?;
-    let data_reader = Cursor::new(data);
+    let (data_reader, _should_be_hashed) = open_data_file(data_path)?;
     verify(&pk, &signature_box, data_reader, quiet, output)
 }
 

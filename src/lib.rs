@@ -13,6 +13,8 @@ mod tests;
 
 pub mod crypto;
 
+use crate::crypto::blake2b::Blake2b;
+use crate::crypto::digest::Digest;
 use crate::crypto::ed25519;
 use crate::helpers::*;
 use rand::{thread_rng, RngCore};
@@ -123,6 +125,24 @@ pub fn generate_and_write_encrypted_keypair(
     Ok((pk, sk))
 }
 
+fn prehash<R>(data_reader: &mut R) -> Result<Vec<u8>>
+where
+    R: Read,
+{
+    let mut h = vec![0u8; PREHASH_BYTES];
+    let mut buf = vec![0u8; 65536];
+    let mut state = Blake2b::new(PREHASH_BYTES);
+    loop {
+        let len = data_reader.read(&mut buf)?;
+        if len == 0 {
+            break;
+        }
+        state.input(&buf);
+    }
+    state.result(&mut h);
+    Ok(h)
+}
+
 pub fn sign<W, R>(
     mut signature_box_writer: W,
     pk: Option<&PublicKey>,
@@ -136,8 +156,13 @@ where
     W: Write,
     R: Read,
 {
-    let mut data = vec![];
-    data_reader.read_to_end(&mut data)?;
+    let data = if hashed {
+        prehash(&mut data_reader)?
+    } else {
+        let mut data = vec![];
+        data_reader.read_to_end(&mut data)?;
+        data
+    };
     let trusted_comment = match trusted_comment {
         Some(trusted_comment) => trusted_comment.to_string(),
         None => format!("timestamp:{}", unix_timestamp()),
@@ -199,8 +224,13 @@ pub fn verify<R>(
 where
     R: Read + Seek,
 {
-    let mut data = vec![];
-    data_reader.read_to_end(&mut data)?;
+    let data = if signature_box.hashed {
+        prehash(&mut data_reader)?
+    } else {
+        let mut data = vec![];
+        data_reader.read_to_end(&mut data)?;
+        data
+    };
     let sig = &signature_box.signature;
     let global_sig = &signature_box.global_sig[..];
     let trusted_comment = &signature_box.trusted_comment;
