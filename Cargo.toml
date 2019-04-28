@@ -1,6 +1,6 @@
 [package]
 name = "minisign"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Frank Denis <github@pureftpd.org>", "Daniel Rangel <daniel@rangel.in>"]
 description = "A crate to sign files and verify signatures."
 license = "MIT"
