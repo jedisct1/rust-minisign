@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
+/// A signature, as well as the metadata required to verify it.
 #[derive(Clone)]
 pub struct SignatureBox {
     pub(crate) untrusted_comment: String,
@@ -28,14 +29,17 @@ impl Into<SignatureBox> for String {
 }
 
 impl SignatureBox {
+    /// Returns `true` if the signed data was pre-hashed.
     pub fn is_prehashed(&self) -> bool {
         self.is_prehashed
     }
 
+    /// The untrusted comment present in the signature.
     pub fn untrusted_comment(&self) -> Result<String> {
         Ok(self.untrusted_comment.clone())
     }
 
+    /// The trusted comment present in the signature.
     pub fn trusted_comment(&self) -> Result<String> {
         if self.sig_and_trusted_comment.len() < SIGNATURE_BYTES {
             Err(PError::new(
@@ -48,13 +52,14 @@ impl SignatureBox {
         Ok(just_comment)
     }
 
+    /// Create a new `SignatureBox` from a string.
     pub fn from_string(s: &str) -> Result<SignatureBox> {
         let mut lines = s.lines();
         let untrusted_comment = lines
             .next()
             .ok_or_else(|| PError::new(ErrorKind::Io, "Missing untrusted comment"))?
             .to_string();
-        let signatureing = lines
+        let signature_str = lines
             .next()
             .ok_or_else(|| PError::new(ErrorKind::Io, "Missing signature"))?
             .to_string();
@@ -73,7 +78,7 @@ impl SignatureBox {
             ));
         }
         let untrusted_comment = untrusted_comment[COMMENT_PREFIX.len()..].to_string();
-        let sig_bytes = base64::decode(signatureing.trim().as_bytes())
+        let sig_bytes = base64::decode(signature_str.trim().as_bytes())
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
         let signature = Signature::from_bytes(&sig_bytes)?;
         if !trusted_comment_str.starts_with(TRUSTED_COMMENT_PREFIX) {
@@ -109,9 +114,15 @@ impl SignatureBox {
         })
     }
 
+    /// Return a `SignatureBox` for a string, for storage.
     pub fn to_string(&self) -> String {
         let mut signature_box = String::new();
-        writeln!(signature_box, "{}", self.untrusted_comment).unwrap();
+        writeln!(
+            signature_box,
+            "{}{}",
+            COMMENT_PREFIX, self.untrusted_comment
+        )
+        .unwrap();
         writeln!(signature_box, "{}", self.signature.to_string()).unwrap();
         writeln!(
             signature_box,
@@ -124,14 +135,17 @@ impl SignatureBox {
         signature_box
     }
 
+    /// Convert a `SignatureBox` to a string, for storage.
     pub fn into_string(self) -> String {
         self.to_string()
     }
 
+    /// Return a byte representation of the signature, for storage.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_string().as_bytes().to_vec()
     }
 
+    /// Load a `SignatureBox` from a file.
     pub fn from_file<P>(sig_path: P) -> Result<SignatureBox>
     where
         P: AsRef<Path>,

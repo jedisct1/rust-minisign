@@ -25,6 +25,7 @@ pub enum ErrorKind {
     Encoding,
 }
 
+/// Error structure for the `minisign` crate.
 #[derive(Debug)]
 pub struct PError {
     kind: ErrorKind,

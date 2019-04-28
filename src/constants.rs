@@ -1,9 +1,21 @@
+/// The default untrusted comment.
 pub const DEFAULT_COMMENT: &str = "signature from rsign secret key";
+
+/// The default environment variable for the directory of the `rsign` tool.
 pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &str = "RSIGN_CONFIG_DIR";
+
+/// The default configuration directory of the `rsign` tool.
 pub const SIG_DEFAULT_CONFIG_DIR: &str = ".rsign";
+
+/// The default file name for the public key.
 pub const SIG_DEFAULT_PKFILE: &str = "rsign.pub";
+
+/// The default file name for the secret key.
 pub const SIG_DEFAULT_SKFILE: &str = "rsign.key";
+
+/// The dfault suffix for signatures.
 pub const SIG_SUFFIX: &str = ".minisig";
+
 pub(crate) const CHK_ALG: [u8; 2] = *b"B2";
 pub(crate) const CHK_BYTES: usize = 32;
 pub(crate) const COMMENT_PREFIX: &str = "untrusted comment: ";

@@ -14,6 +14,15 @@ use std::io::{self, Write};
 use std::io::{Cursor, Read};
 use std::path::Path;
 
+/// A secret key and its metadata.
+///
+/// A `SecretKeyBox` represents a raw secret key, along with a key
+/// identifier, an untrusted description, and information required to
+/// decrypt it using a password.
+///
+/// This is what usually gets exported to disk.
+///
+/// A `SecretKeyBox` can be directly converted to/from a single-line string.
 #[derive(Clone, Debug)]
 pub struct SecretKeyBox(String);
 
@@ -36,23 +45,28 @@ impl ToString for SecretKeyBox {
 }
 
 impl SecretKeyBox {
+    /// Create a new `SecretKeyBox` from a string.
     pub fn from_string(s: &str) -> Result<SecretKeyBox> {
         Ok(s.to_string().into())
     }
 
+    /// Return a `SecretKeyBox` for a string, for storage.
     pub fn into_string(self) -> String {
         self.into()
     }
 
+    /// Convert a `SecretKeyBox` to a string, for storage.
     pub fn into_secret_key(self, password: Option<String>) -> Result<SecretKey> {
         SecretKey::from_box(self, password)
     }
 
+    /// Return a byte representation of the secret key, for storage.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_string().as_bytes().to_vec()
     }
 }
 
+/// A `SecretKey` is used to create signatures.
 #[derive(Clone)]
 pub struct SecretKey {
     pub(crate) sig_alg: [u8; TWOBYTES],
@@ -117,6 +131,9 @@ impl SecretKey {
         Ok(self)
     }
 
+    /// Deserialize a `SecretKey`.
+    ///
+    /// For storage, a `SecretKeyBox` is usually what you need instead.
     pub fn from_bytes(bytes_buf: &[u8]) -> Result<SecretKey> {
         let mut buf = Cursor::new(bytes_buf);
         let mut sig_alg = [0u8; TWOBYTES];
@@ -149,6 +166,9 @@ impl SecretKey {
         })
     }
 
+    /// Serialize a `SecretKey`.
+    ///
+    /// For storage, a `SecretKeyBox` is usually what you need instead.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
@@ -170,16 +190,17 @@ impl SecretKey {
         v
     }
 
+    /// Convert a `SecretKeyBox` to a `SecretKey`.
     pub fn from_box(sk_box: SecretKeyBox, password: Option<String>) -> Result<SecretKey> {
         let s = sk_box.0;
         let mut lines = s.lines();
         lines.next().ok_or_else(|| {
-            PError::new(ErrorKind::Io, "Missing comment in public key".to_string())
+            PError::new(ErrorKind::Io, "Missing comment in secret key".to_string())
         })?;
         let encoded_sk = lines.next().ok_or_else(|| {
             PError::new(
                 ErrorKind::Io,
-                "Missing encoded key in public key".to_string(),
+                "Missing encoded key in secret key".to_string(),
             )
         })?;
         let sk = SecretKey::from_base64(&encoded_sk)?;
@@ -214,6 +235,7 @@ impl SecretKey {
         }
     }
 
+    /// Convert a `SecretKey` to a `SecretKeyBox`.
     pub fn to_box(&self, comment: Option<&str>) -> Result<SecretKeyBox> {
         let mut s = String::new();
         write!(s, "{}", COMMENT_PREFIX)?;
@@ -235,6 +257,7 @@ impl SecretKey {
         base64::encode(self.to_bytes().as_slice())
     }
 
+    /// Load a `SecretKeyBox` from a file, and returns a `SecretKey` from it.
     pub fn from_file<P: AsRef<Path>>(sk_path: P, password: Option<String>) -> Result<SecretKey> {
         let mut file = OpenOptions::new()
             .read(true)

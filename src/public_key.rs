@@ -9,6 +9,14 @@ use std::fs::OpenOptions;
 use std::io::{Cursor, Read};
 use std::path::Path;
 
+/// A public key and its metadata.
+///
+/// A `PublicKeyBox` represents a raw public key, along with a key
+/// identifier and an untrusted description.
+///
+/// This is what usually gets exported to disk.
+///
+/// A `PublicKeyBox` can be directly converted to/from a single-line string.
 #[derive(Clone, Debug)]
 pub struct PublicKeyBox(String);
 
@@ -37,23 +45,28 @@ impl Into<PublicKey> for PublicKeyBox {
 }
 
 impl PublicKeyBox {
+    /// Create a new `PublicKeyBox` from a string.
     pub fn from_string(s: &str) -> Result<PublicKeyBox> {
         Ok(s.to_string().into())
     }
 
+    /// Return a `PublicKeyBox` for a string, for storage.
     pub fn into_string(self) -> String {
         self.into()
     }
 
+    /// Convert a `PublicKeyBox` to a string, for storage.
     pub fn into_public_key(self) -> Result<PublicKey> {
         PublicKey::from_box(self)
     }
 
+    /// Return a byte representation of the public key, for storage.
     pub fn to_bytes(&self) -> Vec<u8> {
         self.to_string().as_bytes().to_vec()
     }
 }
 
+/// A `PublicKey` is used to verify signatures.
 #[derive(Clone, Debug)]
 pub struct PublicKey {
     pub(crate) sig_alg: [u8; TWOBYTES],
@@ -61,6 +74,9 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
+    /// Deserialize a `PublicKey`.
+    ///
+    /// For storage, a `PublicKeyBox` is usually what you need instead.
     pub fn from_bytes(buf: &[u8]) -> Result<PublicKey> {
         let mut buf = Cursor::new(buf);
         let mut sig_alg = [0u8; TWOBYTES];
@@ -75,6 +91,9 @@ impl PublicKey {
         })
     }
 
+    /// Serialize a `PublicKey`.
+    ///
+    /// For storage, a `PublicKeyBox` is usually what you want to use instead.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
@@ -90,6 +109,7 @@ impl PublicKey {
         v
     }
 
+    /// Convert a `PublicKeyBox` to a `PublicKey`.
     pub fn from_box(pk_box: PublicKeyBox) -> Result<PublicKey> {
         let s = pk_box.0;
         let mut lines = s.lines();
@@ -120,6 +140,7 @@ impl PublicKey {
         Ok(PublicKey::from_bytes(&decoded_buf)?)
     }
 
+    /// Convert a `PublicKey` to a `PublicKeyBox`.
     pub fn to_box(&self) -> Result<PublicKeyBox> {
         let mut s = String::new();
         write!(s, "{}minisign public key: ", COMMENT_PREFIX)?;
@@ -128,6 +149,7 @@ impl PublicKey {
         Ok(s.into())
     }
 
+    /// Create a minimal public key from a base64-encoded string.
     pub fn from_base64(pk_string: &str) -> Result<PublicKey> {
         let encoded_string = pk_string.to_string();
         if encoded_string.trim().len() != PK_B64_ENCODED_LEN {
@@ -148,10 +170,12 @@ impl PublicKey {
         PublicKey::from_bytes(&decoded_string)
     }
 
+    /// Encode a public key as a base64-encoded string.
     pub fn to_base64(&self) -> String {
         base64::encode(self.to_bytes().as_slice())
     }
 
+    /// Load a `PublicKeyBox` from a file, and returns a `PublicKey` from it.
     pub fn from_file<P>(pk_path: P) -> Result<PublicKey>
     where
         P: AsRef<Path>,

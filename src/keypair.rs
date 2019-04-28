@@ -9,6 +9,7 @@ use rand::{thread_rng, RngCore};
 use std::io::{self, Write};
 use std::u64;
 
+/// A key pair (`PublicKey` and `SecretKey`).
 #[derive(Clone, Debug)]
 pub struct KeyPair {
     pub pk: PublicKey,
@@ -48,6 +49,12 @@ impl KeyPair {
         Ok(KeyPair { pk, sk })
     }
 
+    /// Create and encrypt a new key pair.
+    ///
+    /// If `password` is `None`, a password will be interactively asked for.
+    ///
+    /// A key can be converted to a box in order to be serialized and saved.
+    /// Ex: `pk.to_box()?.to_bytes()`
     pub fn generate_encrypted_keypair(password: Option<String>) -> Result<Self> {
         let KeyPair { pk, mut sk } = Self::generate_unencrypted_keypair()?;
         let interactive = password.is_none();
@@ -81,6 +88,14 @@ impl KeyPair {
         Ok(KeyPair { pk, sk })
     }
 
+    /// Create, encrypt and save a new key pair.
+    ///
+    /// # Arguments
+    ///
+    /// * `pk_writer` - Where to store the public key box.
+    /// * `sk_writer` - Where to store the secret key box.
+    /// * `comment` - An optional untrusted comment to replace the default one.
+    /// * `password` - If `None`, a password will be interactively asked for.
     pub fn generate_and_write_encrypted_keypair<W, X>(
         mut pk_writer: W,
         mut sk_writer: X,
