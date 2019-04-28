@@ -17,6 +17,10 @@ Main differences with rsign:
 - rsign2 includes bug fixes and improvements.
 - rsign2 tries to be usable as a library, not just as a command-line tool.
 
+## API documentation
+
+[API documentation on docs.rs](https://docs.rs/rsign2)
+
 ## Usage
 
 ```sh

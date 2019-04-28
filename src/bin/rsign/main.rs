@@ -12,7 +12,7 @@ use rsign2::crypto::blake2b::Blake2b;
 use rsign2::crypto::digest::Digest;
 use rsign2::*;
 use std::fs::OpenOptions;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Cursor, Read};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -135,11 +135,12 @@ where
         )
     };
     let data = load_data_file(data_path, hashed)?;
+    let data_reader = Cursor::new(data);
     sign(
         signature_box_writer,
         pk.as_ref(),
         &sk,
-        &data,
+        data_reader,
         hashed,
         Some(trusted_comment.as_str()),
         untrusted_comment,
@@ -159,7 +160,8 @@ where
 {
     let signature_box = SignatureBox::from_file(signature_path)?;
     let data = load_data_file(data_path, signature_box.hashed)?;
-    verify(&pk, &signature_box, data.as_ref(), quiet, output)
+    let data_reader = Cursor::new(data);
+    verify(&pk, &signature_box, data_reader, quiet, output)
 }
 
 fn sk_path_or_default(sk_path_str: Option<&str>, force: bool) -> Result<PathBuf> {

@@ -17,7 +17,7 @@ use crate::crypto::ed25519;
 use crate::helpers::*;
 use rand::{thread_rng, RngCore};
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::u64;
 
@@ -123,18 +123,21 @@ pub fn generate_and_write_encrypted_keypair(
     Ok((pk, sk))
 }
 
-pub fn sign<W>(
+pub fn sign<W, R>(
     mut signature_box_writer: W,
     pk: Option<&PublicKey>,
     sk: &SecretKey,
-    data: &[u8],
+    mut data_reader: R,
     hashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
 ) -> Result<()>
 where
     W: Write,
+    R: Read,
 {
+    let mut data = vec![];
+    data_reader.read_to_end(&mut data)?;
     let trusted_comment = match trusted_comment {
         Some(trusted_comment) => trusted_comment.to_string(),
         None => format!("timestamp:{}", unix_timestamp()),
@@ -153,7 +156,7 @@ where
     let mut rng = thread_rng();
     let mut z = vec![0; 64];
     rng.try_fill_bytes(&mut z)?;
-    let signature_raw = ed25519::signature(data, &sk.keynum_sk.sk, Some(&z));
+    let signature_raw = ed25519::signature(&data, &sk.keynum_sk.sk, Some(&z));
     signature.sig.copy_from_slice(&signature_raw[..]);
 
     let mut sig_and_trust_comment: Vec<u8> = vec![];
@@ -186,13 +189,18 @@ where
     Ok(())
 }
 
-pub fn verify(
+pub fn verify<R>(
     pk_key: &PublicKey,
     signature_box: &SignatureBox,
-    data: &[u8],
+    mut data_reader: R,
     quiet: bool,
     output: bool,
-) -> Result<()> {
+) -> Result<()>
+where
+    R: Read + Seek,
+{
+    let mut data = vec![];
+    data_reader.read_to_end(&mut data)?;
     let sig = &signature_box.signature;
     let global_sig = &signature_box.global_sig[..];
     let trusted_comment = &signature_box.trusted_comment;
@@ -224,7 +232,15 @@ pub fn verify(
         eprintln!("Trusted comment: {}", just_comment);
     }
     if output {
-        io::stdout().write_all(data)?;
+        data_reader.seek(SeekFrom::Start(0))?;
+        let mut buf = vec![0; 65536];
+        loop {
+            let len = data_reader.read(&mut buf)?;
+            if len == 0 {
+                break;
+            }
+            io::stdout().write_all(&buf[..len])?;
+        }
     }
     Ok(())
 }
