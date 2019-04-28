@@ -10,11 +10,6 @@ pub(crate) struct Signature {
 }
 
 impl Signature {
-    pub fn len() -> usize {
-        use std::mem;
-        mem::size_of::<Signature>()
-    }
-
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut iters = Vec::new();
         iters.push(self.sig_alg.iter());
