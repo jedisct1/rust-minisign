@@ -48,7 +48,7 @@ impl SecretKeyBox {
         SecretKey::from_box(self, password)
     }
 
-    pub fn to_vec(&self) -> Vec<u8> {
+    pub fn to_bytes(&self) -> Vec<u8> {
         self.to_string().as_bytes().to_vec()
     }
 }
