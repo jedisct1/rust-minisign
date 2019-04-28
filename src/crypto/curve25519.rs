@@ -2255,6 +2255,15 @@ pub fn sc_muladd(s: &mut [u8], a: &[u8], b: &[u8], c: &[u8]) {
     s[31] = (s11 >> 17) as u8;
 }
 
+pub fn is_identity(s: &[u8]) -> bool {
+    let mut c = s[0] ^ 0x01;
+    for i in 1..31 {
+        c |= s[i];
+    }
+    c |= s[31] & 0x7f;
+    c == 0
+}
+
 static BI: [GePrecomp; 8] = [
     GePrecomp {
         y_plus_x: Fe([
