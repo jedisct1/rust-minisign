@@ -136,13 +136,13 @@ impl SecretKey {
             .collect();
         v
     }
-    pub fn write_checksum(&mut self) -> Result<()> {
+    pub(crate) fn write_checksum(&mut self) -> Result<()> {
         let h = self.read_checksum()?;
         self.keynum_sk.chk.copy_from_slice(&h[..]);
         Ok(())
     }
 
-    pub fn read_checksum(&self) -> Result<Vec<u8>> {
+    pub(crate) fn read_checksum(&self) -> Result<Vec<u8>> {
         let mut state = Blake2b::new(CHK_BYTES);
         state.input(&self.sig_alg);
         state.input(&self.keynum_sk.keynum);
@@ -152,7 +152,7 @@ impl SecretKey {
         Ok(h)
     }
 
-    pub fn xor_keynum(&mut self, stream: &[u8]) {
+    pub(crate) fn xor_keynum(&mut self, stream: &[u8]) {
         let b8 = self
             .keynum_sk
             .keynum
