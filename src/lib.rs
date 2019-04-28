@@ -3,15 +3,14 @@ extern crate rand;
 extern crate rpassword;
 extern crate scrypt;
 
+mod crypto;
+mod errors;
 mod helpers;
-mod perror;
 mod signature_box;
 mod types;
 
 #[cfg(test)]
 mod tests;
-
-pub mod crypto;
 
 use crate::crypto::blake2b::Blake2b;
 use crate::crypto::digest::Digest;
@@ -23,7 +22,7 @@ use std::io::{self, BufRead, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::u64;
 
-pub use crate::perror::*;
+pub use crate::errors::*;
 pub use crate::signature_box::*;
 pub use crate::types::*;
 

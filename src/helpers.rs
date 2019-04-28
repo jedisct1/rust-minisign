@@ -1,4 +1,4 @@
-use crate::perror::*;
+use crate::errors::*;
 use crate::scrypt::ScryptParams;
 use crate::types::*;
 use std::cmp;

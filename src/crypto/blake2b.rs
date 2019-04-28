@@ -299,6 +299,7 @@ impl Blake2b {
         self.apply_param();
     }
 
+    #[allow(dead_code)]
     pub fn blake2b(out: &mut [u8], input: &[u8]) {
         let mut hasher: Blake2b = Blake2b::new(out.len());
         hasher.update(input);

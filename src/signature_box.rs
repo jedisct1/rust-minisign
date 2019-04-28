@@ -1,4 +1,4 @@
-use crate::perror::*;
+use crate::errors::*;
 use crate::types::*;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -6,9 +6,9 @@ use std::path::Path;
 
 #[derive(Clone)]
 pub struct SignatureBox {
-    pub global_sig: Vec<u8>,
+    pub(crate) global_sig: Vec<u8>,
     pub trusted_comment: Vec<u8>,
-    pub signature: Signature,
+    pub(crate) signature: Signature,
     pub hashed: bool,
 }
 

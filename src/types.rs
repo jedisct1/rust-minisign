@@ -6,36 +6,36 @@ use std::cmp;
 use std::fmt::{self, Formatter};
 use std::io::{Cursor, Read};
 
-pub const KEYNUMBYTES: usize = 8;
-pub const TWOBYTES: usize = 2;
-pub const TR_COMMENT_PREFIX_LEN: usize = 17;
-pub const PK_B64_ENCODED_LEN: usize = 56;
-pub const PASSWORDMAXBYTES: usize = 1024;
 pub const COMMENTBYTES: usize = 1024;
-pub const TRUSTEDCOMMENTMAXBYTES: usize = 8192;
-pub const SIGALG: [u8; 2] = *b"Ed";
-pub const SIGALG_HASHED: [u8; 2] = *b"ED";
-pub const KDFALG: [u8; 2] = *b"Sc";
-pub const CHKALG: [u8; 2] = *b"B2";
-pub const COMMENT_PREFIX: &str = "untrusted comment: ";
 pub const DEFAULT_COMMENT: &str = "signature from rsign secret key";
-pub const SECRETKEY_DEFAULT_COMMENT: &str = "rsign encrypted secret key";
-pub const TRUSTED_COMMENT_PREFIX: &str = "trusted comment: ";
-pub const SIG_DEFAULT_CONFIG_DIR: &str = ".rsign";
 pub const SIG_DEFAULT_CONFIG_DIR_ENV_VAR: &str = "RSIGN_CONFIG_DIR";
+pub const SIG_DEFAULT_CONFIG_DIR: &str = ".rsign";
 pub const SIG_DEFAULT_PKFILE: &str = "rsign.pub";
 pub const SIG_DEFAULT_SKFILE: &str = "rsign.key";
 pub const SIG_SUFFIX: &str = ".minisig";
-pub const CHK_BYTES: usize = 32;
-pub const PREHASH_BYTES: usize = 64;
-pub const KDF_SALTBYTES: usize = 32;
-pub const OPSLIMIT: u64 = 1_048_576;
-pub const MEMLIMIT: usize = 33_554_432;
-pub const PUBLICKEYBYTES: usize = 32;
-pub const SECRETKEYBYTES: usize = 64;
-pub const SIGNATUREBYTES: usize = 64;
+pub const TRUSTED_COMMENT_PREFIX: &str = "trusted comment: ";
+pub const TRUSTEDCOMMENTMAXBYTES: usize = 8192;
+pub(crate) const CHK_BYTES: usize = 32;
+pub(crate) const CHKALG: [u8; 2] = *b"B2";
+pub(crate) const COMMENT_PREFIX: &str = "untrusted comment: ";
+pub(crate) const KDF_SALTBYTES: usize = 32;
+pub(crate) const KDFALG: [u8; 2] = *b"Sc";
+pub(crate) const KEYNUMBYTES: usize = 8;
+pub(crate) const MEMLIMIT: usize = 33_554_432;
+pub(crate) const OPSLIMIT: u64 = 1_048_576;
+pub(crate) const PASSWORDMAXBYTES: usize = 1024;
+pub(crate) const PK_B64_ENCODED_LEN: usize = 56;
+pub(crate) const PREHASH_BYTES: usize = 64;
+pub(crate) const PUBLICKEYBYTES: usize = 32;
+pub(crate) const SECRETKEY_DEFAULT_COMMENT: &str = "rsign encrypted secret key";
+pub(crate) const SECRETKEYBYTES: usize = 64;
+pub(crate) const SIGALG_HASHED: [u8; 2] = *b"ED";
+pub(crate) const SIGALG: [u8; 2] = *b"Ed";
+pub(crate) const SIGNATUREBYTES: usize = 64;
+pub(crate) const TR_COMMENT_PREFIX_LEN: usize = 17;
+pub(crate) const TWOBYTES: usize = 2;
 
-pub struct KeynumSK {
+pub(crate) struct KeynumSK {
     pub keynum: [u8; KEYNUMBYTES],
     pub sk: [u8; SECRETKEYBYTES],
     pub chk: [u8; CHK_BYTES],
@@ -51,7 +51,7 @@ impl Clone for KeynumSK {
     }
 }
 
-#[allow(clippy::len_without_is_empty)]
+#[allow(clippy::len_without_is_empty, dead_code)]
 impl KeynumSK {
     pub fn len(&self) -> usize {
         std::mem::size_of::<KeynumSK>()
@@ -75,13 +75,13 @@ impl cmp::PartialEq for KeynumSK {
 impl cmp::Eq for KeynumSK {}
 
 pub struct SecretKey {
-    pub sig_alg: [u8; TWOBYTES],
-    pub kdf_alg: [u8; TWOBYTES],
-    pub chk_alg: [u8; TWOBYTES],
-    pub kdf_salt: [u8; KDF_SALTBYTES],
-    pub kdf_opslimit_le: [u8; KEYNUMBYTES],
-    pub kdf_memlimit_le: [u8; KEYNUMBYTES],
-    pub keynum_sk: KeynumSK,
+    pub(crate) sig_alg: [u8; TWOBYTES],
+    pub(crate) kdf_alg: [u8; TWOBYTES],
+    pub(crate) chk_alg: [u8; TWOBYTES],
+    pub(crate) kdf_salt: [u8; KDF_SALTBYTES],
+    pub(crate) kdf_opslimit_le: [u8; KEYNUMBYTES],
+    pub(crate) kdf_memlimit_le: [u8; KEYNUMBYTES],
+    pub(crate) keynum_sk: KeynumSK,
 }
 
 impl SecretKey {
@@ -203,14 +203,14 @@ impl ToString for SecretKey {
 
 #[derive(Debug)]
 pub struct PublicKey {
-    pub sig_alg: [u8; TWOBYTES],
-    pub keynum_pk: KeynumPK,
+    pub(crate) sig_alg: [u8; TWOBYTES],
+    pub(crate) keynum_pk: KeynumPK,
 }
 
 #[derive(Debug, Clone)]
-pub struct KeynumPK {
-    pub keynum: [u8; KEYNUMBYTES],
-    pub pk: [u8; PUBLICKEYBYTES],
+pub(crate) struct KeynumPK {
+    pub(crate) keynum: [u8; KEYNUMBYTES],
+    pub(crate) pk: [u8; PUBLICKEYBYTES],
 }
 
 impl cmp::PartialEq for PublicKey {
@@ -264,7 +264,7 @@ impl ToString for PublicKey {
 }
 
 #[derive(Clone)]
-pub struct Signature {
+pub(crate) struct Signature {
     pub sig_alg: [u8; TWOBYTES],
     pub keynum: [u8; KEYNUMBYTES],
     pub sig: [u8; SIGNATUREBYTES],
