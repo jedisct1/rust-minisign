@@ -122,7 +122,7 @@ where
 }
 
 pub fn verify<R>(
-    pk_key: &PublicKey,
+    pk: &PublicKey,
     signature_box: &SignatureBox,
     mut data_reader: R,
     quiet: bool,
@@ -141,23 +141,23 @@ where
     let sig = &signature_box.signature;
     let global_sig = &signature_box.global_sig[..];
     let sig_and_trusted_comment = &signature_box.sig_and_trusted_comment;
-    if sig.keynum != pk_key.keynum_pk.keynum {
+    if sig.keynum != pk.keynum_pk.keynum {
         return Err(PError::new(
             ErrorKind::Verify,
             format!(
                 "Signature key id: {:X} is different from public key: {:X}",
                 load_u64_le(&sig.keynum[..]),
-                load_u64_le(&pk_key.keynum_pk.keynum[..])
+                load_u64_le(&pk.keynum_pk.keynum[..])
             ),
         ));
     }
-    if !ed25519::verify(&data, &pk_key.keynum_pk.pk, &sig.sig) {
+    if !ed25519::verify(&data, &pk.keynum_pk.pk, &sig.sig) {
         Err(PError::new(
             ErrorKind::Verify,
             "Signature verification failed",
         ))?
     }
-    if !ed25519::verify(&sig_and_trusted_comment, &pk_key.keynum_pk.pk, &global_sig) {
+    if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk, &global_sig) {
         Err(PError::new(
             ErrorKind::Verify,
             "Comment signature verification failed",
