@@ -50,17 +50,15 @@ where
     Ok(h)
 }
 
-pub fn sign<W, R>(
-    mut signature_box_writer: W,
+pub fn sign<R>(
     pk: Option<&PublicKey>,
     sk: &SecretKey,
     mut data_reader: R,
     prehashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
-) -> Result<()>
+) -> Result<SignatureBox>
 where
-    W: Write,
     R: Read,
 {
     let data = if prehashed {
@@ -91,14 +89,14 @@ where
     let signature_raw = ed25519::signature(&data, &sk.keynum_sk.sk, Some(&z));
     signature.sig.copy_from_slice(&signature_raw[..]);
 
-    let mut sig_and_trust_comment: Vec<u8> = vec![];
-    sig_and_trust_comment.extend(signature.sig.iter());
-    sig_and_trust_comment.extend(trusted_comment.as_bytes().iter());
+    let mut sig_and_trusted_comment: Vec<u8> = vec![];
+    sig_and_trusted_comment.extend(signature.sig.iter());
+    sig_and_trusted_comment.extend(trusted_comment.as_bytes().iter());
 
     rng.try_fill_bytes(&mut z)?;
-    let global_sig = ed25519::signature(&sig_and_trust_comment, &sk.keynum_sk.sk, Some(&z));
+    let global_sig = ed25519::signature(&sig_and_trusted_comment, &sk.keynum_sk.sk, Some(&z));
     if let Some(pk) = pk {
-        if !ed25519::verify(&sig_and_trust_comment, &pk.keynum_pk.pk[..], &global_sig) {
+        if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk[..], &global_sig) {
             Err(PError::new(
                 ErrorKind::Verify,
                 format!(
@@ -109,16 +107,14 @@ where
             ))?
         }
     }
-    writeln!(signature_box_writer, "{}", untrusted_comment)?;
-    writeln!(signature_box_writer, "{}", signature.to_string())?;
-    writeln!(
-        signature_box_writer,
-        "{}{}",
-        TRUSTED_COMMENT_PREFIX, trusted_comment
-    )?;
-    writeln!(signature_box_writer, "{}", base64::encode(&global_sig[..]))?;
-    signature_box_writer.flush()?;
-    Ok(())
+    let signature_box = SignatureBox {
+        untrusted_comment,
+        signature,
+        sig_and_trusted_comment,
+        global_sig: global_sig.to_vec(),
+        is_prehashed: prehashed,
+    };
+    Ok(signature_box)
 }
 
 pub fn verify<R>(

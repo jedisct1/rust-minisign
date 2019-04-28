@@ -93,10 +93,10 @@ impl KeyPair {
     {
         let KeyPair { pk, sk } = Self::generate_encrypted_keypair(password)?;
 
-        pk_writer.write_all(pk.to_box()?.as_bytes())?;
+        pk_writer.write_all(&pk.to_box()?.to_vec())?;
         pk_writer.flush()?;
 
-        sk_writer.write_all(sk.to_box(comment)?.as_bytes())?;
+        sk_writer.write_all(&sk.to_box(comment)?.to_vec())?;
         sk_writer.flush()?;
 
         Ok(KeyPair { pk, sk })

@@ -1,21 +1,39 @@
 use crate::constants::*;
 use crate::errors::*;
 use crate::signature::*;
+use std::fmt::Write as fmtWrite;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
 
 #[derive(Clone)]
 pub struct SignatureBox {
-    pub(crate) global_sig: Vec<u8>,
-    pub(crate) sig_and_trusted_comment: Vec<u8>,
+    pub(crate) untrusted_comment: String,
     pub(crate) signature: Signature,
-    is_prehashed: bool,
+    pub(crate) sig_and_trusted_comment: Vec<u8>,
+    pub(crate) global_sig: Vec<u8>,
+    pub(crate) is_prehashed: bool,
+}
+
+impl Into<String> for SignatureBox {
+    fn into(self) -> String {
+        self.into_string()
+    }
+}
+
+impl Into<SignatureBox> for String {
+    fn into(self) -> SignatureBox {
+        SignatureBox::from_string(&self).unwrap()
+    }
 }
 
 impl SignatureBox {
     pub fn is_prehashed(&self) -> bool {
         self.is_prehashed
+    }
+
+    pub fn untrusted_comment(&self) -> Result<String> {
+        Ok(self.untrusted_comment.clone())
     }
 
     pub fn trusted_comment(&self) -> Result<String> {
@@ -54,6 +72,7 @@ impl SignatureBox {
                 format!("Untrusted comment must start with: {}", COMMENT_PREFIX),
             ));
         }
+        let untrusted_comment = untrusted_comment[COMMENT_PREFIX.len()..].to_string();
         let sig_bytes = base64::decode(signatureing.trim().as_bytes())
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
         let signature = Signature::from_bytes(&sig_bytes)?;
@@ -82,11 +101,35 @@ impl SignatureBox {
         let global_sig = base64::decode(global_sig.trim().as_bytes())
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
         Ok(SignatureBox {
-            global_sig,
-            sig_and_trusted_comment,
+            untrusted_comment,
             signature,
+            sig_and_trusted_comment,
+            global_sig,
             is_prehashed,
         })
+    }
+
+    pub fn to_string(&self) -> String {
+        let mut signature_box = String::new();
+        writeln!(signature_box, "{}", self.untrusted_comment).unwrap();
+        writeln!(signature_box, "{}", self.signature.to_string()).unwrap();
+        writeln!(
+            signature_box,
+            "{}{}",
+            TRUSTED_COMMENT_PREFIX,
+            self.trusted_comment().unwrap()
+        )
+        .unwrap();
+        writeln!(signature_box, "{}", base64::encode(&self.global_sig[..])).unwrap();
+        signature_box
+    }
+
+    pub fn into_string(self) -> String {
+        self.to_string()
+    }
+
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.to_string().as_bytes().to_vec()
     }
 
     pub fn from_file<P>(sig_path: P) -> Result<SignatureBox>
