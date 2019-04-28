@@ -9,6 +9,8 @@
 //!     use minisign::{KeyPair, PublicKeyBox, SecretKeyBox, SignatureBox};
 //!     use std::io::Cursor;
 //!
+//!     // -------------------- KEY GENERATION --------------------
+//!
 //!     // Generate and return a new key pair
 //!     // The key is encrypted using a password.
 //!     // If `None` is given, the password will be asked for interactively.
@@ -29,6 +31,8 @@
 //!     // For conveniency, the `KeyPair::generate_and_write_encrypted_keypair()` function
 //!     // is available: it generates a new key pair, and saves it to disk (or any `Writer`)
 //!     // before returning it.
+//!
+//!     // -------------------- SIGNING DATA WITH AN EXISTING SECRET KEY --------------------
 //!
 //!     // Assuming that `sk_box_str` is something we previously saved and just reloaded,
 //!     // it can be converted back to a secret key box:
@@ -53,6 +57,8 @@
 //!         "Trusted comment: [{}]",
 //!         signature_box.trusted_comment().unwrap()
 //!     );
+//!
+//!     -------------------- SIGNATURE VERIFICATION WITH A PUBLIC KEY --------------------
 //!
 //!     // Converting the signature box to a string in order to save it is easy.
 //!     let signature_box_str = signature_box.into_string();
