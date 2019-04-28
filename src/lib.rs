@@ -58,7 +58,7 @@
 //!         signature_box.trusted_comment().unwrap()
 //!     );
 //!
-//!     -------------------- SIGNATURE VERIFICATION WITH A PUBLIC KEY --------------------
+//!     // -------------------- SIGNATURE VERIFICATION WITH A PUBLIC KEY --------------------
 //!
 //!     // Converting the signature box to a string in order to save it is easy.
 //!     let signature_box_str = signature_box.into_string();

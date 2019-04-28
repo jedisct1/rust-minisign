@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/jedisct1/rust-minisign.svg?branch=master)](https://travis-ci.org/jedisct1/rust-minisign?branch=master)
+
 # rust-minisign
 
 A pure Rust implementation of the [Minisign](https://jedisct1.github.io/minisign/) signature system.
