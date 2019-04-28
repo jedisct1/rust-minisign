@@ -6,8 +6,7 @@ use crate::keynum::*;
 use crate::public_key::*;
 use crate::secret_key::*;
 use rand::{thread_rng, RngCore};
-use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{self, Write};
 use std::u64;
 
 #[derive(Clone, Debug)]
@@ -17,7 +16,7 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
-    pub fn generate_unencrypted_keypair() -> Result<Self> {
+    pub(crate) fn generate_unencrypted_keypair() -> Result<Self> {
         let mut seed = vec![0u8; 32];
         let mut rng = thread_rng();
         rng.try_fill_bytes(&mut seed)?;
@@ -82,26 +81,24 @@ impl KeyPair {
         Ok(KeyPair { pk, sk })
     }
 
-    pub fn generate_and_write_encrypted_keypair(
-        mut pk_writer: BufWriter<File>,
-        mut sk_writer: BufWriter<File>,
+    pub fn generate_and_write_encrypted_keypair<W, X>(
+        mut pk_writer: W,
+        mut sk_writer: X,
         comment: Option<&str>,
         password: Option<String>,
-    ) -> Result<Self> {
+    ) -> Result<Self>
+    where
+        W: Write,
+        X: Write,
+    {
         let KeyPair { pk, sk } = Self::generate_encrypted_keypair(password)?;
-        write!(pk_writer, "{}minisign public key: ", COMMENT_PREFIX)?;
-        writeln!(pk_writer, "{:X}", load_u64_le(&pk.keynum_pk.keynum[..]))?;
-        writeln!(pk_writer, "{}", pk.to_string())?;
+
+        pk_writer.write_all(pk.to_box()?.as_bytes())?;
         pk_writer.flush()?;
 
-        write!(sk_writer, "{}", COMMENT_PREFIX)?;
-        if let Some(comment) = comment {
-            writeln!(sk_writer, "{}", comment)?;
-        } else {
-            writeln!(sk_writer, "{}", SECRETKEY_DEFAULT_COMMENT)?;
-        }
-        writeln!(sk_writer, "{}", sk.to_string())?;
+        sk_writer.write_all(sk.to_box(comment)?.as_bytes())?;
         sk_writer.flush()?;
+
         Ok(KeyPair { pk, sk })
     }
 }

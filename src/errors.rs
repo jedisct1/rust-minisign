@@ -84,6 +84,12 @@ impl From<io::Error> for PError {
     }
 }
 
+impl From<fmt::Error> for PError {
+    fn from(err: fmt::Error) -> PError {
+        PError::new(ErrorKind::Io, err)
+    }
+}
+
 impl From<std::string::ParseError> for PError {
     fn from(err: std::string::ParseError) -> PError {
         PError::new(ErrorKind::Misc, err)

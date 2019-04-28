@@ -7,9 +7,10 @@ use crate::helpers::*;
 use crate::keynum::*;
 use crate::Result;
 use std::cmp;
+use std::fmt::Write as fmtWrite;
 use std::fmt::{self, Formatter};
 use std::fs::OpenOptions;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, Write};
 use std::io::{Cursor, Read};
 use std::path::Path;
 
@@ -118,17 +119,18 @@ impl SecretKey {
             .count();
     }
 
-    pub fn from_file<P: AsRef<Path>>(sk_path: P, password: Option<String>) -> Result<SecretKey> {
-        let file = OpenOptions::new()
-            .read(true)
-            .open(sk_path)
-            .map_err(|e| PError::new(ErrorKind::Io, e))?;
+    pub fn from_box(s: &str, password: Option<String>) -> Result<SecretKey> {
+        let mut lines = s.lines();
         let sk = {
-            let mut sk_buf = BufReader::new(file);
-            let mut _comment = String::new();
-            sk_buf.read_line(&mut _comment)?;
-            let mut encoded_buf = String::new();
-            sk_buf.read_line(&mut encoded_buf)?;
+            lines.next().ok_or_else(|| {
+                PError::new(ErrorKind::Io, "Missing comment in public key".to_string())
+            })?;
+            let encoded_buf = lines.next().ok_or_else(|| {
+                PError::new(
+                    ErrorKind::Io,
+                    "Missing encoded key in public key".to_string(),
+                )
+            })?;
             let decoded_buf =
                 base64::decode(encoded_buf.trim()).map_err(|e| PError::new(ErrorKind::Io, e))?;
             SecretKey::from_bytes(&decoded_buf[..])
@@ -164,7 +166,29 @@ impl SecretKey {
         }
     }
 
-    pub fn encrypt(mut self, password: String) -> Result<SecretKey> {
+    pub fn to_box(&self, comment: Option<&str>) -> Result<String> {
+        let mut s = String::new();
+        write!(s, "{}", COMMENT_PREFIX)?;
+        if let Some(comment) = comment {
+            writeln!(s, "{}", comment)?;
+        } else {
+            writeln!(s, "{}", SECRETKEY_DEFAULT_COMMENT)?;
+        }
+        writeln!(s, "{}", self.to_string())?;
+        Ok(s)
+    }
+
+    pub fn from_file<P: AsRef<Path>>(sk_path: P, password: Option<String>) -> Result<SecretKey> {
+        let mut file = OpenOptions::new()
+            .read(true)
+            .open(sk_path)
+            .map_err(|e| PError::new(ErrorKind::Io, e))?;
+        let mut s = String::new();
+        file.read_to_string(&mut s)?;
+        SecretKey::from_box(&s, password)
+    }
+
+    pub(crate) fn encrypt(mut self, password: String) -> Result<SecretKey> {
         let mut stream = [0u8; CHK_BYTES + SECRETKEY_BYTES + KEYNUM_BYTES];
         let opslimit = load_u64_le(&self.kdf_opslimit_le);
         let memlimit = load_u64_le(&self.kdf_memlimit_le) as usize;

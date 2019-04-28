@@ -1,10 +1,12 @@
 use crate::constants::*;
 use crate::crypto::util::fixed_time_eq;
 use crate::errors::*;
+use crate::helpers::*;
 use crate::keynum::*;
 use std::cmp;
+use std::fmt::Write as fmtWrite;
 use std::fs::OpenOptions;
-use std::io::{BufRead, BufReader, Cursor, Read};
+use std::io::{Cursor, Read};
 use std::path::Path;
 
 #[derive(Clone, Debug)]
@@ -14,11 +16,6 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    pub fn len() -> usize {
-        use std::mem;
-        mem::size_of::<PublicKey>()
-    }
-
     pub fn from_bytes(buf: &[u8]) -> Result<PublicKey> {
         let mut buf = Cursor::new(buf);
         let mut sig_alg = [0u8; TWOBYTES];
@@ -48,12 +45,49 @@ impl PublicKey {
         v
     }
 
+    pub fn from_box(s: &str) -> Result<PublicKey> {
+        let mut lines = s.lines();
+        lines.next().ok_or_else(|| {
+            PError::new(ErrorKind::Io, "Missing comment in public key".to_string())
+        })?;
+        let encoded_buf = lines.next().ok_or_else(|| {
+            PError::new(
+                ErrorKind::Io,
+                "Missing encoded key in public key".to_string(),
+            )
+        })?;
+        if encoded_buf.len() != PK_B64_ENCODED_LEN {
+            return Err(PError::new(
+                ErrorKind::Io,
+                "Base64 conversion failed - was an actual public key given?".to_string(),
+            ));
+        }
+        let decoded_buf = base64::decode(encoded_buf.trim()).map_err(|e| {
+            PError::new(
+                ErrorKind::Io,
+                format!(
+                    "Base64 conversion failed - was an actual public key given?: {}",
+                    e
+                ),
+            )
+        })?;
+        Ok(PublicKey::from_bytes(&decoded_buf)?)
+    }
+
+    pub fn to_box(&self) -> Result<String> {
+        let mut s = String::new();
+        write!(s, "{}minisign public key: ", COMMENT_PREFIX)?;
+        writeln!(s, "{:X}", load_u64_le(&self.keynum_pk.keynum[..]))?;
+        writeln!(s, "{}", self.to_string())?;
+        Ok(s)
+    }
+
     pub fn from_file<P>(pk_path: P) -> Result<PublicKey>
     where
         P: AsRef<Path>,
     {
         let pk_path = pk_path.as_ref();
-        let file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
+        let mut file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
             PError::new(
                 ErrorKind::Io,
                 format!(
@@ -63,27 +97,9 @@ impl PublicKey {
                 ),
             )
         })?;
-        let mut pk_buf = BufReader::new(file);
-        let mut _comment = String::new();
-        pk_buf.read_line(&mut _comment)?;
-        let mut encoded_buf = String::new();
-        pk_buf.read_line(&mut encoded_buf)?;
-        if encoded_buf.trim().len() != PK_B64_ENCODED_LEN {
-            return Err(PError::new(
-                ErrorKind::Io,
-                "base64 conversion failed - was an actual public key given?".to_string(),
-            ));
-        }
-        let decoded_buf = base64::decode(encoded_buf.trim()).map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!(
-                    "base64 conversion failed - was an actual public key given?: {}",
-                    e
-                ),
-            )
-        })?;
-        Ok(PublicKey::from_bytes(&decoded_buf)?)
+        let mut s = String::new();
+        file.read_to_string(&mut s)?;
+        PublicKey::from_box(&s)
     }
 
     pub fn from_string(pk_string: &str) -> Result<PublicKey> {
