@@ -121,7 +121,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "minisign"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "base64 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "getrandom 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
