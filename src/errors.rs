@@ -1,7 +1,5 @@
-use std;
 use std::error::Error as StdError;
-use std::fmt;
-use std::io;
+use std::{self, fmt, io};
 
 macro_rules! werr(
     ($($arg:tt)*) => ({
@@ -121,8 +119,8 @@ impl From<scrypt::errors::InvalidOutputLen> for PError {
     }
 }
 
-impl From<rand::Error> for PError {
-    fn from(err: rand::Error) -> PError {
+impl From<getrandom::Error> for PError {
+    fn from(err: getrandom::Error) -> PError {
         PError::new(ErrorKind::RNG, err)
     }
 }

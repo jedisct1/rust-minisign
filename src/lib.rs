@@ -80,7 +80,7 @@
 //!     };
 //!```
 extern crate base64;
-extern crate rand;
+extern crate getrandom;
 #[cfg(any(windows, unix))]
 extern crate rpassword;
 extern crate scrypt;
@@ -104,7 +104,7 @@ use crate::crypto::digest::Digest;
 use crate::crypto::ed25519;
 use crate::helpers::*;
 use crate::signature::*;
-use rand::{thread_rng, RngCore};
+use getrandom::getrandom;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 
 pub use crate::constants::*;
@@ -175,9 +175,8 @@ where
         signature.sig_alg = SIGALG_PREHASHED;
     }
     signature.keynum.copy_from_slice(&sk.keynum_sk.keynum[..]);
-    let mut rng = thread_rng();
     let mut z = vec![0; 64];
-    rng.try_fill_bytes(&mut z)?;
+    getrandom(&mut z)?;
     let signature_raw = ed25519::signature(&data, &sk.keynum_sk.sk, Some(&z));
     signature.sig.copy_from_slice(&signature_raw[..]);
 
@@ -185,7 +184,7 @@ where
     sig_and_trusted_comment.extend(signature.sig.iter());
     sig_and_trusted_comment.extend(trusted_comment.as_bytes().iter());
 
-    rng.try_fill_bytes(&mut z)?;
+    getrandom(&mut z)?;
     let global_sig = ed25519::signature(&sig_and_trusted_comment, &sk.keynum_sk.sk, Some(&z));
     if let Some(pk) = pk {
         if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk[..], &global_sig) {

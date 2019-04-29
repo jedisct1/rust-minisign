@@ -5,7 +5,7 @@ use crate::helpers::*;
 use crate::keynum::*;
 use crate::public_key::*;
 use crate::secret_key::*;
-use rand::{thread_rng, RngCore};
+use getrandom::getrandom;
 use std::io::{self, Write};
 use std::u64;
 
@@ -19,13 +19,12 @@ pub struct KeyPair {
 impl KeyPair {
     pub(crate) fn generate_unencrypted_keypair() -> Result<Self> {
         let mut seed = vec![0u8; 32];
-        let mut rng = thread_rng();
-        rng.try_fill_bytes(&mut seed)?;
+        getrandom(&mut seed)?;
         let (sk, pk) = ed25519::keypair(&seed);
         let mut keynum = [0u8; KEYNUM_BYTES];
-        rng.try_fill_bytes(&mut keynum)?;
+        getrandom(&mut keynum)?;
         let mut kdf_salt = [0u8; KDF_SALTBYTES];
-        rng.try_fill_bytes(&mut kdf_salt)?;
+        getrandom(&mut kdf_salt)?;
 
         let opslimit = OPSLIMIT;
         let memlimit = MEMLIMIT;

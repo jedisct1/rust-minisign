@@ -29,12 +29,11 @@ fn sk_key_struct_conversion() {
 #[test]
 fn xor_keynum() {
     use crate::KeyPair;
-    use rand::{thread_rng, RngCore};
+    use getrandom::getrandom;
 
     let KeyPair { mut sk, .. } = KeyPair::generate_unencrypted_keypair().unwrap();
-    let mut rng = thread_rng();
     let mut key = vec![0u8; sk.keynum_sk.len()];
-    rng.fill_bytes(&mut key);
+    getrandom(&mut key).unwrap();
     let original_keynum = sk.keynum_sk.clone();
     sk.xor_keynum(&key);
     assert_ne!(original_keynum, sk.keynum_sk);

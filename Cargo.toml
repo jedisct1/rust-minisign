@@ -12,7 +12,7 @@ homepage = "https://github.com/jedisct1/rust-minisign"
 
 [dependencies]
 base64 = "0.10"
-rand = "0.6"
+getrandom = "0.1.2"
 scrypt = { version = "0.2", default-features = false }
 
 [target.'cfg(any(windows, unix))'.dependencies]
