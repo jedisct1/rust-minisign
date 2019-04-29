@@ -273,6 +273,7 @@ where
             }
             io::stdout().write_all(&buf[..len])?;
         }
+        io::stdout().flush()?;
     }
     Ok(())
 }
