@@ -125,10 +125,10 @@ impl SecretKey {
         let mut stream = [0u8; CHK_BYTES + SECRETKEY_BYTES + KEYNUM_BYTES];
         let opslimit = load_u64_le(&self.kdf_opslimit_le);
         let memlimit = load_u64_le(&self.kdf_memlimit_le) as usize;
-        if opslimit > OPSLIMIT_MAX || memlimit > MEMLIMIT_MAX {
+        if memlimit > MEMLIMIT_MAX {
             return Err(PError::new(ErrorKind::KDF, "scrypt parameters too high"));
         }
-        let params = raw_scrypt_params(memlimit, opslimit)?;
+        let params = raw_scrypt_params(memlimit, opslimit, N_LOG2_MAX)?;
         scrypt::scrypt(&password.as_bytes(), &self.kdf_salt, &params, &mut stream)?;
         self.xor_keynum(&stream);
         Ok(self)

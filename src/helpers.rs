@@ -42,7 +42,7 @@ pub fn load_u64_le(x: &[u8]) -> u64 {
         | (x[7] as u64) << 56
 }
 
-pub fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams> {
+pub fn raw_scrypt_params(memlimit: usize, opslimit: u64, n_log2_max: u8) -> Result<ScryptParams> {
     let opslimit = cmp::max(32768, opslimit);
     let mut n_log2 = 1u8;
     let r = 8u32;
@@ -69,6 +69,9 @@ pub fn raw_scrypt_params(memlimit: usize, opslimit: u64) -> Result<ScryptParams>
             ((opslimit / 4) / (1u64 << n_log2)) as u32,
         );
         p = maxrp / r;
+    }
+    if n_log2 > n_log2_max {
+        return Err(PError::new(ErrorKind::KDF, "scrypt parameters too high"));
     }
     ScryptParams::new(n_log2, r, p).map_err(Into::into)
 }
