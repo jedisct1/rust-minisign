@@ -4,6 +4,7 @@ fn byte_array_store() {
 
     assert_eq!([0xFF, 0, 0, 0, 0, 0, 0, 0], store_u64_le(0xFF));
 }
+
 #[test]
 fn byte_array_load() {
     use crate::load_u64_le;
@@ -18,6 +19,7 @@ fn pk_key_struct_conversion() {
     let KeyPair { pk, .. } = KeyPair::generate_unencrypted_keypair().unwrap();
     assert_eq!(pk, PublicKey::from_bytes(&pk.to_bytes()).unwrap());
 }
+
 #[test]
 fn sk_key_struct_conversion() {
     use crate::{KeyPair, SecretKey};
@@ -40,6 +42,7 @@ fn xor_keynum() {
     sk.xor_keynum(&key);
     assert_eq!(original_keynum, sk.keynum_sk);
 }
+
 #[test]
 fn sk_checksum() {
     use crate::KeyPair;

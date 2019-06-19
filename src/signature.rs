@@ -11,17 +11,11 @@ pub(crate) struct Signature {
 
 impl Signature {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut iters = Vec::new();
-        iters.push(self.sig_alg.iter());
-        iters.push(self.keynum.iter());
-        iters.push(self.sig.iter());
-        let v: Vec<u8> = iters
-            .iter()
-            .flat_map(|b| {
-                let b = b.clone();
-                b.cloned()
-            })
-            .collect();
+        let mut v: Vec<u8> = Vec::with_capacity(Self::BYTES);
+        v.extend(&self.sig_alg);
+        v.extend(&self.keynum);
+        v.extend(&self.sig[..]);
+        debug_assert_eq!(v.len(), Self::BYTES);
         v
     }
 
@@ -33,12 +27,15 @@ impl Signature {
         buf.read_exact(&mut sig_alg)?;
         buf.read_exact(&mut keynum)?;
         buf.read_exact(&mut sig)?;
+        debug_assert_eq!(buf.position() as usize, Self::BYTES);
         Ok(Signature {
             sig_alg,
             keynum,
             sig,
         })
     }
+
+    pub const BYTES: usize = 2 + KEYNUM_BYTES + SIGNATURE_BYTES;
 }
 
 impl Default for Signature {

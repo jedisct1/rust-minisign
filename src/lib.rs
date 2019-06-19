@@ -94,6 +94,7 @@ mod keypair;
 mod public_key;
 mod secret_key;
 mod signature;
+mod signature_bones;
 mod signature_box;
 
 #[cfg(test)]

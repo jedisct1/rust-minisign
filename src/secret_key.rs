@@ -183,13 +183,7 @@ impl SecretKey {
         iters.push(self.keynum_sk.keynum.iter());
         iters.push(self.keynum_sk.sk.iter());
         iters.push(self.keynum_sk.chk.iter());
-        let v: Vec<u8> = iters
-            .iter()
-            .flat_map(|b| {
-                let b = b.clone();
-                b.cloned()
-            })
-            .collect();
+        let v: Vec<u8> = iters.iter().flat_map(|b| b.clone().cloned()).collect();
         v
     }
 
