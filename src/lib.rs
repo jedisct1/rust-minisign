@@ -113,6 +113,7 @@ pub use crate::errors::*;
 pub use crate::keypair::*;
 pub use crate::public_key::*;
 pub use crate::secret_key::*;
+pub use crate::signature_bones::*;
 pub use crate::signature_box::*;
 
 fn prehash<R>(data_reader: &mut R) -> Result<Vec<u8>>

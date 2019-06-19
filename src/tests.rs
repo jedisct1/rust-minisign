@@ -64,3 +64,37 @@ fn load_public_key_string() {
             .is_err()
     );
 }
+
+#[test]
+fn signature() {
+    use crate::{sign, verify, KeyPair};
+    use std::io::Cursor;
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    let data = b"test";
+    let signature_box = sign(None, &sk, Cursor::new(data), false, None, None).unwrap();
+    verify(&pk, &signature_box, Cursor::new(data), true, false).unwrap();
+    let data = b"test2";
+    assert!(verify(&pk, &signature_box, Cursor::new(data), true, false).is_err());
+}
+
+#[test]
+fn signature_bones() {
+    use crate::{sign, verify, KeyPair, SignatureBones};
+    use std::io::Cursor;
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    let data = b"test";
+    let signature_box = sign(None, &sk, Cursor::new(data), false, None, None).unwrap();
+    let signature_bones: SignatureBones = signature_box.into();
+    verify(
+        &pk,
+        &signature_bones.clone().into(),
+        Cursor::new(data),
+        true,
+        false,
+    )
+    .unwrap();
+    let data = b"test2";
+    assert!(verify(&pk, &signature_bones.into(), Cursor::new(data), true, false).is_err());
+}
