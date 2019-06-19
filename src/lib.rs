@@ -201,8 +201,8 @@ where
     let signature_box = SignatureBox {
         untrusted_comment,
         signature,
-        sig_and_trusted_comment,
-        global_sig: global_sig.to_vec(),
+        sig_and_trusted_comment: Some(sig_and_trusted_comment),
+        global_sig: Some(global_sig.to_vec()),
         is_prehashed: prehashed,
     };
     Ok(signature_box)
@@ -235,8 +235,6 @@ where
         data
     };
     let sig = &signature_box.signature;
-    let global_sig = &signature_box.global_sig[..];
-    let sig_and_trusted_comment = &signature_box.sig_and_trusted_comment;
     if sig.keynum != pk.keynum_pk.keynum {
         return Err(PError::new(
             ErrorKind::Verify,
@@ -253,15 +251,29 @@ where
             "Signature verification failed",
         ))?
     }
-    if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk, &global_sig) {
-        Err(PError::new(
+    match (
+        &signature_box.sig_and_trusted_comment,
+        &signature_box.global_sig,
+    ) {
+        (Some(sig_and_trusted_comment), Some(global_sig)) => {
+            if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk, &global_sig[..]) {
+                Err(PError::new(
+                    ErrorKind::Verify,
+                    "Comment signature verification failed",
+                ))?
+            }
+        }
+        (None, None) => {}
+        _ => Err(PError::new(
             ErrorKind::Verify,
-            "Comment signature verification failed",
-        ))?
-    }
+            "Inconsistent signature presence for trusted comment presence",
+        ))?,
+    };
     if !quiet {
         eprintln!("Signature and comment signature verified");
-        eprintln!("Trusted comment: {}", signature_box.trusted_comment()?);
+        if signature_box.global_sig.is_some() {
+            eprintln!("Trusted comment: {}", signature_box.trusted_comment()?);
+        }
     }
     if output {
         data_reader.seek(SeekFrom::Start(0))?;
