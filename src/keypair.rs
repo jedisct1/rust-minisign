@@ -26,7 +26,7 @@ impl KeyPair {
     /// for your application.
     ///
     /// You generally want to use `generated_encrypted_keypair()` instead.
-    pub(crate) fn generate_unencrypted_keypair() -> Result<Self> {
+    pub fn generate_unencrypted_keypair() -> Result<Self> {
         let mut seed = vec![0u8; 32];
         getrandom(&mut seed)?;
         let (sk, pk) = ed25519::keypair(&seed);
