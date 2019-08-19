@@ -125,6 +125,7 @@ impl SignatureBox {
     }
 
     /// Return a `SignatureBox` for a string, for storage.
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let mut signature_box = String::new();
         writeln!(
