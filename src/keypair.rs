@@ -17,7 +17,16 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
-    pub(crate) fn generate_unencrypted_keypair() -> Result<Self> {
+    /// Create an unencrypted key pair.
+    ///
+    /// The secret key will not be protected by a password.
+    ///
+    /// This is not recommended and incompatible with other implementations,
+    /// but can be necessary if using a password is really not an option
+    /// for your application.
+    ///
+    /// You generally want to use `generated_encrypted_keypair()` instead.
+    pub fn generate_unencrypted_keypair() -> Result<Self> {
         let mut seed = vec![0u8; 32];
         getrandom(&mut seed)?;
         let (sk, pk) = ed25519::keypair(&seed);
@@ -111,6 +120,40 @@ impl KeyPair {
         pk_writer.flush()?;
 
         sk_writer.write_all(&sk.to_box(comment)?.to_bytes())?;
+        sk_writer.flush()?;
+
+        Ok(KeyPair { pk, sk })
+    }
+
+    /// Create and save an unencrypted key pair.
+    ///
+    /// The secret key will not be protected by a password,
+    /// and keys will be stored as raw bytes, not as a box.
+    ///
+    /// This is not recommended and incompatible with other implementations,
+    /// but can be necessary if using a password is not an option
+    /// for your application.
+    ///
+    /// You generally want to use `generated_encrypted_keypair()` instead.
+    ///
+    /// # Arguments
+    ///
+    /// * `pk_writer` - Where to store the public key box.
+    /// * `sk_writer` - Where to store the secret key box.
+    pub fn generate_and_write_unencrypted_keypair<W, X>(
+        mut pk_writer: W,
+        mut sk_writer: X,
+    ) -> Result<Self>
+    where
+        W: Write,
+        X: Write,
+    {
+        let KeyPair { pk, sk } = Self::generate_unencrypted_keypair()?;
+
+        pk_writer.write_all(&pk.to_bytes())?;
+        pk_writer.flush()?;
+
+        sk_writer.write_all(&sk.to_bytes())?;
         sk_writer.flush()?;
 
         Ok(KeyPair { pk, sk })

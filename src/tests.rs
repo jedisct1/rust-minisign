@@ -4,6 +4,7 @@ fn byte_array_store() {
 
     assert_eq!([0xFF, 0, 0, 0, 0, 0, 0, 0], store_u64_le(0xFF));
 }
+
 #[test]
 fn byte_array_load() {
     use crate::load_u64_le;
@@ -18,6 +19,7 @@ fn pk_key_struct_conversion() {
     let KeyPair { pk, .. } = KeyPair::generate_unencrypted_keypair().unwrap();
     assert_eq!(pk, PublicKey::from_bytes(&pk.to_bytes()).unwrap());
 }
+
 #[test]
 fn sk_key_struct_conversion() {
     use crate::{KeyPair, SecretKey};
@@ -40,6 +42,7 @@ fn xor_keynum() {
     sk.xor_keynum(&key);
     assert_eq!(original_keynum, sk.keynum_sk);
 }
+
 #[test]
 fn sk_checksum() {
     use crate::KeyPair;
@@ -60,4 +63,38 @@ fn load_public_key_string() {
         PublicKey::from_base64("RWQt7oYqpar/yePp+nonossdnononovlOSkkckMMfvHuGc+0+oShmJyN5Y")
             .is_err()
     );
+}
+
+#[test]
+fn signature() {
+    use crate::{sign, verify, KeyPair};
+    use std::io::Cursor;
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    let data = b"test";
+    let signature_box = sign(None, &sk, Cursor::new(data), false, None, None).unwrap();
+    verify(&pk, &signature_box, Cursor::new(data), true, false).unwrap();
+    let data = b"test2";
+    assert!(verify(&pk, &signature_box, Cursor::new(data), true, false).is_err());
+}
+
+#[test]
+fn signature_bones() {
+    use crate::{sign, verify, KeyPair, SignatureBones};
+    use std::io::Cursor;
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    let data = b"test";
+    let signature_box = sign(None, &sk, Cursor::new(data), false, None, None).unwrap();
+    let signature_bones: SignatureBones = signature_box.into();
+    verify(
+        &pk,
+        &signature_bones.clone().into(),
+        Cursor::new(data),
+        true,
+        false,
+    )
+    .unwrap();
+    let data = b"test2";
+    assert!(verify(&pk, &signature_bones.into(), Cursor::new(data), true, false).is_err());
 }

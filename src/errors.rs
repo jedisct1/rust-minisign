@@ -27,7 +27,7 @@ pub enum ErrorKind {
 #[derive(Debug)]
 pub struct PError {
     kind: ErrorKind,
-    err: Box<StdError + Send + Sync>,
+    err: Box<dyn StdError + Send + Sync>,
 }
 
 impl PError {
@@ -37,7 +37,7 @@ impl PError {
     }
     pub fn new<E>(kind: ErrorKind, err: E) -> PError
     where
-        E: Into<Box<StdError + Send + Sync>>,
+        E: Into<Box<dyn StdError + Send + Sync>>,
     {
         PError {
             kind,

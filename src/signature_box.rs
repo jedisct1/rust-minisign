@@ -11,8 +11,8 @@ use std::path::Path;
 pub struct SignatureBox {
     pub(crate) untrusted_comment: String,
     pub(crate) signature: Signature,
-    pub(crate) sig_and_trusted_comment: Vec<u8>,
-    pub(crate) global_sig: Vec<u8>,
+    pub(crate) sig_and_trusted_comment: Option<Vec<u8>>,
+    pub(crate) global_sig: Option<Vec<u8>>,
     pub(crate) is_prehashed: bool,
 }
 
@@ -41,14 +41,20 @@ impl SignatureBox {
 
     /// The trusted comment present in the signature.
     pub fn trusted_comment(&self) -> Result<String> {
-        if self.sig_and_trusted_comment.len() < SIGNATURE_BYTES {
+        let sig_and_trusted_comment = match &self.sig_and_trusted_comment {
+            None => Err(PError::new(
+                ErrorKind::Misc,
+                "trusted comment is not present",
+            ))?,
+            Some(sig_and_trusted_comment) => sig_and_trusted_comment,
+        };
+        if sig_and_trusted_comment.len() < SIGNATURE_BYTES {
             Err(PError::new(
                 ErrorKind::Encoding,
                 "invalid trusted comment encoding",
             ))?
         }
-        let just_comment =
-            String::from_utf8(self.sig_and_trusted_comment[SIGNATURE_BYTES..].to_vec())?;
+        let just_comment = String::from_utf8(sig_and_trusted_comment[SIGNATURE_BYTES..].to_vec())?;
         Ok(just_comment)
     }
 
@@ -108,8 +114,8 @@ impl SignatureBox {
         Ok(SignatureBox {
             untrusted_comment,
             signature,
-            sig_and_trusted_comment,
-            global_sig,
+            sig_and_trusted_comment: Some(sig_and_trusted_comment),
+            global_sig: Some(global_sig),
             is_prehashed,
         })
     }
@@ -128,10 +134,15 @@ impl SignatureBox {
             signature_box,
             "{}{}",
             TRUSTED_COMMENT_PREFIX,
-            self.trusted_comment().unwrap()
+            self.trusted_comment()
+                .expect("Incomplete SignatureBox: trusted comment is missing")
         )
         .unwrap();
-        writeln!(signature_box, "{}", base64::encode(&self.global_sig[..])).unwrap();
+        let global_sig = self
+            .global_sig
+            .as_ref()
+            .expect("Incomplete SignatureBox: global signature is missing");
+        writeln!(signature_box, "{}", base64::encode(&global_sig[..])).unwrap();
         signature_box
     }
 
