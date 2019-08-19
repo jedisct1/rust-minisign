@@ -22,10 +22,12 @@ impl SignatureBones {
         let is_prehashed = match signature.sig_alg {
             SIGALG => false,
             SIGALG_PREHASHED => true,
-            _ => Err(PError::new(
-                ErrorKind::Verify,
-                "Unsupported signature algorithm".to_string(),
-            ))?,
+            _ => {
+                return Err(PError::new(
+                    ErrorKind::Verify,
+                    "Unsupported signature algorithm".to_string(),
+                ))
+            }
         };
         Ok(SignatureBones {
             signature,
