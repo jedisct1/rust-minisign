@@ -42,17 +42,19 @@ impl SignatureBox {
     /// The trusted comment present in the signature.
     pub fn trusted_comment(&self) -> Result<String> {
         let sig_and_trusted_comment = match &self.sig_and_trusted_comment {
-            None => Err(PError::new(
-                ErrorKind::Misc,
-                "trusted comment is not present",
-            ))?,
+            None => {
+                return Err(PError::new(
+                    ErrorKind::Misc,
+                    "trusted comment is not present",
+                ))
+            }
             Some(sig_and_trusted_comment) => sig_and_trusted_comment,
         };
         if sig_and_trusted_comment.len() < SIGNATURE_BYTES {
-            Err(PError::new(
+            return Err(PError::new(
                 ErrorKind::Encoding,
                 "invalid trusted comment encoding",
-            ))?
+            ));
         }
         let just_comment = String::from_utf8(sig_and_trusted_comment[SIGNATURE_BYTES..].to_vec())?;
         Ok(just_comment)
@@ -99,10 +101,12 @@ impl SignatureBox {
         let is_prehashed = match signature.sig_alg {
             SIGALG => false,
             SIGALG_PREHASHED => true,
-            _ => Err(PError::new(
-                ErrorKind::Verify,
-                "Unsupported signature algorithm".to_string(),
-            ))?,
+            _ => {
+                return Err(PError::new(
+                    ErrorKind::Verify,
+                    "Unsupported signature algorithm".to_string(),
+                ))
+            }
         };
         let _ = trusted_comment_str
             .drain(..TRUSTED_COMMENT_PREFIX_LEN)
@@ -121,6 +125,7 @@ impl SignatureBox {
     }
 
     /// Return a `SignatureBox` for a string, for storage.
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let mut signature_box = String::new();
         writeln!(

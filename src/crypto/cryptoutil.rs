@@ -9,7 +9,7 @@
 // except according to those terms.
 
 use std::ptr;
-use std::{io, mem};
+use std::{io, mem::MaybeUninit};
 
 pub fn write_u64_be(dst: &mut [u8], mut input: u64) {
     assert!(dst.len() == 8);
@@ -68,9 +68,9 @@ pub fn read_u64v_be(dst: &mut [u64], input: &[u8]) {
         let mut x: *mut u64 = dst.get_unchecked_mut(0);
         let mut y: *const u8 = input.get_unchecked(0);
         for _ in 0..dst.len() {
-            let mut tmp: u64 = mem::uninitialized();
-            ptr::copy_nonoverlapping(y, &mut tmp as *mut _ as *mut u8, 8);
-            *x = u64::from_be(tmp);
+            let mut tmp = MaybeUninit::<u64>::uninit();
+            ptr::copy_nonoverlapping(y, tmp.as_mut_ptr() as *mut u8, 8);
+            *x = u64::from_be(tmp.assume_init());
             x = x.offset(1);
             y = y.offset(8);
         }
@@ -84,9 +84,9 @@ pub fn read_u64v_le(dst: &mut [u64], input: &[u8]) {
         let mut x: *mut u64 = dst.get_unchecked_mut(0);
         let mut y: *const u8 = input.get_unchecked(0);
         for _ in 0..dst.len() {
-            let mut tmp: u64 = mem::uninitialized();
-            ptr::copy_nonoverlapping(y, &mut tmp as *mut _ as *mut u8, 8);
-            *x = u64::from_le(tmp);
+            let mut tmp = MaybeUninit::<u64>::uninit();
+            ptr::copy_nonoverlapping(y, tmp.as_mut_ptr() as *mut u8, 8);
+            *x = u64::from_le(tmp.assume_init());
             x = x.offset(1);
             y = y.offset(8);
         }
