@@ -96,29 +96,27 @@ impl SecretKey {
     }
 
     pub(crate) fn xor_keynum(&mut self, stream: &[u8]) {
-        let b8 = self
-            .keynum_sk
-            .keynum
-            .iter_mut()
-            .zip(stream.iter())
-            .map(|(byte, stream)| *byte ^= *stream)
-            .count();
-
-        let b64 = self
+        for (byte, stream) in self.keynum_sk.keynum.iter_mut().zip(stream.iter()) {
+            *byte ^= *stream
+        }
+        let keynum_len = self.keynum_sk.keynum.len();
+        for (byte, stream) in self
             .keynum_sk
             .sk
             .iter_mut()
-            .zip(stream[b8..].iter())
-            .map(|(byte, stream)| *byte ^= *stream)
-            .count();
-
-        let _b32 = self
+            .zip(stream[keynum_len..].iter())
+        {
+            *byte ^= *stream
+        }
+        let sk_len = self.keynum_sk.sk.len();
+        for (byte, stream) in self
             .keynum_sk
             .chk
             .iter_mut()
-            .zip(stream[b8 + b64..].iter())
-            .map(|(byte, stream)| *byte ^= *stream)
-            .count();
+            .zip(stream[keynum_len + sk_len..].iter())
+        {
+            *byte ^= *stream
+        }
     }
 
     pub(crate) fn encrypt(mut self, password: String) -> Result<SecretKey> {

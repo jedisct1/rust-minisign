@@ -79,6 +79,9 @@
 //!         Err(_) => println!("Verification failed"),
 //!     };
 //!```
+
+#![allow(clippy::inherent_to_string)]
+
 extern crate base64;
 extern crate getrandom;
 #[cfg(any(windows, unix))]
@@ -190,14 +193,14 @@ where
     let global_sig = ed25519::signature(&sig_and_trusted_comment, &sk.keynum_sk.sk, Some(&z));
     if let Some(pk) = pk {
         if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk[..], &global_sig) {
-            Err(PError::new(
+            return Err(PError::new(
                 ErrorKind::Verify,
                 format!(
                     "Could not verify signature with the \
                      provided public key ID: {:X}",
                     load_u64_le(&pk.keynum_pk.keynum[..])
                 ),
-            ))?
+            ));
         }
     }
     let signature_box = SignatureBox {
@@ -248,10 +251,10 @@ where
         ));
     }
     if !ed25519::verify(&data, &pk.keynum_pk.pk, &sig.sig) {
-        Err(PError::new(
+        return Err(PError::new(
             ErrorKind::Verify,
             "Signature verification failed",
-        ))?
+        ));
     }
     match (
         &signature_box.sig_and_trusted_comment,
@@ -259,17 +262,19 @@ where
     ) {
         (Some(sig_and_trusted_comment), Some(global_sig)) => {
             if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk, &global_sig[..]) {
-                Err(PError::new(
+                return Err(PError::new(
                     ErrorKind::Verify,
                     "Comment signature verification failed",
-                ))?
+                ));
             }
         }
         (None, None) => {}
-        _ => Err(PError::new(
-            ErrorKind::Verify,
-            "Inconsistent signature presence for trusted comment presence",
-        ))?,
+        _ => {
+            return Err(PError::new(
+                ErrorKind::Verify,
+                "Inconsistent signature presence for trusted comment presence",
+            ))
+        }
     };
     if !quiet {
         eprintln!("Signature and comment signature verified");
