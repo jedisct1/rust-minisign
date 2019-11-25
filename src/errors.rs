@@ -89,12 +89,6 @@ impl From<fmt::Error> for PError {
     }
 }
 
-impl From<std::string::ParseError> for PError {
-    fn from(err: std::string::ParseError) -> PError {
-        PError::new(ErrorKind::Misc, err)
-    }
-}
-
 impl From<base64::DecodeError> for PError {
     fn from(err: base64::DecodeError) -> PError {
         PError::new(ErrorKind::Encoding, err)
