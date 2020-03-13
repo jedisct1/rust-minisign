@@ -11,12 +11,12 @@ repository = "https://github.com/jedisct1/rust-minisign"
 homepage = "https://github.com/jedisct1/rust-minisign"
 
 [dependencies]
-base64 = "0.11"
+base64 = "0.12"
 getrandom = { version = "0.1", default-features = false }
 scrypt = { version = "0.2", default-features = false }
 
 [target.'cfg(any(windows, unix))'.dependencies]
-rpassword = "4.0.1"
+rpassword = "4.0.5"
 
 [profile.dev]
 lto = "thin"
