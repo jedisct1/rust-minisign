@@ -79,6 +79,19 @@ fn signature() {
 }
 
 #[test]
+fn signature_prehashed() {
+    use crate::{sign, verify, KeyPair};
+    use std::io::Cursor;
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    let data = b"test";
+    let signature_box = sign(None, &sk, Cursor::new(data), true, None, None).unwrap();
+    verify(&pk, &signature_box, Cursor::new(data), true, false).unwrap();
+    let data = b"test2";
+    assert!(verify(&pk, &signature_box, Cursor::new(data), true, false).is_err());
+}
+
+#[test]
 fn signature_bones() {
     use crate::{sign, verify, KeyPair, SignatureBones};
     use std::io::Cursor;
@@ -97,4 +110,31 @@ fn signature_bones() {
     .unwrap();
     let data = b"test2";
     assert!(verify(&pk, &signature_bones.into(), Cursor::new(data), true, false).is_err());
+}
+
+#[test]
+fn verify_det() {
+    use crate::{verify, PublicKey, SignatureBox};
+    use std::io::Cursor;
+
+    let pk =
+        PublicKey::from_base64("RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3").unwrap();
+    let signature_box = SignatureBox::from_string(
+        "untrusted comment: signature from minisign secret key
+RWQf6LRCGA9i59SLOFxz6NxvASXDJeRtuZykwQepbDEGt87ig1BNpWaVWuNrm73YiIiJbq71Wi+dP9eKL8OC351vwIasSSbXxwA=
+trusted comment: timestamp:1555779966\tfile:test
+QtKMXWyYcwdpZAlPF7tE2ENJkRd1ujvKjlj1m9RtHTBnZPa5WKU5uWRs5GoP5M/VqE81QFuMKI5k/SfNQUaOAA==",
+    )
+    .unwrap();
+    assert!(!signature_box.is_prehashed());
+    assert_eq!(
+        signature_box.untrusted_comment().unwrap(),
+        "signature from minisign secret key"
+    );
+    assert_eq!(
+        signature_box.trusted_comment().unwrap(),
+        "timestamp:1555779966\tfile:test"
+    );
+    let bin = b"test";
+    verify(&pk, &signature_box, Cursor::new(bin), false, false).expect("Signature didn't verify");
 }
