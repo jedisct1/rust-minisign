@@ -138,3 +138,31 @@ QtKMXWyYcwdpZAlPF7tE2ENJkRd1ujvKjlj1m9RtHTBnZPa5WKU5uWRs5GoP5M/VqE81QFuMKI5k/SfN
     let bin = b"test";
     verify(&pk, &signature_box, Cursor::new(bin), false, false).expect("Signature didn't verify");
 }
+
+#[test]
+fn verify_prehashed_det() {
+    use crate::{verify, PublicKey, SignatureBox};
+    use std::io::Cursor;
+
+    let pk =
+        PublicKey::from_base64("RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3").unwrap();
+    let signature_box = SignatureBox::from_string(
+        "untrusted comment: signature from minisign secret key
+RUQf6LRCGA9i559r3g7V1qNyJDApGip8MfqcadIgT9CuhV3EMhHoN1mGTkUidF/z7SrlQgXdy8ofjb7bNJJylDOocrCo8KLzZwo=
+trusted comment: timestamp:1556193335\tfile:test
+y/rUw2y8/hOUYjZU71eHp/Wo1KZ40fGy2VJEDl34XMJM+TX48Ss/17u3IvIfbVR1FkZZSNCisQbuQY+bHwhEBg==",
+    )
+    .unwrap();
+    assert!(signature_box.is_prehashed());
+    assert_eq!(
+        signature_box.untrusted_comment().unwrap(),
+        "signature from minisign secret key"
+    );
+    assert_eq!(
+        signature_box.trusted_comment().unwrap(),
+        "timestamp:1556193335\tfile:test"
+    );
+    let bin = b"test";
+    verify(&pk, &signature_box, Cursor::new(bin), false, false)
+        .expect("Signature with prehashing didn't verify");
+}
