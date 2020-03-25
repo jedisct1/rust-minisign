@@ -131,7 +131,7 @@ where
         if len == 0 {
             break;
         }
-        state.input(&buf);
+        state.input(&buf[..len]);
     }
     state.result(&mut h);
     Ok(h)
