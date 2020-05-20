@@ -1,9 +1,400 @@
+#![allow(unused_parens)]
+#![allow(non_camel_case_types)]
+
 use super::util::fixed_time_eq;
 use std::cmp::{min, Eq, PartialEq};
 use std::ops::{Add, Mul, Sub};
 
-#[derive(Clone, Copy)]
-pub struct Fe(pub [i32; 10]);
+pub type fiat_25519_u1 = u8;
+pub type fiat_25519_i1 = i8;
+pub type fiat_25519_i2 = i8;
+
+#[inline]
+pub fn fiat_25519_addcarryx_u51(
+    out1: &mut u64,
+    out2: &mut fiat_25519_u1,
+    arg1: fiat_25519_u1,
+    arg2: u64,
+    arg3: u64,
+) -> () {
+    let x1: u64 = (((arg1 as u64) + arg2) + arg3);
+    let x2: u64 = (x1 & 0x7ffffffffffff);
+    let x3: fiat_25519_u1 = ((x1 >> 51) as fiat_25519_u1);
+    *out1 = x2;
+    *out2 = x3;
+}
+
+#[inline]
+pub fn fiat_25519_subborrowx_u51(
+    out1: &mut u64,
+    out2: &mut fiat_25519_u1,
+    arg1: fiat_25519_u1,
+    arg2: u64,
+    arg3: u64,
+) -> () {
+    let x1: i64 = ((((((arg2 as i128) - (arg1 as i128)) as i64) as i128) - (arg3 as i128)) as i64);
+    let x2: fiat_25519_i1 = ((x1 >> 51) as fiat_25519_i1);
+    let x3: u64 = (((x1 as i128) & (0x7ffffffffffff as i128)) as u64);
+    *out1 = x3;
+    *out2 = (((0x0 as fiat_25519_i2) - (x2 as fiat_25519_i2)) as fiat_25519_u1);
+}
+
+#[inline]
+pub fn fiat_25519_cmovznz_u64(out1: &mut u64, arg1: fiat_25519_u1, arg2: u64, arg3: u64) -> () {
+    let x1: fiat_25519_u1 = (!(!arg1));
+    let x2: u64 = ((((((0x0 as fiat_25519_i2) - (x1 as fiat_25519_i2)) as fiat_25519_i1) as i128)
+        & (0xffffffffffffffff as i128)) as u64);
+    let x3: u64 = ((x2 & arg3) | ((!x2) & arg2));
+    *out1 = x3;
+}
+
+#[inline]
+pub fn fiat_25519_carry_mul(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> () {
+    let x1: u128 = (((arg1[4]) as u128) * (((arg2[4]) * 0x13) as u128));
+    let x2: u128 = (((arg1[4]) as u128) * (((arg2[3]) * 0x13) as u128));
+    let x3: u128 = (((arg1[4]) as u128) * (((arg2[2]) * 0x13) as u128));
+    let x4: u128 = (((arg1[4]) as u128) * (((arg2[1]) * 0x13) as u128));
+    let x5: u128 = (((arg1[3]) as u128) * (((arg2[4]) * 0x13) as u128));
+    let x6: u128 = (((arg1[3]) as u128) * (((arg2[3]) * 0x13) as u128));
+    let x7: u128 = (((arg1[3]) as u128) * (((arg2[2]) * 0x13) as u128));
+    let x8: u128 = (((arg1[2]) as u128) * (((arg2[4]) * 0x13) as u128));
+    let x9: u128 = (((arg1[2]) as u128) * (((arg2[3]) * 0x13) as u128));
+    let x10: u128 = (((arg1[1]) as u128) * (((arg2[4]) * 0x13) as u128));
+    let x11: u128 = (((arg1[4]) as u128) * ((arg2[0]) as u128));
+    let x12: u128 = (((arg1[3]) as u128) * ((arg2[1]) as u128));
+    let x13: u128 = (((arg1[3]) as u128) * ((arg2[0]) as u128));
+    let x14: u128 = (((arg1[2]) as u128) * ((arg2[2]) as u128));
+    let x15: u128 = (((arg1[2]) as u128) * ((arg2[1]) as u128));
+    let x16: u128 = (((arg1[2]) as u128) * ((arg2[0]) as u128));
+    let x17: u128 = (((arg1[1]) as u128) * ((arg2[3]) as u128));
+    let x18: u128 = (((arg1[1]) as u128) * ((arg2[2]) as u128));
+    let x19: u128 = (((arg1[1]) as u128) * ((arg2[1]) as u128));
+    let x20: u128 = (((arg1[1]) as u128) * ((arg2[0]) as u128));
+    let x21: u128 = (((arg1[0]) as u128) * ((arg2[4]) as u128));
+    let x22: u128 = (((arg1[0]) as u128) * ((arg2[3]) as u128));
+    let x23: u128 = (((arg1[0]) as u128) * ((arg2[2]) as u128));
+    let x24: u128 = (((arg1[0]) as u128) * ((arg2[1]) as u128));
+    let x25: u128 = (((arg1[0]) as u128) * ((arg2[0]) as u128));
+    let x26: u128 = (x25 + (x10 + (x9 + (x7 + x4))));
+    let x27: u64 = ((x26 >> 51) as u64);
+    let x28: u64 = ((x26 & (0x7ffffffffffff as u128)) as u64);
+    let x29: u128 = (x21 + (x17 + (x14 + (x12 + x11))));
+    let x30: u128 = (x22 + (x18 + (x15 + (x13 + x1))));
+    let x31: u128 = (x23 + (x19 + (x16 + (x5 + x2))));
+    let x32: u128 = (x24 + (x20 + (x8 + (x6 + x3))));
+    let x33: u128 = ((x27 as u128) + x32);
+    let x34: u64 = ((x33 >> 51) as u64);
+    let x35: u64 = ((x33 & (0x7ffffffffffff as u128)) as u64);
+    let x36: u128 = ((x34 as u128) + x31);
+    let x37: u64 = ((x36 >> 51) as u64);
+    let x38: u64 = ((x36 & (0x7ffffffffffff as u128)) as u64);
+    let x39: u128 = ((x37 as u128) + x30);
+    let x40: u64 = ((x39 >> 51) as u64);
+    let x41: u64 = ((x39 & (0x7ffffffffffff as u128)) as u64);
+    let x42: u128 = ((x40 as u128) + x29);
+    let x43: u64 = ((x42 >> 51) as u64);
+    let x44: u64 = ((x42 & (0x7ffffffffffff as u128)) as u64);
+    let x45: u64 = (x43 * 0x13);
+    let x46: u64 = (x28 + x45);
+    let x47: u64 = (x46 >> 51);
+    let x48: u64 = (x46 & 0x7ffffffffffff);
+    let x49: u64 = (x47 + x35);
+    let x50: fiat_25519_u1 = ((x49 >> 51) as fiat_25519_u1);
+    let x51: u64 = (x49 & 0x7ffffffffffff);
+    let x52: u64 = ((x50 as u64) + x38);
+    out1[0] = x48;
+    out1[1] = x51;
+    out1[2] = x52;
+    out1[3] = x41;
+    out1[4] = x44;
+}
+
+#[inline]
+pub fn fiat_25519_carry_square(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
+    let x1: u64 = ((arg1[4]) * 0x13);
+    let x2: u64 = (x1 * 0x2);
+    let x3: u64 = ((arg1[4]) * 0x2);
+    let x4: u64 = ((arg1[3]) * 0x13);
+    let x5: u64 = (x4 * 0x2);
+    let x6: u64 = ((arg1[3]) * 0x2);
+    let x7: u64 = ((arg1[2]) * 0x2);
+    let x8: u64 = ((arg1[1]) * 0x2);
+    let x9: u128 = (((arg1[4]) as u128) * (x1 as u128));
+    let x10: u128 = (((arg1[3]) as u128) * (x2 as u128));
+    let x11: u128 = (((arg1[3]) as u128) * (x4 as u128));
+    let x12: u128 = (((arg1[2]) as u128) * (x2 as u128));
+    let x13: u128 = (((arg1[2]) as u128) * (x5 as u128));
+    let x14: u128 = (((arg1[2]) as u128) * ((arg1[2]) as u128));
+    let x15: u128 = (((arg1[1]) as u128) * (x2 as u128));
+    let x16: u128 = (((arg1[1]) as u128) * (x6 as u128));
+    let x17: u128 = (((arg1[1]) as u128) * (x7 as u128));
+    let x18: u128 = (((arg1[1]) as u128) * ((arg1[1]) as u128));
+    let x19: u128 = (((arg1[0]) as u128) * (x3 as u128));
+    let x20: u128 = (((arg1[0]) as u128) * (x6 as u128));
+    let x21: u128 = (((arg1[0]) as u128) * (x7 as u128));
+    let x22: u128 = (((arg1[0]) as u128) * (x8 as u128));
+    let x23: u128 = (((arg1[0]) as u128) * ((arg1[0]) as u128));
+    let x24: u128 = (x23 + (x15 + x13));
+    let x25: u64 = ((x24 >> 51) as u64);
+    let x26: u64 = ((x24 & (0x7ffffffffffff as u128)) as u64);
+    let x27: u128 = (x19 + (x16 + x14));
+    let x28: u128 = (x20 + (x17 + x9));
+    let x29: u128 = (x21 + (x18 + x10));
+    let x30: u128 = (x22 + (x12 + x11));
+    let x31: u128 = ((x25 as u128) + x30);
+    let x32: u64 = ((x31 >> 51) as u64);
+    let x33: u64 = ((x31 & (0x7ffffffffffff as u128)) as u64);
+    let x34: u128 = ((x32 as u128) + x29);
+    let x35: u64 = ((x34 >> 51) as u64);
+    let x36: u64 = ((x34 & (0x7ffffffffffff as u128)) as u64);
+    let x37: u128 = ((x35 as u128) + x28);
+    let x38: u64 = ((x37 >> 51) as u64);
+    let x39: u64 = ((x37 & (0x7ffffffffffff as u128)) as u64);
+    let x40: u128 = ((x38 as u128) + x27);
+    let x41: u64 = ((x40 >> 51) as u64);
+    let x42: u64 = ((x40 & (0x7ffffffffffff as u128)) as u64);
+    let x43: u64 = (x41 * 0x13);
+    let x44: u64 = (x26 + x43);
+    let x45: u64 = (x44 >> 51);
+    let x46: u64 = (x44 & 0x7ffffffffffff);
+    let x47: u64 = (x45 + x33);
+    let x48: fiat_25519_u1 = ((x47 >> 51) as fiat_25519_u1);
+    let x49: u64 = (x47 & 0x7ffffffffffff);
+    let x50: u64 = ((x48 as u64) + x36);
+    out1[0] = x46;
+    out1[1] = x49;
+    out1[2] = x50;
+    out1[3] = x39;
+    out1[4] = x42;
+}
+
+#[inline]
+pub fn fiat_25519_carry(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
+    let x1: u64 = (arg1[0]);
+    let x2: u64 = ((x1 >> 51) + (arg1[1]));
+    let x3: u64 = ((x2 >> 51) + (arg1[2]));
+    let x4: u64 = ((x3 >> 51) + (arg1[3]));
+    let x5: u64 = ((x4 >> 51) + (arg1[4]));
+    let x6: u64 = ((x1 & 0x7ffffffffffff) + ((x5 >> 51) * 0x13));
+    let x7: u64 = ((((x6 >> 51) as fiat_25519_u1) as u64) + (x2 & 0x7ffffffffffff));
+    let x8: u64 = (x6 & 0x7ffffffffffff);
+    let x9: u64 = (x7 & 0x7ffffffffffff);
+    let x10: u64 = ((((x7 >> 51) as fiat_25519_u1) as u64) + (x3 & 0x7ffffffffffff));
+    let x11: u64 = (x4 & 0x7ffffffffffff);
+    let x12: u64 = (x5 & 0x7ffffffffffff);
+    out1[0] = x8;
+    out1[1] = x9;
+    out1[2] = x10;
+    out1[3] = x11;
+    out1[4] = x12;
+}
+
+#[inline]
+pub fn fiat_25519_add(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> () {
+    let x1: u64 = ((arg1[0]) + (arg2[0]));
+    let x2: u64 = ((arg1[1]) + (arg2[1]));
+    let x3: u64 = ((arg1[2]) + (arg2[2]));
+    let x4: u64 = ((arg1[3]) + (arg2[3]));
+    let x5: u64 = ((arg1[4]) + (arg2[4]));
+    out1[0] = x1;
+    out1[1] = x2;
+    out1[2] = x3;
+    out1[3] = x4;
+    out1[4] = x5;
+}
+
+#[inline]
+pub fn fiat_25519_sub(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> () {
+    let x1: u64 = ((0xfffffffffffda + (arg1[0])) - (arg2[0]));
+    let x2: u64 = ((0xffffffffffffe + (arg1[1])) - (arg2[1]));
+    let x3: u64 = ((0xffffffffffffe + (arg1[2])) - (arg2[2]));
+    let x4: u64 = ((0xffffffffffffe + (arg1[3])) - (arg2[3]));
+    let x5: u64 = ((0xffffffffffffe + (arg1[4])) - (arg2[4]));
+    out1[0] = x1;
+    out1[1] = x2;
+    out1[2] = x3;
+    out1[3] = x4;
+    out1[4] = x5;
+}
+
+#[inline]
+pub fn fiat_25519_opp(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
+    let x1: u64 = (0xfffffffffffda - (arg1[0]));
+    let x2: u64 = (0xffffffffffffe - (arg1[1]));
+    let x3: u64 = (0xffffffffffffe - (arg1[2]));
+    let x4: u64 = (0xffffffffffffe - (arg1[3]));
+    let x5: u64 = (0xffffffffffffe - (arg1[4]));
+    out1[0] = x1;
+    out1[1] = x2;
+    out1[2] = x3;
+    out1[3] = x4;
+    out1[4] = x5;
+}
+
+#[inline]
+pub fn fiat_25519_selectznz(
+    out1: &mut [u64; 5],
+    arg1: fiat_25519_u1,
+    arg2: &[u64; 5],
+    arg3: &[u64; 5],
+) -> () {
+    let mut x1: u64 = 0;
+    fiat_25519_cmovznz_u64(&mut x1, arg1, (arg2[0]), (arg3[0]));
+    let mut x2: u64 = 0;
+    fiat_25519_cmovznz_u64(&mut x2, arg1, (arg2[1]), (arg3[1]));
+    let mut x3: u64 = 0;
+    fiat_25519_cmovznz_u64(&mut x3, arg1, (arg2[2]), (arg3[2]));
+    let mut x4: u64 = 0;
+    fiat_25519_cmovznz_u64(&mut x4, arg1, (arg2[3]), (arg3[3]));
+    let mut x5: u64 = 0;
+    fiat_25519_cmovznz_u64(&mut x5, arg1, (arg2[4]), (arg3[4]));
+    out1[0] = x1;
+    out1[1] = x2;
+    out1[2] = x3;
+    out1[3] = x4;
+    out1[4] = x5;
+}
+
+#[inline]
+pub fn fiat_25519_to_bytes(out1: &mut [u8; 32], arg1: &[u64; 5]) -> () {
+    let mut x1: u64 = 0;
+    let mut x2: fiat_25519_u1 = 0;
+    fiat_25519_subborrowx_u51(&mut x1, &mut x2, 0x0, (arg1[0]), 0x7ffffffffffed);
+    let mut x3: u64 = 0;
+    let mut x4: fiat_25519_u1 = 0;
+    fiat_25519_subborrowx_u51(&mut x3, &mut x4, x2, (arg1[1]), 0x7ffffffffffff);
+    let mut x5: u64 = 0;
+    let mut x6: fiat_25519_u1 = 0;
+    fiat_25519_subborrowx_u51(&mut x5, &mut x6, x4, (arg1[2]), 0x7ffffffffffff);
+    let mut x7: u64 = 0;
+    let mut x8: fiat_25519_u1 = 0;
+    fiat_25519_subborrowx_u51(&mut x7, &mut x8, x6, (arg1[3]), 0x7ffffffffffff);
+    let mut x9: u64 = 0;
+    let mut x10: fiat_25519_u1 = 0;
+    fiat_25519_subborrowx_u51(&mut x9, &mut x10, x8, (arg1[4]), 0x7ffffffffffff);
+    let mut x11: u64 = 0;
+    fiat_25519_cmovznz_u64(&mut x11, x10, (0x0 as u64), 0xffffffffffffffff);
+    let mut x12: u64 = 0;
+    let mut x13: fiat_25519_u1 = 0;
+    fiat_25519_addcarryx_u51(&mut x12, &mut x13, 0x0, x1, (x11 & 0x7ffffffffffed));
+    let mut x14: u64 = 0;
+    let mut x15: fiat_25519_u1 = 0;
+    fiat_25519_addcarryx_u51(&mut x14, &mut x15, x13, x3, (x11 & 0x7ffffffffffff));
+    let mut x16: u64 = 0;
+    let mut x17: fiat_25519_u1 = 0;
+    fiat_25519_addcarryx_u51(&mut x16, &mut x17, x15, x5, (x11 & 0x7ffffffffffff));
+    let mut x18: u64 = 0;
+    let mut x19: fiat_25519_u1 = 0;
+    fiat_25519_addcarryx_u51(&mut x18, &mut x19, x17, x7, (x11 & 0x7ffffffffffff));
+    let mut x20: u64 = 0;
+    let mut x21: fiat_25519_u1 = 0;
+    fiat_25519_addcarryx_u51(&mut x20, &mut x21, x19, x9, (x11 & 0x7ffffffffffff));
+    let x22: u64 = (x20 << 4);
+    let x23: u64 = (x18 * (0x2 as u64));
+    let x24: u64 = (x16 << 6);
+    let x25: u64 = (x14 << 3);
+    let x26: u64 = (x12 >> 8);
+    let x27: u8 = ((x12 & (0xff as u64)) as u8);
+    let x28: u64 = (x26 >> 8);
+    let x29: u8 = ((x26 & (0xff as u64)) as u8);
+    let x30: u64 = (x28 >> 8);
+    let x31: u8 = ((x28 & (0xff as u64)) as u8);
+    let x32: u64 = (x30 >> 8);
+    let x33: u8 = ((x30 & (0xff as u64)) as u8);
+    let x34: u64 = (x32 >> 8);
+    let x35: u8 = ((x32 & (0xff as u64)) as u8);
+    let x36: u8 = ((x34 >> 8) as u8);
+    let x37: u8 = ((x34 & (0xff as u64)) as u8);
+    let x38: u64 = ((x36 as u64) + x25);
+    let x39: u64 = (x38 >> 8);
+    let x40: u8 = ((x38 & (0xff as u64)) as u8);
+    let x41: u64 = (x39 >> 8);
+    let x42: u8 = ((x39 & (0xff as u64)) as u8);
+    let x43: u64 = (x41 >> 8);
+    let x44: u8 = ((x41 & (0xff as u64)) as u8);
+    let x45: u64 = (x43 >> 8);
+    let x46: u8 = ((x43 & (0xff as u64)) as u8);
+    let x47: u64 = (x45 >> 8);
+    let x48: u8 = ((x45 & (0xff as u64)) as u8);
+    let x49: u8 = ((x47 >> 8) as u8);
+    let x50: u8 = ((x47 & (0xff as u64)) as u8);
+    let x51: u64 = ((x49 as u64) + x24);
+    let x52: u64 = (x51 >> 8);
+    let x53: u8 = ((x51 & (0xff as u64)) as u8);
+    let x54: u64 = (x52 >> 8);
+    let x55: u8 = ((x52 & (0xff as u64)) as u8);
+    let x56: u64 = (x54 >> 8);
+    let x57: u8 = ((x54 & (0xff as u64)) as u8);
+    let x58: u64 = (x56 >> 8);
+    let x59: u8 = ((x56 & (0xff as u64)) as u8);
+    let x60: u64 = (x58 >> 8);
+    let x61: u8 = ((x58 & (0xff as u64)) as u8);
+    let x62: u64 = (x60 >> 8);
+    let x63: u8 = ((x60 & (0xff as u64)) as u8);
+    let x64: fiat_25519_u1 = ((x62 >> 8) as fiat_25519_u1);
+    let x65: u8 = ((x62 & (0xff as u64)) as u8);
+    let x66: u64 = ((x64 as u64) + x23);
+    let x67: u64 = (x66 >> 8);
+    let x68: u8 = ((x66 & (0xff as u64)) as u8);
+    let x69: u64 = (x67 >> 8);
+    let x70: u8 = ((x67 & (0xff as u64)) as u8);
+    let x71: u64 = (x69 >> 8);
+    let x72: u8 = ((x69 & (0xff as u64)) as u8);
+    let x73: u64 = (x71 >> 8);
+    let x74: u8 = ((x71 & (0xff as u64)) as u8);
+    let x75: u64 = (x73 >> 8);
+    let x76: u8 = ((x73 & (0xff as u64)) as u8);
+    let x77: u8 = ((x75 >> 8) as u8);
+    let x78: u8 = ((x75 & (0xff as u64)) as u8);
+    let x79: u64 = ((x77 as u64) + x22);
+    let x80: u64 = (x79 >> 8);
+    let x81: u8 = ((x79 & (0xff as u64)) as u8);
+    let x82: u64 = (x80 >> 8);
+    let x83: u8 = ((x80 & (0xff as u64)) as u8);
+    let x84: u64 = (x82 >> 8);
+    let x85: u8 = ((x82 & (0xff as u64)) as u8);
+    let x86: u64 = (x84 >> 8);
+    let x87: u8 = ((x84 & (0xff as u64)) as u8);
+    let x88: u64 = (x86 >> 8);
+    let x89: u8 = ((x86 & (0xff as u64)) as u8);
+    let x90: u8 = ((x88 >> 8) as u8);
+    let x91: u8 = ((x88 & (0xff as u64)) as u8);
+    out1[0] = x27;
+    out1[1] = x29;
+    out1[2] = x31;
+    out1[3] = x33;
+    out1[4] = x35;
+    out1[5] = x37;
+    out1[6] = x40;
+    out1[7] = x42;
+    out1[8] = x44;
+    out1[9] = x46;
+    out1[10] = x48;
+    out1[11] = x50;
+    out1[12] = x53;
+    out1[13] = x55;
+    out1[14] = x57;
+    out1[15] = x59;
+    out1[16] = x61;
+    out1[17] = x63;
+    out1[18] = x65;
+    out1[19] = x68;
+    out1[20] = x70;
+    out1[21] = x72;
+    out1[22] = x74;
+    out1[23] = x76;
+    out1[24] = x78;
+    out1[25] = x81;
+    out1[26] = x83;
+    out1[27] = x85;
+    out1[28] = x87;
+    out1[29] = x89;
+    out1[30] = x91;
+    out1[31] = x90;
+}
+
+#[derive(Clone, Default, Copy)]
+pub struct Fe(pub [u64; 5]);
 
 impl PartialEq for Fe {
     fn eq(&self, other: &Fe) -> bool {
@@ -14,29 +405,58 @@ impl PartialEq for Fe {
 }
 impl Eq for Fe {}
 
-static FE_ZERO: Fe = Fe([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-static FE_ONE: Fe = Fe([1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+static FE_ZERO: Fe = Fe([0, 0, 0, 0, 0]);
+static FE_ONE: Fe = Fe([1, 0, 0, 0, 0]);
 static FE_SQRTM1: Fe = Fe([
-    -32595792, -7943725, 9377950, 3500415, 12389472, -272473, -25146209, -2005654, 326686, 11406482,
+    1718705420411056,
+    234908883556509,
+    2233514472574048,
+    2117202627021982,
+    765476049583133,
 ]);
 static FE_D: Fe = Fe([
-    -10913610, 13857413, -15372611, 6949391, 114729, -8787816, -6275908, -3247719, -18696448,
-    -12055116,
+    929955233495203,
+    466365720129213,
+    1662059464998953,
+    2033849074728123,
+    1442794654840575,
 ]);
 static FE_D2: Fe = Fe([
-    -21827239, -5839606, -30745221, 13898782, 229458, 15978800, -12551817, -6495438, 29715968,
-    9444199,
+    1859910466990425,
+    932731440258426,
+    1072319116312658,
+    1815898335770999,
+    633789495995903,
 ]);
 
+#[inline]
+fn load_8u(s: &[u8]) -> u64 {
+    (s[0] as u64)
+        | ((s[1] as u64) << 8)
+        | ((s[2] as u64) << 16)
+        | ((s[3] as u64) << 24)
+        | ((s[4] as u64) << 32)
+        | ((s[5] as u64) << 40)
+        | ((s[6] as u64) << 48)
+        | ((s[7] as u64) << 56)
+}
+
+#[inline]
 fn load_4u(s: &[u8]) -> u64 {
     (s[0] as u64) | ((s[1] as u64) << 8) | ((s[2] as u64) << 16) | ((s[3] as u64) << 24)
 }
+
+#[inline]
 fn load_4i(s: &[u8]) -> i64 {
     load_4u(s) as i64
 }
+
+#[inline]
 fn load_3u(s: &[u8]) -> u64 {
     (s[0] as u64) | ((s[1] as u64) << 8) | ((s[2] as u64) << 16)
 }
+
+#[inline]
 fn load_3i(s: &[u8]) -> i64 {
     load_3u(s) as i64
 }
@@ -47,38 +467,9 @@ impl Add for Fe {
     fn add(self, _rhs: Fe) -> Fe {
         let Fe(f) = self;
         let Fe(g) = _rhs;
-
-        let f0 = f[0];
-        let f1 = f[1];
-        let f2 = f[2];
-        let f3 = f[3];
-        let f4 = f[4];
-        let f5 = f[5];
-        let f6 = f[6];
-        let f7 = f[7];
-        let f8 = f[8];
-        let f9 = f[9];
-        let g0 = g[0];
-        let g1 = g[1];
-        let g2 = g[2];
-        let g3 = g[3];
-        let g4 = g[4];
-        let g5 = g[5];
-        let g6 = g[6];
-        let g7 = g[7];
-        let g8 = g[8];
-        let g9 = g[9];
-        let h0 = f0 + g0;
-        let h1 = f1 + g1;
-        let h2 = f2 + g2;
-        let h3 = f3 + g3;
-        let h4 = f4 + g4;
-        let h5 = f5 + g5;
-        let h6 = f6 + g6;
-        let h7 = f7 + g7;
-        let h8 = f8 + g8;
-        let h9 = f9 + g9;
-        Fe([h0, h1, h2, h3, h4, h5, h6, h7, h8, h9])
+        let mut h = Fe::default();
+        fiat_25519_add(&mut h.0, &f, &g);
+        h
     }
 }
 
@@ -88,38 +479,9 @@ impl Sub for Fe {
     fn sub(self, _rhs: Fe) -> Fe {
         let Fe(f) = self;
         let Fe(g) = _rhs;
-
-        let f0 = f[0];
-        let f1 = f[1];
-        let f2 = f[2];
-        let f3 = f[3];
-        let f4 = f[4];
-        let f5 = f[5];
-        let f6 = f[6];
-        let f7 = f[7];
-        let f8 = f[8];
-        let f9 = f[9];
-        let g0 = g[0];
-        let g1 = g[1];
-        let g2 = g[2];
-        let g3 = g[3];
-        let g4 = g[4];
-        let g5 = g[5];
-        let g6 = g[6];
-        let g7 = g[7];
-        let g8 = g[8];
-        let g9 = g[9];
-        let h0 = f0 - g0;
-        let h1 = f1 - g1;
-        let h2 = f2 - g2;
-        let h3 = f3 - g3;
-        let h4 = f4 - g4;
-        let h5 = f5 - g5;
-        let h6 = f6 - g6;
-        let h7 = f7 - g7;
-        let h8 = f8 - g8;
-        let h9 = f9 - g9;
-        Fe([h0, h1, h2, h3, h4, h5, h6, h7, h8, h9])
+        let mut h = Fe::default();
+        fiat_25519_sub(&mut h.0, &f, &g);
+        h.carry()
     }
 }
 
@@ -129,852 +491,84 @@ impl Mul for Fe {
     fn mul(self, _rhs: Fe) -> Fe {
         let Fe(f) = self;
         let Fe(g) = _rhs;
-        let f0 = f[0];
-        let f1 = f[1];
-        let f2 = f[2];
-        let f3 = f[3];
-        let f4 = f[4];
-        let f5 = f[5];
-        let f6 = f[6];
-        let f7 = f[7];
-        let f8 = f[8];
-        let f9 = f[9];
-        let g0 = g[0];
-        let g1 = g[1];
-        let g2 = g[2];
-        let g3 = g[3];
-        let g4 = g[4];
-        let g5 = g[5];
-        let g6 = g[6];
-        let g7 = g[7];
-        let g8 = g[8];
-        let g9 = g[9];
-        let g1_19 = 19 * g1; /* 1.4*2^29 */
-        let g2_19 = 19 * g2; /* 1.4*2^30; still ok */
-        let g3_19 = 19 * g3;
-        let g4_19 = 19 * g4;
-        let g5_19 = 19 * g5;
-        let g6_19 = 19 * g6;
-        let g7_19 = 19 * g7;
-        let g8_19 = 19 * g8;
-        let g9_19 = 19 * g9;
-        let f1_2 = 2 * f1;
-        let f3_2 = 2 * f3;
-        let f5_2 = 2 * f5;
-        let f7_2 = 2 * f7;
-        let f9_2 = 2 * f9;
-        let f0g0 = (f0 as i64) * (g0 as i64);
-        let f0g1 = (f0 as i64) * (g1 as i64);
-        let f0g2 = (f0 as i64) * (g2 as i64);
-        let f0g3 = (f0 as i64) * (g3 as i64);
-        let f0g4 = (f0 as i64) * (g4 as i64);
-        let f0g5 = (f0 as i64) * (g5 as i64);
-        let f0g6 = (f0 as i64) * (g6 as i64);
-        let f0g7 = (f0 as i64) * (g7 as i64);
-        let f0g8 = (f0 as i64) * (g8 as i64);
-        let f0g9 = (f0 as i64) * (g9 as i64);
-        let f1g0 = (f1 as i64) * (g0 as i64);
-        let f1g1_2 = (f1_2 as i64) * (g1 as i64);
-        let f1g2 = (f1 as i64) * (g2 as i64);
-        let f1g3_2 = (f1_2 as i64) * (g3 as i64);
-        let f1g4 = (f1 as i64) * (g4 as i64);
-        let f1g5_2 = (f1_2 as i64) * (g5 as i64);
-        let f1g6 = (f1 as i64) * (g6 as i64);
-        let f1g7_2 = (f1_2 as i64) * (g7 as i64);
-        let f1g8 = (f1 as i64) * (g8 as i64);
-        let f1g9_38 = (f1_2 as i64) * (g9_19 as i64);
-        let f2g0 = (f2 as i64) * (g0 as i64);
-        let f2g1 = (f2 as i64) * (g1 as i64);
-        let f2g2 = (f2 as i64) * (g2 as i64);
-        let f2g3 = (f2 as i64) * (g3 as i64);
-        let f2g4 = (f2 as i64) * (g4 as i64);
-        let f2g5 = (f2 as i64) * (g5 as i64);
-        let f2g6 = (f2 as i64) * (g6 as i64);
-        let f2g7 = (f2 as i64) * (g7 as i64);
-        let f2g8_19 = (f2 as i64) * (g8_19 as i64);
-        let f2g9_19 = (f2 as i64) * (g9_19 as i64);
-        let f3g0 = (f3 as i64) * (g0 as i64);
-        let f3g1_2 = (f3_2 as i64) * (g1 as i64);
-        let f3g2 = (f3 as i64) * (g2 as i64);
-        let f3g3_2 = (f3_2 as i64) * (g3 as i64);
-        let f3g4 = (f3 as i64) * (g4 as i64);
-        let f3g5_2 = (f3_2 as i64) * (g5 as i64);
-        let f3g6 = (f3 as i64) * (g6 as i64);
-        let f3g7_38 = (f3_2 as i64) * (g7_19 as i64);
-        let f3g8_19 = (f3 as i64) * (g8_19 as i64);
-        let f3g9_38 = (f3_2 as i64) * (g9_19 as i64);
-        let f4g0 = (f4 as i64) * (g0 as i64);
-        let f4g1 = (f4 as i64) * (g1 as i64);
-        let f4g2 = (f4 as i64) * (g2 as i64);
-        let f4g3 = (f4 as i64) * (g3 as i64);
-        let f4g4 = (f4 as i64) * (g4 as i64);
-        let f4g5 = (f4 as i64) * (g5 as i64);
-        let f4g6_19 = (f4 as i64) * (g6_19 as i64);
-        let f4g7_19 = (f4 as i64) * (g7_19 as i64);
-        let f4g8_19 = (f4 as i64) * (g8_19 as i64);
-        let f4g9_19 = (f4 as i64) * (g9_19 as i64);
-        let f5g0 = (f5 as i64) * (g0 as i64);
-        let f5g1_2 = (f5_2 as i64) * (g1 as i64);
-        let f5g2 = (f5 as i64) * (g2 as i64);
-        let f5g3_2 = (f5_2 as i64) * (g3 as i64);
-        let f5g4 = (f5 as i64) * (g4 as i64);
-        let f5g5_38 = (f5_2 as i64) * (g5_19 as i64);
-        let f5g6_19 = (f5 as i64) * (g6_19 as i64);
-        let f5g7_38 = (f5_2 as i64) * (g7_19 as i64);
-        let f5g8_19 = (f5 as i64) * (g8_19 as i64);
-        let f5g9_38 = (f5_2 as i64) * (g9_19 as i64);
-        let f6g0 = (f6 as i64) * (g0 as i64);
-        let f6g1 = (f6 as i64) * (g1 as i64);
-        let f6g2 = (f6 as i64) * (g2 as i64);
-        let f6g3 = (f6 as i64) * (g3 as i64);
-        let f6g4_19 = (f6 as i64) * (g4_19 as i64);
-        let f6g5_19 = (f6 as i64) * (g5_19 as i64);
-        let f6g6_19 = (f6 as i64) * (g6_19 as i64);
-        let f6g7_19 = (f6 as i64) * (g7_19 as i64);
-        let f6g8_19 = (f6 as i64) * (g8_19 as i64);
-        let f6g9_19 = (f6 as i64) * (g9_19 as i64);
-        let f7g0 = (f7 as i64) * (g0 as i64);
-        let f7g1_2 = (f7_2 as i64) * (g1 as i64);
-        let f7g2 = (f7 as i64) * (g2 as i64);
-        let f7g3_38 = (f7_2 as i64) * (g3_19 as i64);
-        let f7g4_19 = (f7 as i64) * (g4_19 as i64);
-        let f7g5_38 = (f7_2 as i64) * (g5_19 as i64);
-        let f7g6_19 = (f7 as i64) * (g6_19 as i64);
-        let f7g7_38 = (f7_2 as i64) * (g7_19 as i64);
-        let f7g8_19 = (f7 as i64) * (g8_19 as i64);
-        let f7g9_38 = (f7_2 as i64) * (g9_19 as i64);
-        let f8g0 = (f8 as i64) * (g0 as i64);
-        let f8g1 = (f8 as i64) * (g1 as i64);
-        let f8g2_19 = (f8 as i64) * (g2_19 as i64);
-        let f8g3_19 = (f8 as i64) * (g3_19 as i64);
-        let f8g4_19 = (f8 as i64) * (g4_19 as i64);
-        let f8g5_19 = (f8 as i64) * (g5_19 as i64);
-        let f8g6_19 = (f8 as i64) * (g6_19 as i64);
-        let f8g7_19 = (f8 as i64) * (g7_19 as i64);
-        let f8g8_19 = (f8 as i64) * (g8_19 as i64);
-        let f8g9_19 = (f8 as i64) * (g9_19 as i64);
-        let f9g0 = (f9 as i64) * (g0 as i64);
-        let f9g1_38 = (f9_2 as i64) * (g1_19 as i64);
-        let f9g2_19 = (f9 as i64) * (g2_19 as i64);
-        let f9g3_38 = (f9_2 as i64) * (g3_19 as i64);
-        let f9g4_19 = (f9 as i64) * (g4_19 as i64);
-        let f9g5_38 = (f9_2 as i64) * (g5_19 as i64);
-        let f9g6_19 = (f9 as i64) * (g6_19 as i64);
-        let f9g7_38 = (f9_2 as i64) * (g7_19 as i64);
-        let f9g8_19 = (f9 as i64) * (g8_19 as i64);
-        let f9g9_38 = (f9_2 as i64) * (g9_19 as i64);
-        let mut h0 = f0g0
-            + f1g9_38
-            + f2g8_19
-            + f3g7_38
-            + f4g6_19
-            + f5g5_38
-            + f6g4_19
-            + f7g3_38
-            + f8g2_19
-            + f9g1_38;
-        let mut h1 = f0g1
-            + f1g0
-            + f2g9_19
-            + f3g8_19
-            + f4g7_19
-            + f5g6_19
-            + f6g5_19
-            + f7g4_19
-            + f8g3_19
-            + f9g2_19;
-        let mut h2 = f0g2
-            + f1g1_2
-            + f2g0
-            + f3g9_38
-            + f4g8_19
-            + f5g7_38
-            + f6g6_19
-            + f7g5_38
-            + f8g4_19
-            + f9g3_38;
-        let mut h3 =
-            f0g3 + f1g2 + f2g1 + f3g0 + f4g9_19 + f5g8_19 + f6g7_19 + f7g6_19 + f8g5_19 + f9g4_19;
-        let mut h4 =
-            f0g4 + f1g3_2 + f2g2 + f3g1_2 + f4g0 + f5g9_38 + f6g8_19 + f7g7_38 + f8g6_19 + f9g5_38;
-        let mut h5 =
-            f0g5 + f1g4 + f2g3 + f3g2 + f4g1 + f5g0 + f6g9_19 + f7g8_19 + f8g7_19 + f9g6_19;
-        let mut h6 =
-            f0g6 + f1g5_2 + f2g4 + f3g3_2 + f4g2 + f5g1_2 + f6g0 + f7g9_38 + f8g8_19 + f9g7_38;
-        let mut h7 = f0g7 + f1g6 + f2g5 + f3g4 + f4g3 + f5g2 + f6g1 + f7g0 + f8g9_19 + f9g8_19;
-        let mut h8 = f0g8 + f1g7_2 + f2g6 + f3g5_2 + f4g4 + f5g3_2 + f6g2 + f7g1_2 + f8g0 + f9g9_38;
-        let mut h9 = f0g9 + f1g8 + f2g7 + f3g6 + f4g5 + f5g4 + f6g3 + f7g2 + f8g1 + f9g0;
-        let mut carry0;
-        let carry1;
-        let carry2;
-        let carry3;
-        let mut carry4;
-        let carry5;
-        let carry6;
-        let carry7;
-        let carry8;
-        let carry9;
-
-        carry0 = (h0 + (1 << 25)) >> 26;
-        h1 += carry0;
-        h0 -= carry0 << 26;
-        carry4 = (h4 + (1 << 25)) >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-        /* |h0| <= 2^25 */
-        /* |h4| <= 2^25 */
-        /* |h1| <= 1.51*2^58 */
-        /* |h5| <= 1.51*2^58 */
-
-        carry1 = (h1 + (1 << 24)) >> 25;
-        h2 += carry1;
-        h1 -= carry1 << 25;
-        carry5 = (h5 + (1 << 24)) >> 25;
-        h6 += carry5;
-        h5 -= carry5 << 25;
-        /* |h1| <= 2^24; from now on fits into int32 */
-        /* |h5| <= 2^24; from now on fits into int32 */
-        /* |h2| <= 1.21*2^59 */
-        /* |h6| <= 1.21*2^59 */
-
-        carry2 = (h2 + (1 << 25)) >> 26;
-        h3 += carry2;
-        h2 -= carry2 << 26;
-        carry6 = (h6 + (1 << 25)) >> 26;
-        h7 += carry6;
-        h6 -= carry6 << 26;
-        /* |h2| <= 2^25; from now on fits into int32 unchanged */
-        /* |h6| <= 2^25; from now on fits into int32 unchanged */
-        /* |h3| <= 1.51*2^58 */
-        /* |h7| <= 1.51*2^58 */
-
-        carry3 = (h3 + (1 << 24)) >> 25;
-        h4 += carry3;
-        h3 -= carry3 << 25;
-        carry7 = (h7 + (1 << 24)) >> 25;
-        h8 += carry7;
-        h7 -= carry7 << 25;
-        /* |h3| <= 2^24; from now on fits into int32 unchanged */
-        /* |h7| <= 2^24; from now on fits into int32 unchanged */
-        /* |h4| <= 1.52*2^33 */
-        /* |h8| <= 1.52*2^33 */
-
-        carry4 = (h4 + (1 << 25)) >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-        carry8 = (h8 + (1 << 25)) >> 26;
-        h9 += carry8;
-        h8 -= carry8 << 26;
-        /* |h4| <= 2^25; from now on fits into int32 unchanged */
-        /* |h8| <= 2^25; from now on fits into int32 unchanged */
-        /* |h5| <= 1.01*2^24 */
-        /* |h9| <= 1.51*2^58 */
-
-        carry9 = (h9 + (1 << 24)) >> 25;
-        h0 += carry9 * 19;
-        h9 -= carry9 << 25;
-        /* |h9| <= 2^24; from now on fits into int32 unchanged */
-        /* |h0| <= 1.8*2^37 */
-
-        carry0 = (h0 + (1 << 25)) >> 26;
-        h1 += carry0;
-        h0 -= carry0 << 26;
-        /* |h0| <= 2^25; from now on fits into int32 unchanged */
-        /* |h1| <= 1.01*2^24 */
-
-        Fe([
-            h0 as i32, h1 as i32, h2 as i32, h3 as i32, h4 as i32, h5 as i32, h6 as i32, h7 as i32,
-            h8 as i32, h9 as i32,
-        ])
+        let mut h = Fe::default();
+        fiat_25519_carry_mul(&mut h.0, &f, &g);
+        h
     }
 }
 
 impl Fe {
     pub fn from_bytes(s: &[u8]) -> Fe {
-        let mut h0 = load_4i(&s[0..4]);
-        let mut h1 = load_3i(&s[4..7]) << 6;
-        let mut h2 = load_3i(&s[7..10]) << 5;
-        let mut h3 = load_3i(&s[10..13]) << 3;
-        let mut h4 = load_3i(&s[13..16]) << 2;
-        let mut h5 = load_4i(&s[16..20]);
-        let mut h6 = load_3i(&s[20..23]) << 7;
-        let mut h7 = load_3i(&s[23..26]) << 5;
-        let mut h8 = load_3i(&s[26..29]) << 4;
-        let mut h9 = (load_3i(&s[29..32]) & 8388607) << 2;
-
-        let carry9 = (h9 + (1 << 24)) >> 25;
-        h0 += carry9 * 19;
-        h9 -= carry9 << 25;
-        let carry1 = (h1 + (1 << 24)) >> 25;
-        h2 += carry1;
-        h1 -= carry1 << 25;
-        let carry3 = (h3 + (1 << 24)) >> 25;
-        h4 += carry3;
-        h3 -= carry3 << 25;
-        let carry5 = (h5 + (1 << 24)) >> 25;
-        h6 += carry5;
-        h5 -= carry5 << 25;
-        let carry7 = (h7 + (1 << 24)) >> 25;
-        h8 += carry7;
-        h7 -= carry7 << 25;
-
-        let carry0 = (h0 + (1 << 25)) >> 26;
-        h1 += carry0;
-        h0 -= carry0 << 26;
-        let carry2 = (h2 + (1 << 25)) >> 26;
-        h3 += carry2;
-        h2 -= carry2 << 26;
-        let carry4 = (h4 + (1 << 25)) >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-        let carry6 = (h6 + (1 << 25)) >> 26;
-        h7 += carry6;
-        h6 -= carry6 << 26;
-        let carry8 = (h8 + (1 << 25)) >> 26;
-        h9 += carry8;
-        h8 -= carry8 << 26;
-
-        Fe([
-            h0 as i32, h1 as i32, h2 as i32, h3 as i32, h4 as i32, h5 as i32, h6 as i32, h7 as i32,
-            h8 as i32, h9 as i32,
-        ])
+        if s.len() != 32 {
+            panic!("Invalid compressed length")
+        }
+        let mut h = Fe::default();
+        let mask = 0x7ffffffffffff;
+        h.0[0] = load_8u(&s[0..]) & mask;
+        h.0[1] = (load_8u(&s[6..]) >> 3) & mask;
+        h.0[2] = (load_8u(&s[12..]) >> 6) & mask;
+        h.0[3] = (load_8u(&s[19..]) >> 1) & mask;
+        h.0[4] = (load_8u(&s[24..]) >> 12) & mask;
+        h
     }
 
     pub fn to_bytes(&self) -> [u8; 32] {
-        let &Fe(es) = self;
-        let mut h0 = es[0];
-        let mut h1 = es[1];
-        let mut h2 = es[2];
-        let mut h3 = es[3];
-        let mut h4 = es[4];
-        let mut h5 = es[5];
-        let mut h6 = es[6];
-        let mut h7 = es[7];
-        let mut h8 = es[8];
-        let mut h9 = es[9];
-        let mut q;
-
-        q = (19 * h9 + (1 << 24)) >> 25;
-        q = (h0 + q) >> 26;
-        q = (h1 + q) >> 25;
-        q = (h2 + q) >> 26;
-        q = (h3 + q) >> 25;
-        q = (h4 + q) >> 26;
-        q = (h5 + q) >> 25;
-        q = (h6 + q) >> 26;
-        q = (h7 + q) >> 25;
-        q = (h8 + q) >> 26;
-        q = (h9 + q) >> 25;
-
-        /* Goal: Output h-(2^255-19)q, which is between 0 and 2^255-20. */
-        h0 += 19 * q;
-        /* Goal: Output h-2^255 q, which is between 0 and 2^255-20. */
-
-        let carry0 = h0 >> 26;
-        h1 += carry0;
-        h0 -= carry0 << 26;
-        let carry1 = h1 >> 25;
-        h2 += carry1;
-        h1 -= carry1 << 25;
-        let carry2 = h2 >> 26;
-        h3 += carry2;
-        h2 -= carry2 << 26;
-        let carry3 = h3 >> 25;
-        h4 += carry3;
-        h3 -= carry3 << 25;
-        let carry4 = h4 >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-        let carry5 = h5 >> 25;
-        h6 += carry5;
-        h5 -= carry5 << 25;
-        let carry6 = h6 >> 26;
-        h7 += carry6;
-        h6 -= carry6 << 26;
-        let carry7 = h7 >> 25;
-        h8 += carry7;
-        h7 -= carry7 << 25;
-        let carry8 = h8 >> 26;
-        h9 += carry8;
-        h8 -= carry8 << 26;
-        let carry9 = h9 >> 25;
-        h9 -= carry9 << 25;
-        /* h10 = carry9 */
-
-        /*
-        Goal: Output h0+...+2^255 h10-2^255 q, which is between 0 and 2^255-20.
-        Have h0+...+2^230 h9 between 0 and 2^255-1;
-        evidently 2^255 h10-2^255 q = 0.
-        Goal: Output h0+...+2^230 h9.
-        */
-        [
-            (h0 >> 0) as u8,
-            (h0 >> 8) as u8,
-            (h0 >> 16) as u8,
-            ((h0 >> 24) | (h1 << 2)) as u8,
-            (h1 >> 6) as u8,
-            (h1 >> 14) as u8,
-            ((h1 >> 22) | (h2 << 3)) as u8,
-            (h2 >> 5) as u8,
-            (h2 >> 13) as u8,
-            ((h2 >> 21) | (h3 << 5)) as u8,
-            (h3 >> 3) as u8,
-            (h3 >> 11) as u8,
-            ((h3 >> 19) | (h4 << 6)) as u8,
-            (h4 >> 2) as u8,
-            (h4 >> 10) as u8,
-            (h4 >> 18) as u8,
-            (h5 >> 0) as u8,
-            (h5 >> 8) as u8,
-            (h5 >> 16) as u8,
-            ((h5 >> 24) | (h6 << 1)) as u8,
-            (h6 >> 7) as u8,
-            (h6 >> 15) as u8,
-            ((h6 >> 23) | (h7 << 3)) as u8,
-            (h7 >> 5) as u8,
-            (h7 >> 13) as u8,
-            ((h7 >> 21) | (h8 << 4)) as u8,
-            (h8 >> 4) as u8,
-            (h8 >> 12) as u8,
-            ((h8 >> 20) | (h9 << 6)) as u8,
-            (h9 >> 2) as u8,
-            (h9 >> 10) as u8,
-            (h9 >> 18) as u8,
-        ]
+        let &Fe(es) = &self.carry();
+        let mut s_ = [0u8; 32];
+        fiat_25519_to_bytes(&mut s_, &es);
+        s_
     }
 
-    pub fn maybe_set(&mut self, other: &Fe, do_swap: i32) {
+    pub fn carry(&self) -> Fe {
+        let mut h = Fe::default();
+        fiat_25519_carry(&mut h.0, &self.0);
+        h
+    }
+
+    pub fn maybe_set(&mut self, other: &Fe, do_swap: u8) {
         let &mut Fe(f) = self;
         let &Fe(g) = other;
-        let f0 = f[0];
-        let f1 = f[1];
-        let f2 = f[2];
-        let f3 = f[3];
-        let f4 = f[4];
-        let f5 = f[5];
-        let f6 = f[6];
-        let f7 = f[7];
-        let f8 = f[8];
-        let f9 = f[9];
-        let g0 = g[0];
-        let g1 = g[1];
-        let g2 = g[2];
-        let g3 = g[3];
-        let g4 = g[4];
-        let g5 = g[5];
-        let g6 = g[6];
-        let g7 = g[7];
-        let g8 = g[8];
-        let g9 = g[9];
-        let mut x0 = f0 ^ g0;
-        let mut x1 = f1 ^ g1;
-        let mut x2 = f2 ^ g2;
-        let mut x3 = f3 ^ g3;
-        let mut x4 = f4 ^ g4;
-        let mut x5 = f5 ^ g5;
-        let mut x6 = f6 ^ g6;
-        let mut x7 = f7 ^ g7;
-        let mut x8 = f8 ^ g8;
-        let mut x9 = f9 ^ g9;
-        let b = -do_swap;
-        x0 &= b;
-        x1 &= b;
-        x2 &= b;
-        x3 &= b;
-        x4 &= b;
-        x5 &= b;
-        x6 &= b;
-        x7 &= b;
-        x8 &= b;
-        x9 &= b;
-        *self = Fe([
-            f0 ^ x0,
-            f1 ^ x1,
-            f2 ^ x2,
-            f3 ^ x3,
-            f4 ^ x4,
-            f5 ^ x5,
-            f6 ^ x6,
-            f7 ^ x7,
-            f8 ^ x8,
-            f9 ^ x9,
-        ]);
+        let mut t = [0u64; 5];
+        fiat_25519_selectznz(&mut t, do_swap, &f, &g);
+        self.0 = t
     }
 
     fn square(&self) -> Fe {
-        let &Fe(f) = self;
-
-        let f0 = f[0];
-        let f1 = f[1];
-        let f2 = f[2];
-        let f3 = f[3];
-        let f4 = f[4];
-        let f5 = f[5];
-        let f6 = f[6];
-        let f7 = f[7];
-        let f8 = f[8];
-        let f9 = f[9];
-        let f0_2 = 2 * f0;
-        let f1_2 = 2 * f1;
-        let f2_2 = 2 * f2;
-        let f3_2 = 2 * f3;
-        let f4_2 = 2 * f4;
-        let f5_2 = 2 * f5;
-        let f6_2 = 2 * f6;
-        let f7_2 = 2 * f7;
-        let f5_38 = 38 * f5; /* 1.31*2^30 */
-        let f6_19 = 19 * f6; /* 1.31*2^30 */
-        let f7_38 = 38 * f7; /* 1.31*2^30 */
-        let f8_19 = 19 * f8; /* 1.31*2^30 */
-        let f9_38 = 38 * f9; /* 1.31*2^30 */
-        let f0f0 = (f0 as i64) * (f0 as i64);
-        let f0f1_2 = (f0_2 as i64) * (f1 as i64);
-        let f0f2_2 = (f0_2 as i64) * (f2 as i64);
-        let f0f3_2 = (f0_2 as i64) * (f3 as i64);
-        let f0f4_2 = (f0_2 as i64) * (f4 as i64);
-        let f0f5_2 = (f0_2 as i64) * (f5 as i64);
-        let f0f6_2 = (f0_2 as i64) * (f6 as i64);
-        let f0f7_2 = (f0_2 as i64) * (f7 as i64);
-        let f0f8_2 = (f0_2 as i64) * (f8 as i64);
-        let f0f9_2 = (f0_2 as i64) * (f9 as i64);
-        let f1f1_2 = (f1_2 as i64) * (f1 as i64);
-        let f1f2_2 = (f1_2 as i64) * (f2 as i64);
-        let f1f3_4 = (f1_2 as i64) * (f3_2 as i64);
-        let f1f4_2 = (f1_2 as i64) * (f4 as i64);
-        let f1f5_4 = (f1_2 as i64) * (f5_2 as i64);
-        let f1f6_2 = (f1_2 as i64) * (f6 as i64);
-        let f1f7_4 = (f1_2 as i64) * (f7_2 as i64);
-        let f1f8_2 = (f1_2 as i64) * (f8 as i64);
-        let f1f9_76 = (f1_2 as i64) * (f9_38 as i64);
-        let f2f2 = (f2 as i64) * (f2 as i64);
-        let f2f3_2 = (f2_2 as i64) * (f3 as i64);
-        let f2f4_2 = (f2_2 as i64) * (f4 as i64);
-        let f2f5_2 = (f2_2 as i64) * (f5 as i64);
-        let f2f6_2 = (f2_2 as i64) * (f6 as i64);
-        let f2f7_2 = (f2_2 as i64) * (f7 as i64);
-        let f2f8_38 = (f2_2 as i64) * (f8_19 as i64);
-        let f2f9_38 = (f2 as i64) * (f9_38 as i64);
-        let f3f3_2 = (f3_2 as i64) * (f3 as i64);
-        let f3f4_2 = (f3_2 as i64) * (f4 as i64);
-        let f3f5_4 = (f3_2 as i64) * (f5_2 as i64);
-        let f3f6_2 = (f3_2 as i64) * (f6 as i64);
-        let f3f7_76 = (f3_2 as i64) * (f7_38 as i64);
-        let f3f8_38 = (f3_2 as i64) * (f8_19 as i64);
-        let f3f9_76 = (f3_2 as i64) * (f9_38 as i64);
-        let f4f4 = (f4 as i64) * (f4 as i64);
-        let f4f5_2 = (f4_2 as i64) * (f5 as i64);
-        let f4f6_38 = (f4_2 as i64) * (f6_19 as i64);
-        let f4f7_38 = (f4 as i64) * (f7_38 as i64);
-        let f4f8_38 = (f4_2 as i64) * (f8_19 as i64);
-        let f4f9_38 = (f4 as i64) * (f9_38 as i64);
-        let f5f5_38 = (f5 as i64) * (f5_38 as i64);
-        let f5f6_38 = (f5_2 as i64) * (f6_19 as i64);
-        let f5f7_76 = (f5_2 as i64) * (f7_38 as i64);
-        let f5f8_38 = (f5_2 as i64) * (f8_19 as i64);
-        let f5f9_76 = (f5_2 as i64) * (f9_38 as i64);
-        let f6f6_19 = (f6 as i64) * (f6_19 as i64);
-        let f6f7_38 = (f6 as i64) * (f7_38 as i64);
-        let f6f8_38 = (f6_2 as i64) * (f8_19 as i64);
-        let f6f9_38 = (f6 as i64) * (f9_38 as i64);
-        let f7f7_38 = (f7 as i64) * (f7_38 as i64);
-        let f7f8_38 = (f7_2 as i64) * (f8_19 as i64);
-        let f7f9_76 = (f7_2 as i64) * (f9_38 as i64);
-        let f8f8_19 = (f8 as i64) * (f8_19 as i64);
-        let f8f9_38 = (f8 as i64) * (f9_38 as i64);
-        let f9f9_38 = (f9 as i64) * (f9_38 as i64);
-        let mut h0 = f0f0 + f1f9_76 + f2f8_38 + f3f7_76 + f4f6_38 + f5f5_38;
-        let mut h1 = f0f1_2 + f2f9_38 + f3f8_38 + f4f7_38 + f5f6_38;
-        let mut h2 = f0f2_2 + f1f1_2 + f3f9_76 + f4f8_38 + f5f7_76 + f6f6_19;
-        let mut h3 = f0f3_2 + f1f2_2 + f4f9_38 + f5f8_38 + f6f7_38;
-        let mut h4 = f0f4_2 + f1f3_4 + f2f2 + f5f9_76 + f6f8_38 + f7f7_38;
-        let mut h5 = f0f5_2 + f1f4_2 + f2f3_2 + f6f9_38 + f7f8_38;
-        let mut h6 = f0f6_2 + f1f5_4 + f2f4_2 + f3f3_2 + f7f9_76 + f8f8_19;
-        let mut h7 = f0f7_2 + f1f6_2 + f2f5_2 + f3f4_2 + f8f9_38;
-        let mut h8 = f0f8_2 + f1f7_4 + f2f6_2 + f3f5_4 + f4f4 + f9f9_38;
-        let mut h9 = f0f9_2 + f1f8_2 + f2f7_2 + f3f6_2 + f4f5_2;
-
-        let carry0 = (h0 + (1 << 25)) >> 26;
-        h1 += carry0;
-        h0 -= carry0 << 26;
-        let carry4 = (h4 + (1 << 25)) >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-
-        let carry1 = (h1 + (1 << 24)) >> 25;
-        h2 += carry1;
-        h1 -= carry1 << 25;
-        let carry5 = (h5 + (1 << 24)) >> 25;
-        h6 += carry5;
-        h5 -= carry5 << 25;
-
-        let carry2 = (h2 + (1 << 25)) >> 26;
-        h3 += carry2;
-        h2 -= carry2 << 26;
-        let carry6 = (h6 + (1 << 25)) >> 26;
-        h7 += carry6;
-        h6 -= carry6 << 26;
-
-        let carry3 = (h3 + (1 << 24)) >> 25;
-        h4 += carry3;
-        h3 -= carry3 << 25;
-        let carry7 = (h7 + (1 << 24)) >> 25;
-        h8 += carry7;
-        h7 -= carry7 << 25;
-
-        let carry4 = (h4 + (1 << 25)) >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-        let carry8 = (h8 + (1 << 25)) >> 26;
-        h9 += carry8;
-        h8 -= carry8 << 26;
-
-        let carry9 = (h9 + (1 << 24)) >> 25;
-        h0 += carry9 * 19;
-        h9 -= carry9 << 25;
-
-        let carrya = (h0 + (1 << 25)) >> 26;
-        h1 += carrya;
-        h0 -= carrya << 26;
-
-        Fe([
-            h0 as i32, h1 as i32, h2 as i32, h3 as i32, h4 as i32, h5 as i32, h6 as i32, h7 as i32,
-            h8 as i32, h9 as i32,
-        ])
+        let &Fe(f) = &self;
+        let mut h = Fe::default();
+        fiat_25519_carry_square(&mut h.0, &f);
+        h
     }
 
     fn square_and_double(&self) -> Fe {
-        let &Fe(f) = self;
-
-        let f0 = f[0];
-        let f1 = f[1];
-        let f2 = f[2];
-        let f3 = f[3];
-        let f4 = f[4];
-        let f5 = f[5];
-        let f6 = f[6];
-        let f7 = f[7];
-        let f8 = f[8];
-        let f9 = f[9];
-        let f0_2 = 2 * f0;
-        let f1_2 = 2 * f1;
-        let f2_2 = 2 * f2;
-        let f3_2 = 2 * f3;
-        let f4_2 = 2 * f4;
-        let f5_2 = 2 * f5;
-        let f6_2 = 2 * f6;
-        let f7_2 = 2 * f7;
-        let f5_38 = 38 * f5; /* 1.959375*2^30 */
-        let f6_19 = 19 * f6; /* 1.959375*2^30 */
-        let f7_38 = 38 * f7; /* 1.959375*2^30 */
-        let f8_19 = 19 * f8; /* 1.959375*2^30 */
-        let f9_38 = 38 * f9; /* 1.959375*2^30 */
-        let f0f0 = (f0 as i64) * (f0 as i64);
-        let f0f1_2 = (f0_2 as i64) * (f1 as i64);
-        let f0f2_2 = (f0_2 as i64) * (f2 as i64);
-        let f0f3_2 = (f0_2 as i64) * (f3 as i64);
-        let f0f4_2 = (f0_2 as i64) * (f4 as i64);
-        let f0f5_2 = (f0_2 as i64) * (f5 as i64);
-        let f0f6_2 = (f0_2 as i64) * (f6 as i64);
-        let f0f7_2 = (f0_2 as i64) * (f7 as i64);
-        let f0f8_2 = (f0_2 as i64) * (f8 as i64);
-        let f0f9_2 = (f0_2 as i64) * (f9 as i64);
-        let f1f1_2 = (f1_2 as i64) * (f1 as i64);
-        let f1f2_2 = (f1_2 as i64) * (f2 as i64);
-        let f1f3_4 = (f1_2 as i64) * (f3_2 as i64);
-        let f1f4_2 = (f1_2 as i64) * (f4 as i64);
-        let f1f5_4 = (f1_2 as i64) * (f5_2 as i64);
-        let f1f6_2 = (f1_2 as i64) * (f6 as i64);
-        let f1f7_4 = (f1_2 as i64) * (f7_2 as i64);
-        let f1f8_2 = (f1_2 as i64) * (f8 as i64);
-        let f1f9_76 = (f1_2 as i64) * (f9_38 as i64);
-        let f2f2 = (f2 as i64) * (f2 as i64);
-        let f2f3_2 = (f2_2 as i64) * (f3 as i64);
-        let f2f4_2 = (f2_2 as i64) * (f4 as i64);
-        let f2f5_2 = (f2_2 as i64) * (f5 as i64);
-        let f2f6_2 = (f2_2 as i64) * (f6 as i64);
-        let f2f7_2 = (f2_2 as i64) * (f7 as i64);
-        let f2f8_38 = (f2_2 as i64) * (f8_19 as i64);
-        let f2f9_38 = (f2 as i64) * (f9_38 as i64);
-        let f3f3_2 = (f3_2 as i64) * (f3 as i64);
-        let f3f4_2 = (f3_2 as i64) * (f4 as i64);
-        let f3f5_4 = (f3_2 as i64) * (f5_2 as i64);
-        let f3f6_2 = (f3_2 as i64) * (f6 as i64);
-        let f3f7_76 = (f3_2 as i64) * (f7_38 as i64);
-        let f3f8_38 = (f3_2 as i64) * (f8_19 as i64);
-        let f3f9_76 = (f3_2 as i64) * (f9_38 as i64);
-        let f4f4 = (f4 as i64) * (f4 as i64);
-        let f4f5_2 = (f4_2 as i64) * (f5 as i64);
-        let f4f6_38 = (f4_2 as i64) * (f6_19 as i64);
-        let f4f7_38 = (f4 as i64) * (f7_38 as i64);
-        let f4f8_38 = (f4_2 as i64) * (f8_19 as i64);
-        let f4f9_38 = (f4 as i64) * (f9_38 as i64);
-        let f5f5_38 = (f5 as i64) * (f5_38 as i64);
-        let f5f6_38 = (f5_2 as i64) * (f6_19 as i64);
-        let f5f7_76 = (f5_2 as i64) * (f7_38 as i64);
-        let f5f8_38 = (f5_2 as i64) * (f8_19 as i64);
-        let f5f9_76 = (f5_2 as i64) * (f9_38 as i64);
-        let f6f6_19 = (f6 as i64) * (f6_19 as i64);
-        let f6f7_38 = (f6 as i64) * (f7_38 as i64);
-        let f6f8_38 = (f6_2 as i64) * (f8_19 as i64);
-        let f6f9_38 = (f6 as i64) * (f9_38 as i64);
-        let f7f7_38 = (f7 as i64) * (f7_38 as i64);
-        let f7f8_38 = (f7_2 as i64) * (f8_19 as i64);
-        let f7f9_76 = (f7_2 as i64) * (f9_38 as i64);
-        let f8f8_19 = (f8 as i64) * (f8_19 as i64);
-        let f8f9_38 = (f8 as i64) * (f9_38 as i64);
-        let f9f9_38 = (f9 as i64) * (f9_38 as i64);
-        let mut h0 = f0f0 + f1f9_76 + f2f8_38 + f3f7_76 + f4f6_38 + f5f5_38;
-        let mut h1 = f0f1_2 + f2f9_38 + f3f8_38 + f4f7_38 + f5f6_38;
-        let mut h2 = f0f2_2 + f1f1_2 + f3f9_76 + f4f8_38 + f5f7_76 + f6f6_19;
-        let mut h3 = f0f3_2 + f1f2_2 + f4f9_38 + f5f8_38 + f6f7_38;
-        let mut h4 = f0f4_2 + f1f3_4 + f2f2 + f5f9_76 + f6f8_38 + f7f7_38;
-        let mut h5 = f0f5_2 + f1f4_2 + f2f3_2 + f6f9_38 + f7f8_38;
-        let mut h6 = f0f6_2 + f1f5_4 + f2f4_2 + f3f3_2 + f7f9_76 + f8f8_19;
-        let mut h7 = f0f7_2 + f1f6_2 + f2f5_2 + f3f4_2 + f8f9_38;
-        let mut h8 = f0f8_2 + f1f7_4 + f2f6_2 + f3f5_4 + f4f4 + f9f9_38;
-        let mut h9 = f0f9_2 + f1f8_2 + f2f7_2 + f3f6_2 + f4f5_2;
-        let mut carry0: i64;
-        let carry1: i64;
-        let carry2: i64;
-        let carry3: i64;
-        let mut carry4: i64;
-        let carry5: i64;
-        let carry6: i64;
-        let carry7: i64;
-        let carry8: i64;
-        let carry9: i64;
-
-        h0 += h0;
-        h1 += h1;
-        h2 += h2;
-        h3 += h3;
-        h4 += h4;
-        h5 += h5;
-        h6 += h6;
-        h7 += h7;
-        h8 += h8;
-        h9 += h9;
-
-        carry0 = (h0 + (1 << 25)) >> 26;
-        h1 += carry0;
-        h0 -= carry0 << 26;
-        carry4 = (h4 + (1 << 25)) >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-
-        carry1 = (h1 + (1 << 24)) >> 25;
-        h2 += carry1;
-        h1 -= carry1 << 25;
-        carry5 = (h5 + (1 << 24)) >> 25;
-        h6 += carry5;
-        h5 -= carry5 << 25;
-
-        carry2 = (h2 + (1 << 25)) >> 26;
-        h3 += carry2;
-        h2 -= carry2 << 26;
-        carry6 = (h6 + (1 << 25)) >> 26;
-        h7 += carry6;
-        h6 -= carry6 << 26;
-
-        carry3 = (h3 + (1 << 24)) >> 25;
-        h4 += carry3;
-        h3 -= carry3 << 25;
-        carry7 = (h7 + (1 << 24)) >> 25;
-        h8 += carry7;
-        h7 -= carry7 << 25;
-
-        carry4 = (h4 + (1 << 25)) >> 26;
-        h5 += carry4;
-        h4 -= carry4 << 26;
-        carry8 = (h8 + (1 << 25)) >> 26;
-        h9 += carry8;
-        h8 -= carry8 << 26;
-
-        carry9 = (h9 + (1 << 24)) >> 25;
-        h0 += carry9 * 19;
-        h9 -= carry9 << 25;
-
-        carry0 = (h0 + (1 << 25)) >> 26;
-        h1 += carry0;
-        h0 -= carry0 << 26;
-
-        Fe([
-            h0 as i32, h1 as i32, h2 as i32, h3 as i32, h4 as i32, h5 as i32, h6 as i32, h7 as i32,
-            h8 as i32, h9 as i32,
-        ])
+        let h = self.square();
+        (h + h)
     }
 
     pub fn invert(&self) -> Fe {
         let z1 = *self;
-
-        /* qhasm: z2 = z1^2^1 */
         let z2 = z1.square();
-        /* qhasm: z8 = z2^2^2 */
         let z8 = z2.square().square();
-        /* qhasm: z9 = z1*z8 */
         let z9 = z1 * z8;
-
-        /* qhasm: z11 = z2*z9 */
         let z11 = z2 * z9;
-
-        /* qhasm: z22 = z11^2^1 */
         let z22 = z11.square();
-
-        /* qhasm: z_5_0 = z9*z22 */
         let z_5_0 = z9 * z22;
-
-        /* qhasm: z_10_5 = z_5_0^2^5 */
         let z_10_5 = (0..5).fold(z_5_0, |z_5_n, _| z_5_n.square());
-
-        /* qhasm: z_10_0 = z_10_5*z_5_0 */
         let z_10_0 = z_10_5 * z_5_0;
-
-        /* qhasm: z_20_10 = z_10_0^2^10 */
         let z_20_10 = (0..10).fold(z_10_0, |x, _| x.square());
-
-        /* qhasm: z_20_0 = z_20_10*z_10_0 */
         let z_20_0 = z_20_10 * z_10_0;
-
-        /* qhasm: z_40_20 = z_20_0^2^20 */
         let z_40_20 = (0..20).fold(z_20_0, |x, _| x.square());
-
-        /* qhasm: z_40_0 = z_40_20*z_20_0 */
         let z_40_0 = z_40_20 * z_20_0;
-
-        /* qhasm: z_50_10 = z_40_0^2^10 */
         let z_50_10 = (0..10).fold(z_40_0, |x, _| x.square());
-
-        /* qhasm: z_50_0 = z_50_10*z_10_0 */
         let z_50_0 = z_50_10 * z_10_0;
-
-        /* qhasm: z_100_50 = z_50_0^2^50 */
         let z_100_50 = (0..50).fold(z_50_0, |x, _| x.square());
-
-        /* qhasm: z_100_0 = z_100_50*z_50_0 */
         let z_100_0 = z_100_50 * z_50_0;
-
-        /* qhasm: z_200_100 = z_100_0^2^100 */
         let z_200_100 = (0..100).fold(z_100_0, |x, _| x.square());
-
-        /* qhasm: z_200_0 = z_200_100*z_100_0 */
-        /* asm 1: fe_mul(>z_200_0=fe#3,<z_200_100=fe#4,<z_100_0=fe#3); */
-        /* asm 2: fe_mul(>z_200_0=t2,<z_200_100=t3,<z_100_0=t2); */
         let z_200_0 = z_200_100 * z_100_0;
-
-        /* qhasm: z_250_50 = z_200_0^2^50 */
         let z_250_50 = (0..50).fold(z_200_0, |x, _| x.square());
-
-        /* qhasm: z_250_0 = z_250_50*z_50_0 */
         let z_250_0 = z_250_50 * z_50_0;
-
-        /* qhasm: z_255_5 = z_250_0^2^5 */
         let z_255_5 = (0..5).fold(z_250_0, |x, _| x.square());
-
-        /* qhasm: z_255_21 = z_255_5*z11 */
-        /* asm 1: fe_mul(>z_255_21=fe#12,<z_255_5=fe#2,<z11=fe#1); */
-        /* asm 2: fe_mul(>z_255_21=out,<z_255_5=t1,<z11=t0); */
         let z_255_21 = z_255_5 * z11;
-
         z_255_21
     }
 
@@ -989,10 +583,10 @@ impl Fe {
     }
 
     fn neg(&self) -> Fe {
-        let &Fe(f) = self;
-        Fe([
-            -f[0], -f[1], -f[2], -f[3], -f[4], -f[5], -f[6], -f[7], -f[8], -f[9],
-        ])
+        let &Fe(f) = &self;
+        let mut h = Fe::default();
+        fiat_25519_opp(&mut h.0, &f);
+        h
     }
 
     fn pow25523(&self) -> Fe {
@@ -1277,7 +871,7 @@ impl GeP3 {
         bs
     }
 
-    pub fn maybe_set(&mut self, other: &GeP3, do_swap: i32) {
+    pub fn maybe_set(&mut self, other: &GeP3, do_swap: u8) {
         self.x.maybe_set(&other.x, do_swap);
         self.y.maybe_set(&other.y, do_swap);
         self.z.maybe_set(&other.z, do_swap);
@@ -1407,7 +1001,7 @@ pub fn ge_scalarmult_base(scalar: &[u8]) -> GeP3 {
         let q_cached = q.to_cached();
         let ps = (p + q_cached).to_p3();
         q = (q + q_cached).to_p3();
-        let b = ((scalar[(i >> 3)] >> (i as u8 & 7)) & 1) as i32;
+        let b = ((scalar[(i >> 3)] >> (i as u8 & 7)) & 1) as u8;
         p.maybe_set(&ps, b);
     }
     p
@@ -2267,114 +1861,186 @@ pub fn is_identity(s: &[u8]) -> bool {
 static BI: [GePrecomp; 8] = [
     GePrecomp {
         y_plus_x: Fe([
-            25967493, -14356035, 29566456, 3660896, -12694345, 4014787, 27544626, -11754271,
-            -6079156, 2047605,
+            1288382639258501,
+            245678601348599,
+            269427782077623,
+            1462984067271730,
+            137412439391563,
         ]),
         y_minus_x: Fe([
-            -12545711, 934262, -2722910, 3049990, -727428, 9406986, 12720692, 5043384, 19500929,
-            -15469378,
+            62697248952638,
+            204681361388450,
+            631292143396476,
+            338455783676468,
+            1213667448819585,
         ]),
         xy2d: Fe([
-            -8738181, 4489570, 9688441, -14785194, 10184609, -12363380, 29287919, 11864899,
-            -24514362, -4438546,
+            301289933810280,
+            1259582250014073,
+            1422107436869536,
+            796239922652654,
+            1953934009299142,
         ]),
     },
     GePrecomp {
         y_plus_x: Fe([
-            15636291, -9688557, 24204773, -7912398, 616977, -16685262, 27787600, -14772189,
-            28944400, -1550024,
+            1601611775252272,
+            1720807796594148,
+            1132070835939856,
+            1260455018889551,
+            2147779492816911,
         ]),
         y_minus_x: Fe([
-            16568933, 4717097, -11556148, -1102322, 15682896, -11807043, 16354577, -11775962,
-            7689662, 11199574,
+            316559037616741,
+            2177824224946892,
+            1459442586438991,
+            1461528397712656,
+            751590696113597,
         ]),
         xy2d: Fe([
-            30464156, -5976125, -11779434, -15670865, 23220365, 15915852, 7512774, 10017326,
-            -17749093, -9920357,
+            1850748884277385,
+            1200145853858453,
+            1068094770532492,
+            672251375690438,
+            1586055907191707,
         ]),
     },
     GePrecomp {
         y_plus_x: Fe([
-            10861363, 11473154, 27284546, 1981175, -30064349, 12577861, 32867885, 14515107,
-            -15438304, 10819380,
+            769950342298419,
+            132954430919746,
+            844085933195555,
+            974092374476333,
+            726076285546016,
         ]),
         y_minus_x: Fe([
-            4708026, 6336745, 20377586, 9066809, -11272109, 6594696, -25653668, 12483688,
-            -12668491, 5581306,
+            425251763115706,
+            608463272472562,
+            442562545713235,
+            837766094556764,
+            374555092627893,
         ]),
         xy2d: Fe([
-            19563160, 16186464, -29386857, 4097519, 10237984, -4348115, 28542350, 13850243,
-            -23678021, -15815942,
+            1086255230780037,
+            274979815921559,
+            1960002765731872,
+            929474102396301,
+            1190409889297339,
         ]),
     },
     GePrecomp {
         y_plus_x: Fe([
-            5153746, 9909285, 1723747, -2777874, 30523605, 5516873, 19480852, 5230134, -23952439,
-            -15175766,
+            665000864555967,
+            2065379846933859,
+            370231110385876,
+            350988370788628,
+            1233371373142985,
         ]),
         y_minus_x: Fe([
-            -30269007, -3463509, 7665486, 10083793, 28475525, 1649722, 20654025, 16520125,
-            30598449, 7715701,
+            2019367628972465,
+            676711900706637,
+            110710997811333,
+            1108646842542025,
+            517791959672113,
         ]),
         xy2d: Fe([
-            28881845, 14381568, 9657904, 3680757, -20181635, 7843316, -31400660, 1370708, 29794553,
-            -1409300,
+            965130719900578,
+            247011430587952,
+            526356006571389,
+            91986625355052,
+            2157223321444601,
         ]),
     },
     GePrecomp {
         y_plus_x: Fe([
-            -22518993, -6692182, 14201702, -8745502, -23510406, 8844726, 18474211, -1361450,
-            -13062696, 13821877,
+            1802695059465007,
+            1664899123557221,
+            593559490740857,
+            2160434469266659,
+            927570450755031,
         ]),
         y_minus_x: Fe([
-            -6455177, -7839871, 3374702, -4740862, -27098617, -10571707, 31655028, -7212327,
-            18853322, -14220951,
+            1725674970513508,
+            1933645953859181,
+            1542344539275782,
+            1767788773573747,
+            1297447965928905,
         ]),
         xy2d: Fe([
-            4566830, -12963868, -28974889, -12240689, -7602672, -2830569, -8514358, -10431137,
-            2207753, -3209784,
+            1381809363726107,
+            1430341051343062,
+            2061843536018959,
+            1551778050872521,
+            2036394857967624,
         ]),
     },
     GePrecomp {
         y_plus_x: Fe([
-            -25154831, -4185821, 29681144, 7868801, -6854661, -9423865, -12437364, -663000,
-            -31111463, -16132436,
+            1970894096313054,
+            528066325833207,
+            1619374932191227,
+            2207306624415883,
+            1169170329061080,
         ]),
         y_minus_x: Fe([
-            25576264, -2703214, 7349804, -11814844, 16472782, 9300885, 3844789, 15725684, 171356,
-            6466918,
+            2070390218572616,
+            1458919061857835,
+            624171843017421,
+            1055332792707765,
+            433987520732508,
         ]),
         xy2d: Fe([
-            23103977, 13316479, 9739013, -16149481, 817875, -15038942, 8965339, -14088058,
-            -30714912, 16193877,
+            893653801273833,
+            1168026499324677,
+            1242553501121234,
+            1306366254304474,
+            1086752658510815,
         ]),
     },
     GePrecomp {
         y_plus_x: Fe([
-            -33521811, 3180713, -2394130, 14003687, -16903474, -16270840, 17238398, 4729455,
-            -18074513, 9256800,
+            213454002618221,
+            939771523987438,
+            1159882208056014,
+            317388369627517,
+            621213314200687,
         ]),
         y_minus_x: Fe([
-            -25182317, -4174131, 32336398, 5036987, -21236817, 11360617, 22616405, 9761698,
-            -19827198, 630305,
+            1971678598905747,
+            338026507889165,
+            762398079972271,
+            655096486107477,
+            42299032696322,
         ]),
         xy2d: Fe([
-            -13720693, 2639453, -24237460, -7406481, 9494427, -5774029, -6554551, -15960994,
-            -2449256, -14291300,
+            177130678690680,
+            1754759263300204,
+            1864311296286618,
+            1180675631479880,
+            1292726903152791,
         ]),
     },
     GePrecomp {
         y_plus_x: Fe([
-            -3151181, -5046075, 9282714, 6866145, -31907062, -863023, -18940575, 15033784,
-            25105118, -7894876,
+            1913163449625248,
+            460779200291993,
+            2193883288642314,
+            1008900146920800,
+            1721983679009502,
         ]),
         y_minus_x: Fe([
-            -24326370, 15950226, -31801215, -14592823, -11662737, -5090925, 1573892, -2625887,
-            2198790, -15804619,
+            1070401523076875,
+            1272492007800961,
+            1910153608563310,
+            2075579521696771,
+            1191169788841221,
         ]),
         xy2d: Fe([
-            -3099351, 10324967, -2241613, 7453183, -5446979, -2735503, -13812022, -16236442,
-            -32461234, -12290683,
+            692896803108118,
+            500174642072499,
+            2068223309439677,
+            1162190621851337,
+            1426986007309901,
         ]),
     },
 ];
