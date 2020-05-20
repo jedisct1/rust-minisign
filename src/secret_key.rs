@@ -1,6 +1,5 @@
 use crate::constants::*;
 use crate::crypto::blake2b::Blake2b;
-use crate::crypto::digest::Digest;
 use crate::crypto::util::fixed_time_eq;
 use crate::errors::*;
 use crate::helpers::*;
@@ -88,11 +87,11 @@ impl SecretKey {
 
     pub(crate) fn read_checksum(&self) -> Result<Vec<u8>> {
         let mut state = Blake2b::new(CHK_BYTES);
-        state.input(&self.sig_alg);
-        state.input(&self.keynum_sk.keynum);
-        state.input(&self.keynum_sk.sk);
+        state.update(&self.sig_alg);
+        state.update(&self.keynum_sk.keynum);
+        state.update(&self.keynum_sk.sk);
         let mut h = vec![0u8; CHK_BYTES];
-        state.result(&mut h);
+        state.finalize(&mut h);
         Ok(h)
     }
 

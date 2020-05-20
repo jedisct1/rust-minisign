@@ -5,7 +5,6 @@
 // except according to those terms.
 
 use super::cryptoutil::{copy_memory, read_u64v_le, write_u64v_le};
-use super::digest::Digest;
 
 static IV: [u64; 8] = [
     0x6a09e667f3bcc908,
@@ -224,7 +223,7 @@ impl Blake2b {
         }
     }
 
-    fn update(&mut self, mut input: &[u8]) {
+   pub fn update(&mut self, mut input: &[u8]) {
         while !input.is_empty() {
             let left = self.buflen;
             let fill = 2 * BLAKE2B_BLOCKBYTES - left;
@@ -251,7 +250,7 @@ impl Blake2b {
         }
     }
 
-    fn finalize(&mut self, out: &mut [u8]) {
+   pub fn finalize(&mut self, out: &mut [u8]) {
         assert!(out.len() == self.digest_length as usize);
         if !self.computed {
             if self.buflen > BLAKE2B_BLOCKBYTES {
@@ -280,47 +279,10 @@ impl Blake2b {
         copy_memory(&self.buf[0..outlen], out);
     }
 
-    pub fn reset(&mut self) {
-        for (h_elem, iv_elem) in self.h.iter_mut().zip(IV.iter()) {
-            *h_elem = *iv_elem;
-        }
-        for t_elem in self.t.iter_mut() {
-            *t_elem = 0;
-        }
-        for f_elem in self.f.iter_mut() {
-            *f_elem = 0;
-        }
-        for b in self.buf.iter_mut() {
-            *b = 0;
-        }
-        self.buflen = 0;
-        self.last_node = 0;
-        self.computed = false;
-        self.apply_param();
-    }
-
     #[allow(dead_code)]
     pub fn blake2b(out: &mut [u8], input: &[u8]) {
         let mut hasher: Blake2b = Blake2b::new(out.len());
         hasher.update(input);
         hasher.finalize(out);
-    }
-}
-
-impl Digest for Blake2b {
-    fn reset(&mut self) {
-        Blake2b::reset(self);
-    }
-    fn input(&mut self, msg: &[u8]) {
-        self.update(msg);
-    }
-    fn result(&mut self, out: &mut [u8]) {
-        self.finalize(out);
-    }
-    fn output_bits(&self) -> usize {
-        8 * (self.digest_length as usize)
-    }
-    fn block_size(&self) -> usize {
-        8 * BLAKE2B_BLOCKBYTES
     }
 }

@@ -1,6 +1,5 @@
 use super::curve25519::{ge_scalarmult_base, is_identity, sc_muladd, sc_reduce, GeP2, GeP3};
-use super::digest::Digest;
-use super::sha2::Sha512;
+use super::sha512;
 use super::util::fixed_time_eq;
 
 static L: [u8; 32] = [
@@ -43,12 +42,11 @@ pub fn verify(message: &[u8], public_key: &[u8], signature: &[u8]) -> bool {
         return false;
     }
 
-    let mut hasher = Sha512::new();
-    hasher.input(&signature[0..32]);
-    hasher.input(public_key);
-    hasher.input(message);
-    let mut hash: [u8; 64] = [0; 64];
-    hasher.result(&mut hash);
+    let mut hasher = sha512::Hash::new();
+    hasher.update(&signature[0..32]);
+    hasher.update(public_key);
+    hasher.update(message);
+    let mut hash = hasher.finalize();
     sc_reduce(&mut hash);
 
     let r = GeP2::double_scalarmult_vartime(hash.as_ref(), a, &signature[32..64]);
@@ -59,10 +57,7 @@ pub fn verify(message: &[u8], public_key: &[u8], signature: &[u8]) -> bool {
 
 pub fn keypair(seed: &[u8]) -> ([u8; 64], [u8; 32]) {
     let mut secret: [u8; 64] = {
-        let mut hash_output: [u8; 64] = [0; 64];
-        let mut hasher = Sha512::new();
-        hasher.input(seed);
-        hasher.result(&mut hash_output);
+        let mut hash_output = sha512::Hash::hash(seed);
         hash_output[0] &= 248;
         hash_output[31] &= 63;
         hash_output[31] |= 64;
@@ -83,26 +78,22 @@ pub fn signature(message: &[u8], secret_key: &[u8], z: Option<&[u8]>) -> [u8; 64
     let seed = &secret_key[0..32];
     let public_key = &secret_key[32..64];
     let az: [u8; 64] = {
-        let mut hash_output: [u8; 64] = [0; 64];
-        let mut hasher = Sha512::new();
-        hasher.input(seed);
-        hasher.result(&mut hash_output);
+        let mut hash_output = sha512::Hash::hash(seed);
         hash_output[0] &= 248;
         hash_output[31] &= 63;
         hash_output[31] |= 64;
         hash_output
     };
     let nonce = {
-        let mut hash_output: [u8; 64] = [0; 64];
-        let mut hasher = Sha512::new();
+        let mut hasher = sha512::Hash::new();
         if let Some(z) = z {
-            hasher.input(z);
-            hasher.input(&az);
+            hasher.update(z);
+            hasher.update(&az[..]);
         } else {
-            hasher.input(&az[32..64]);
+            hasher.update(&az[32..64]);
         }
-        hasher.input(message);
-        hasher.result(&mut hash_output);
+        hasher.update(message);
+        let mut hash_output = hasher.finalize();
         sc_reduce(&mut hash_output[0..64]);
         hash_output
     };
@@ -115,11 +106,10 @@ pub fn signature(message: &[u8], secret_key: &[u8], z: Option<&[u8]>) -> [u8; 64
         *result_byte = *source_byte;
     }
     {
-        let mut hasher = Sha512::new();
-        hasher.input(signature.as_ref());
-        hasher.input(message);
-        let mut hram: [u8; 64] = [0; 64];
-        hasher.result(&mut hram);
+        let mut hasher = sha512::Hash::new();
+        hasher.update(signature.as_ref());
+        hasher.update(message);
+        let mut hram = hasher.finalize();
         sc_reduce(&mut hram);
         sc_muladd(
             &mut signature[32..64],

@@ -100,7 +100,6 @@ mod signature_box;
 mod tests;
 
 use crate::crypto::blake2b::Blake2b;
-use crate::crypto::digest::Digest;
 use crate::crypto::ed25519;
 use crate::helpers::*;
 use crate::signature::*;
@@ -127,9 +126,9 @@ where
         if len == 0 {
             break;
         }
-        state.input(&buf[..len]);
+        state.update(&buf[..len]);
     }
-    state.result(&mut h);
+    state.finalize(&mut h);
     Ok(h)
 }
 
