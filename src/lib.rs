@@ -84,6 +84,7 @@
 
 use scrypt;
 
+mod base64;
 mod constants;
 mod crypto;
 mod errors;

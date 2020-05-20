@@ -1,3 +1,4 @@
+use crate::base64::{Base64, Decoder, Encoder};
 use crate::constants::*;
 use crate::crypto::blake2b::Blake2b;
 use crate::crypto::util::fixed_time_eq;
@@ -5,7 +6,6 @@ use crate::errors::*;
 use crate::helpers::*;
 use crate::keynum::*;
 use crate::Result;
-use ct_codecs::{Base64, Decoder, Encoder};
 use std::cmp;
 use std::fmt::Write as fmtWrite;
 use std::fmt::{self, Formatter};
@@ -244,7 +244,7 @@ impl SecretKey {
     }
 
     pub(crate) fn from_base64(s: &str) -> Result<SecretKey> {
-        let bytes = Base64::decode_to_vec(s, None)?;
+        let bytes = Base64::decode_to_vec(s)?;
         SecretKey::from_bytes(&bytes[..])
     }
 

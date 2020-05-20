@@ -1,7 +1,7 @@
+use crate::base64::{Base64, Decoder, Encoder};
 use crate::constants::*;
 use crate::errors::*;
 use crate::signature::*;
-use ct_codecs::{Base64, Decoder, Encoder};
 use std::fmt::Write as fmtWrite;
 use std::fs;
 use std::path::Path;
@@ -86,7 +86,7 @@ impl SignatureBox {
             ));
         }
         let untrusted_comment = untrusted_comment[COMMENT_PREFIX.len()..].to_string();
-        let sig_bytes = Base64::decode_to_vec(signature_str.trim().as_bytes(), None)
+        let sig_bytes = Base64::decode_to_vec(signature_str.trim().as_bytes())
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
         let signature = Signature::from_bytes(&sig_bytes)?;
         if !trusted_comment_str.starts_with(TRUSTED_COMMENT_PREFIX) {
@@ -113,7 +113,7 @@ impl SignatureBox {
             .count();
         let mut sig_and_trusted_comment = signature.sig.to_vec();
         sig_and_trusted_comment.extend_from_slice(trusted_comment_str.trim().as_bytes());
-        let global_sig = Base64::decode_to_vec(global_sig.trim().as_bytes(), None)
+        let global_sig = Base64::decode_to_vec(global_sig.trim().as_bytes())
             .map_err(|e| PError::new(ErrorKind::Io, e))?;
         Ok(SignatureBox {
             untrusted_comment,

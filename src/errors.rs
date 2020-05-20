@@ -1,3 +1,4 @@
+use crate::base64;
 use std::error::Error as StdError;
 use std::{self, fmt, io};
 
@@ -90,8 +91,8 @@ impl From<fmt::Error> for PError {
     }
 }
 
-impl From<ct_codecs::Error> for PError {
-    fn from(err: ct_codecs::Error) -> PError {
+impl From<base64::Error> for PError {
+    fn from(err: base64::Error) -> PError {
         PError::new(ErrorKind::Encoding, err)
     }
 }

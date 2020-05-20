@@ -1,6 +1,6 @@
+use crate::base64::{Base64, Encoder};
 use crate::constants::*;
 use crate::Result;
-use ct_codecs::{Base64, Encoder};
 use std::io::{Cursor, Read};
 
 #[derive(Clone)]
