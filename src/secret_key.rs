@@ -10,7 +10,7 @@ use ct_codecs::{Base64, Decoder, Encoder};
 use std::cmp;
 use std::fmt::Write as fmtWrite;
 use std::fmt::{self, Formatter};
-use std::fs::OpenOptions;
+use std::fs;
 use std::io::{self, Write};
 use std::io::{Cursor, Read};
 use std::path::Path;
@@ -255,12 +255,7 @@ impl SecretKey {
 
     /// Load a `SecretKeyBox` from a file, and returns a `SecretKey` from it.
     pub fn from_file<P: AsRef<Path>>(sk_path: P, password: Option<String>) -> Result<SecretKey> {
-        let mut file = OpenOptions::new()
-            .read(true)
-            .open(sk_path)
-            .map_err(|e| PError::new(ErrorKind::Io, e))?;
-        let mut s = String::new();
-        file.read_to_string(&mut s)?;
+        let s = fs::read_to_string(sk_path)?;
         SecretKey::from_box(s.into(), password)
     }
 }

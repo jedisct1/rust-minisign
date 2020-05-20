@@ -1,6 +1,6 @@
 [package]
 name = "minisign"
-version = "0.5.14"
+version = "0.5.16"
 authors = ["Frank Denis <github@pureftpd.org>", "Daniel Rangel <daniel@rangel.in>"]
 description = "A crate to sign files and verify signatures."
 edition = "2018"
@@ -17,7 +17,7 @@ getrandom = { version = "0.1", default-features = false }
 scrypt = { version = "0.2", default-features = false }
 
 [target.'cfg(any(windows, unix))'.dependencies]
-rpassword = "4.0.1"
+rpassword = "4.0.5"
 
 [profile.dev]
 lto = "thin"

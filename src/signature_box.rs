@@ -3,8 +3,7 @@ use crate::errors::*;
 use crate::signature::*;
 use ct_codecs::{Base64, Decoder, Encoder};
 use std::fmt::Write as fmtWrite;
-use std::fs::File;
-use std::io::Read;
+use std::fs;
 use std::path::Path;
 
 /// A signature, as well as the metadata required to verify it.
@@ -172,11 +171,7 @@ impl SignatureBox {
     where
         P: AsRef<Path>,
     {
-        let sig_path = sig_path.as_ref();
-        let mut file = File::open(sig_path)
-            .map_err(|e| PError::new(ErrorKind::Io, format!("{} {}", e, sig_path.display())))?;
-        let mut s = String::new();
-        file.read_to_string(&mut s)?;
+        let s = fs::read_to_string(sig_path)?;
         SignatureBox::from_string(&s)
     }
 }

@@ -6,7 +6,7 @@ use crate::keynum::*;
 use ct_codecs::{Base64, Decoder, Encoder};
 use std::cmp;
 use std::fmt::Write as fmtWrite;
-use std::fs::OpenOptions;
+use std::fs;
 use std::io::{Cursor, Read};
 use std::path::Path;
 
@@ -182,19 +182,7 @@ impl PublicKey {
     where
         P: AsRef<Path>,
     {
-        let pk_path = pk_path.as_ref();
-        let mut file = OpenOptions::new().read(true).open(pk_path).map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!(
-                    "couldn't retrieve public key from {}: {}",
-                    pk_path.display(),
-                    e
-                ),
-            )
-        })?;
-        let mut s = String::new();
-        file.read_to_string(&mut s)?;
+        let s = fs::read_to_string(pk_path)?;
         PublicKey::from_box(s.into())
     }
 }
