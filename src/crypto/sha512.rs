@@ -1,4 +1,4 @@
-//! A small, self-contained SHA512 and HMAC-SHA512 implementation
+//! A small, self-contained SHA512 implementation
 //! (C) Frank Denis <fdenis [at] fastly [dot] com>, public domain
 
 #![allow(
