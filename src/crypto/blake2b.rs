@@ -223,7 +223,7 @@ impl Blake2b {
         }
     }
 
-   pub fn update(&mut self, mut input: &[u8]) {
+    pub fn update(&mut self, mut input: &[u8]) {
         while !input.is_empty() {
             let left = self.buflen;
             let fill = 2 * BLAKE2B_BLOCKBYTES - left;
@@ -250,7 +250,7 @@ impl Blake2b {
         }
     }
 
-   pub fn finalize(&mut self, out: &mut [u8]) {
+    pub fn finalize(&mut self, out: &mut [u8]) {
         assert!(out.len() == self.digest_length as usize);
         if !self.computed {
             if self.buflen > BLAKE2B_BLOCKBYTES {
