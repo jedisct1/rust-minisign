@@ -3,6 +3,7 @@ name = "minisign"
 version = "0.5.14"
 authors = ["Frank Denis <github@pureftpd.org>", "Daniel Rangel <daniel@rangel.in>"]
 description = "A crate to sign files and verify signatures."
+edition = "2018"
 license = "MIT"
 readme = "README.md"
 categories = ["cryptography"]

@@ -82,11 +82,7 @@
 
 #![allow(clippy::inherent_to_string)]
 
-extern crate ct_codecs;
-extern crate getrandom;
-#[cfg(any(windows, unix))]
-extern crate rpassword;
-extern crate scrypt;
+use scrypt;
 
 mod constants;
 mod crypto;
