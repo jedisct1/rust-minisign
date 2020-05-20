@@ -11,7 +11,7 @@ repository = "https://github.com/jedisct1/rust-minisign"
 homepage = "https://github.com/jedisct1/rust-minisign"
 
 [dependencies]
-base64 = "0.11"
+ct-codecs = "0.1.1"
 getrandom = { version = "0.1", default-features = false }
 scrypt = { version = "0.2", default-features = false }
 

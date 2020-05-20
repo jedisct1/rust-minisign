@@ -35,6 +35,7 @@ impl PError {
         werr!("{}\n", self);
         ::std::process::exit(1)
     }
+
     pub fn new<E>(kind: ErrorKind, err: E) -> PError
     where
         E: Into<Box<dyn StdError + Send + Sync>>,
@@ -89,8 +90,8 @@ impl From<fmt::Error> for PError {
     }
 }
 
-impl From<base64::DecodeError> for PError {
-    fn from(err: base64::DecodeError) -> PError {
+impl From<ct_codecs::Error> for PError {
+    fn from(err: ct_codecs::Error) -> PError {
         PError::new(ErrorKind::Encoding, err)
     }
 }

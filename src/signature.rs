@@ -1,5 +1,6 @@
 use crate::constants::*;
 use crate::Result;
+use ct_codecs::{Base64, Encoder};
 use std::io::{Cursor, Read};
 
 #[derive(Clone)]
@@ -50,6 +51,6 @@ impl Default for Signature {
 
 impl ToString for Signature {
     fn to_string(&self) -> String {
-        base64::encode(self.to_bytes().as_slice())
+        Base64::encode_to_string(self.to_bytes().as_slice()).unwrap()
     }
 }

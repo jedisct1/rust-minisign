@@ -6,6 +6,7 @@ use crate::errors::*;
 use crate::helpers::*;
 use crate::keynum::*;
 use crate::Result;
+use ct_codecs::{Base64, Decoder, Encoder};
 use std::cmp;
 use std::fmt::Write as fmtWrite;
 use std::fmt::{self, Formatter};
@@ -244,12 +245,12 @@ impl SecretKey {
     }
 
     pub(crate) fn from_base64(s: &str) -> Result<SecretKey> {
-        let bytes = base64::decode(s)?;
+        let bytes = Base64::decode_to_vec(s, None)?;
         SecretKey::from_bytes(&bytes[..])
     }
 
     pub(crate) fn to_base64(&self) -> String {
-        base64::encode(self.to_bytes().as_slice())
+        Base64::encode_to_string(self.to_bytes().as_slice()).unwrap()
     }
 
     /// Load a `SecretKeyBox` from a file, and returns a `SecretKey` from it.

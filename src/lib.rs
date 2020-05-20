@@ -82,7 +82,7 @@
 
 #![allow(clippy::inherent_to_string)]
 
-extern crate base64;
+extern crate ct_codecs;
 extern crate getrandom;
 #[cfg(any(windows, unix))]
 extern crate rpassword;

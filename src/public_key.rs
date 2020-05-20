@@ -3,6 +3,7 @@ use crate::crypto::util::fixed_time_eq;
 use crate::errors::*;
 use crate::helpers::*;
 use crate::keynum::*;
+use ct_codecs::{Base64, Decoder, Encoder};
 use std::cmp;
 use std::fmt::Write as fmtWrite;
 use std::fs::OpenOptions;
@@ -128,7 +129,7 @@ impl PublicKey {
                 "Base64 conversion failed - was an actual public key given?".to_string(),
             ));
         }
-        let decoded_buf = base64::decode(encoded_pk.trim()).map_err(|e| {
+        let decoded_buf = Base64::decode_to_vec(encoded_pk.trim(), None).map_err(|e| {
             PError::new(
                 ErrorKind::Io,
                 format!(
@@ -158,21 +159,22 @@ impl PublicKey {
                 "base64 conversion failed - was an actual public key given?".to_string(),
             ));
         }
-        let decoded_string = base64::decode(encoded_string.as_bytes()).map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!(
-                    "base64 conversion failed - was an actual public key given?: {}",
-                    e
-                ),
-            )
-        })?;
+        let decoded_string =
+            Base64::decode_to_vec(encoded_string.as_bytes(), None).map_err(|e| {
+                PError::new(
+                    ErrorKind::Io,
+                    format!(
+                        "base64 conversion failed - was an actual public key given?: {}",
+                        e
+                    ),
+                )
+            })?;
         PublicKey::from_bytes(&decoded_string)
     }
 
     /// Encode a public key as a base64-encoded string.
     pub fn to_base64(&self) -> String {
-        base64::encode(self.to_bytes().as_slice())
+        Base64::encode_to_string(self.to_bytes().as_slice()).unwrap()
     }
 
     /// Load a `PublicKeyBox` from a file, and returns a `PublicKey` from it.
