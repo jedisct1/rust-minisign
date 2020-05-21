@@ -60,6 +60,11 @@ impl SignatureBox {
         Ok(just_comment)
     }
 
+    /// The key identifier used to create the signature.
+    pub fn keynum(&self) -> &[u8] {
+        &self.signature.keynum[..]
+    }
+
     /// Create a new `SignatureBox` from a string.
     pub fn from_string(s: &str) -> Result<SignatureBox> {
         let mut lines = s.lines();
