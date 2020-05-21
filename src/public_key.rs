@@ -75,6 +75,11 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
+    /// The key identifier of this public key.
+    pub fn keynum(&self) -> &[u8] {
+        &self.keynum_pk.keynum[..]
+    }
+
     /// Deserialize a `PublicKey`.
     ///
     /// For storage, a `PublicKeyBox` is usually what you need instead.

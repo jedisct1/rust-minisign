@@ -132,6 +132,11 @@ impl SecretKey {
         Ok(self)
     }
 
+    /// The key identifier of this secret key.
+    pub fn keynum(&self) -> &[u8] {
+        &self.keynum_sk.keynum[..]
+    }
+
     /// Deserialize a `SecretKey`.
     ///
     /// For storage, a `SecretKeyBox` is usually what you need instead.
