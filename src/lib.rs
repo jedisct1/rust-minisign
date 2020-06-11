@@ -82,8 +82,6 @@
 
 #![allow(clippy::inherent_to_string)]
 
-use scrypt;
-
 mod base64;
 mod constants;
 mod crypto;

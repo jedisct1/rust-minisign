@@ -16,7 +16,7 @@ pub fn fiat_25519_addcarryx_u51(
     arg1: fiat_25519_u1,
     arg2: u64,
     arg3: u64,
-) -> () {
+) {
     let x1: u64 = (((arg1 as u64) + arg2) + arg3);
     let x2: u64 = (x1 & 0x7ffffffffffff);
     let x3: fiat_25519_u1 = ((x1 >> 51) as fiat_25519_u1);
@@ -31,7 +31,7 @@ pub fn fiat_25519_subborrowx_u51(
     arg1: fiat_25519_u1,
     arg2: u64,
     arg3: u64,
-) -> () {
+) {
     let x1: i64 = ((((((arg2 as i128) - (arg1 as i128)) as i64) as i128) - (arg3 as i128)) as i64);
     let x2: fiat_25519_i1 = ((x1 >> 51) as fiat_25519_i1);
     let x3: u64 = (((x1 as i128) & (0x7ffffffffffff as i128)) as u64);
@@ -40,7 +40,7 @@ pub fn fiat_25519_subborrowx_u51(
 }
 
 #[inline]
-pub fn fiat_25519_cmovznz_u64(out1: &mut u64, arg1: fiat_25519_u1, arg2: u64, arg3: u64) -> () {
+pub fn fiat_25519_cmovznz_u64(out1: &mut u64, arg1: fiat_25519_u1, arg2: u64, arg3: u64) {
     let x1: fiat_25519_u1 = (!(!arg1));
     let x2: u64 = ((((((0x0 as fiat_25519_i2) - (x1 as fiat_25519_i2)) as fiat_25519_i1) as i128)
         & (0xffffffffffffffff as i128)) as u64);
@@ -49,7 +49,7 @@ pub fn fiat_25519_cmovznz_u64(out1: &mut u64, arg1: fiat_25519_u1, arg2: u64, ar
 }
 
 #[inline]
-pub fn fiat_25519_carry_mul(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> () {
+pub fn fiat_25519_carry_mul(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) {
     let x1: u128 = (((arg1[4]) as u128) * (((arg2[4]) * 0x13) as u128));
     let x2: u128 = (((arg1[4]) as u128) * (((arg2[3]) * 0x13) as u128));
     let x3: u128 = (((arg1[4]) as u128) * (((arg2[2]) * 0x13) as u128));
@@ -110,7 +110,7 @@ pub fn fiat_25519_carry_mul(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5
 }
 
 #[inline]
-pub fn fiat_25519_carry_square(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
+pub fn fiat_25519_carry_square(out1: &mut [u64; 5], arg1: &[u64; 5]) {
     let x1: u64 = ((arg1[4]) * 0x13);
     let x2: u64 = (x1 * 0x2);
     let x3: u64 = ((arg1[4]) * 0x2);
@@ -169,7 +169,7 @@ pub fn fiat_25519_carry_square(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
 }
 
 #[inline]
-pub fn fiat_25519_carry(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
+pub fn fiat_25519_carry(out1: &mut [u64; 5], arg1: &[u64; 5]) {
     let x1: u64 = (arg1[0]);
     let x2: u64 = ((x1 >> 51) + (arg1[1]));
     let x3: u64 = ((x2 >> 51) + (arg1[2]));
@@ -190,7 +190,7 @@ pub fn fiat_25519_carry(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
 }
 
 #[inline]
-pub fn fiat_25519_add(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> () {
+pub fn fiat_25519_add(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) {
     let x1: u64 = ((arg1[0]) + (arg2[0]));
     let x2: u64 = ((arg1[1]) + (arg2[1]));
     let x3: u64 = ((arg1[2]) + (arg2[2]));
@@ -204,7 +204,7 @@ pub fn fiat_25519_add(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> 
 }
 
 #[inline]
-pub fn fiat_25519_sub(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> () {
+pub fn fiat_25519_sub(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) {
     let x1: u64 = ((0xfffffffffffda + (arg1[0])) - (arg2[0]));
     let x2: u64 = ((0xffffffffffffe + (arg1[1])) - (arg2[1]));
     let x3: u64 = ((0xffffffffffffe + (arg1[2])) - (arg2[2]));
@@ -218,7 +218,7 @@ pub fn fiat_25519_sub(out1: &mut [u64; 5], arg1: &[u64; 5], arg2: &[u64; 5]) -> 
 }
 
 #[inline]
-pub fn fiat_25519_opp(out1: &mut [u64; 5], arg1: &[u64; 5]) -> () {
+pub fn fiat_25519_opp(out1: &mut [u64; 5], arg1: &[u64; 5]) {
     let x1: u64 = (0xfffffffffffda - (arg1[0]));
     let x2: u64 = (0xffffffffffffe - (arg1[1]));
     let x3: u64 = (0xffffffffffffe - (arg1[2]));
@@ -237,7 +237,7 @@ pub fn fiat_25519_selectznz(
     arg1: fiat_25519_u1,
     arg2: &[u64; 5],
     arg3: &[u64; 5],
-) -> () {
+) {
     let mut x1: u64 = 0;
     fiat_25519_cmovznz_u64(&mut x1, arg1, (arg2[0]), (arg3[0]));
     let mut x2: u64 = 0;
@@ -256,7 +256,7 @@ pub fn fiat_25519_selectznz(
 }
 
 #[inline]
-pub fn fiat_25519_to_bytes(out1: &mut [u8; 32], arg1: &[u64; 5]) -> () {
+pub fn fiat_25519_to_bytes(out1: &mut [u8; 32], arg1: &[u64; 5]) {
     let mut x1: u64 = 0;
     let mut x2: fiat_25519_u1 = 0;
     fiat_25519_subborrowx_u51(&mut x1, &mut x2, 0x0, (arg1[0]), 0x7ffffffffffed);
@@ -743,6 +743,7 @@ impl GeP2 {
         r
     }
 
+    #[allow(clippy::comparison_chain)]
     pub fn double_scalarmult_vartime(a_scalar: &[u8], a_point: GeP3, b_scalar: &[u8]) -> GeP2 {
         let aslide = GeP2::slide(a_scalar);
         let bslide = GeP2::slide(b_scalar);

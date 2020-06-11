@@ -105,13 +105,13 @@ impl From<std::string::FromUtf8Error> for PError {
 
 impl From<scrypt::errors::InvalidParams> for PError {
     fn from(err: scrypt::errors::InvalidParams) -> PError {
-        PError::new(ErrorKind::KDF, err)
+        PError::new(ErrorKind::KDF, err.to_string())
     }
 }
 
 impl From<scrypt::errors::InvalidOutputLen> for PError {
     fn from(err: scrypt::errors::InvalidOutputLen) -> PError {
-        PError::new(ErrorKind::KDF, err)
+        PError::new(ErrorKind::KDF, err.to_string())
     }
 }
 

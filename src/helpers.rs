@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::errors::*;
-use crate::scrypt::ScryptParams;
+use scrypt::ScryptParams;
 use std::cmp;
 use std::time::{SystemTime, UNIX_EPOCH};
 
