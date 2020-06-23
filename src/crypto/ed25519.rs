@@ -1,6 +1,5 @@
 use super::curve25519::{ge_scalarmult_base, is_identity, sc_muladd, sc_reduce, GeP2, GeP3};
 use super::sha512;
-use super::util::fixed_time_eq;
 
 static L: [u8; 32] = [
     0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -50,9 +49,12 @@ pub fn verify(message: &[u8], public_key: &[u8], signature: &[u8]) -> bool {
     sc_reduce(&mut hash);
 
     let r = GeP2::double_scalarmult_vartime(hash.as_ref(), a, &signature[32..64]);
-    let rcheck = r.to_bytes();
-
-    fixed_time_eq(rcheck.as_ref(), &signature[0..32])
+    r.to_bytes()
+        .as_ref()
+        .iter()
+        .zip(signature.iter())
+        .fold(0, |acc, (x, y)| acc | (x ^ y))
+        == 0
 }
 
 pub fn keypair(seed: &[u8]) -> ([u8; 64], [u8; 32]) {

@@ -1,7 +1,6 @@
 #![allow(unused_parens)]
 #![allow(non_camel_case_types)]
 
-use super::util::fixed_time_eq;
 use std::cmp::{min, Eq, PartialEq};
 use std::ops::{Add, Mul, Sub};
 
@@ -573,9 +572,7 @@ impl Fe {
     }
 
     fn is_nonzero(&self) -> bool {
-        let bs = self.to_bytes();
-        let zero = [0; 32];
-        !fixed_time_eq(bs.as_ref(), zero.as_ref())
+        self.to_bytes().iter().fold(0, |acc, x| acc | x) != 0
     }
 
     fn is_negative(&self) -> bool {

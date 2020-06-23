@@ -4,6 +4,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#[inline(never)]
 pub fn fixed_time_eq(lhs: &[u8], rhs: &[u8]) -> bool {
     if lhs.len() != rhs.len() {
         false
