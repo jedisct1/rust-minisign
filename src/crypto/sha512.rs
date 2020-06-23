@@ -335,7 +335,7 @@ impl Hash {
         }
     }
 
-    /// Compute SHA256(absorbed content)
+    /// Compute SHA512(absorbed content)
     pub fn finalize(mut self) -> [u8; 64] {
         let mut padded = [0u8; 256];
         padded[..self.r].copy_from_slice(&self.w[..self.r]);
@@ -351,7 +351,7 @@ impl Hash {
         out
     }
 
-    /// Compute SHA256(`input`)
+    /// Compute SHA512(`input`)
     pub fn hash<T: AsRef<[u8]>>(input: T) -> [u8; 64] {
         let mut h = Hash::new();
         h.update(input);
