@@ -399,7 +399,7 @@ impl PartialEq for Fe {
     fn eq(&self, other: &Fe) -> bool {
         let &Fe(self_elems) = self;
         let &Fe(other_elems) = other;
-        self_elems.to_vec() == other_elems.to_vec()
+        self_elems == other_elems
     }
 }
 impl Eq for Fe {}

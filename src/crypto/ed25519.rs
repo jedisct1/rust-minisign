@@ -33,11 +33,7 @@ pub fn verify(message: &[u8], public_key: &[u8], signature: &[u8]) -> bool {
             return false;
         }
     };
-    let mut d = 0;
-    for pk_byte in public_key.iter() {
-        d |= *pk_byte;
-    }
-    if d == 0 {
+    if public_key.iter().fold(0, |acc, x| acc | x) == 0 {
         return false;
     }
 
