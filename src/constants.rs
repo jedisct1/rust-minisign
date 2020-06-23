@@ -13,7 +13,7 @@ pub const SIG_DEFAULT_PKFILE: &str = "rsign.pub";
 /// The default file name for the secret key.
 pub const SIG_DEFAULT_SKFILE: &str = "rsign.key";
 
-/// The dfault suffix for signatures.
+/// The default suffix for signatures.
 pub const SIG_SUFFIX: &str = ".minisig";
 
 pub(crate) const CHK_ALG: [u8; 2] = *b"B2";
