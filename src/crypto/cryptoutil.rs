@@ -29,7 +29,6 @@ pub fn write_u64_le(dst: &mut [u8], mut input: u64) {
     }
 }
 
-#[allow(dead_code)]
 pub fn write_u64v_le(dst: &mut [u8], input: &[u64]) {
     assert!(dst.len() == 8 * input.len());
     unsafe {
@@ -62,7 +61,6 @@ pub fn write_u32_le(dst: &mut [u8], mut input: u32) {
     }
 }
 
-#[allow(dead_code)]
 pub fn read_u64v_le(dst: &mut [u64], input: &[u8]) {
     assert!(dst.len() * 8 == input.len());
     unsafe {
