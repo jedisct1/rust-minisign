@@ -1,4 +1,4 @@
-[![Build status](https://travis-ci.org/jedisct1/rust-minisign.svg?branch=master)](https://travis-ci.org/jedisct1/rust-minisign?branch=master)
+[![Build status](https://travis-ci.com/jedisct1/rust-minisign.svg?branch=master)](https://travis-ci.com/jedisct1/rust-minisign?branch=master)
 [![Last version](https://img.shields.io/crates/v/minisign.svg)](https://crates.io/crates/minisign)
 [![Documentation](https://docs.rs/minisign/badge.svg)](https://docs.rs/minisign)
 
