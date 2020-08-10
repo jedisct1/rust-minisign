@@ -16,7 +16,7 @@ getrandom = { version = "0.1", default-features = false }
 scrypt = { version = "0.3", default-features = false }
 
 [target.'cfg(any(windows, unix))'.dependencies]
-rpassword = "4.0"
+rpassword = "5.0"
 
 [profile.dev]
 lto = "thin"
