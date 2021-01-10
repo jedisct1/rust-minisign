@@ -64,10 +64,7 @@ pub fn raw_scrypt_params(memlimit: usize, opslimit: u64, n_log2_max: u8) -> Resu
             }
             n_log2 += 1;
         }
-        let maxrp = cmp::min(
-            0x3fff_ffff as u32,
-            ((opslimit / 4) / (1u64 << n_log2)) as u32,
-        );
+        let maxrp = cmp::min(0x3fff_ffff_u32, ((opslimit / 4) / (1u64 << n_log2)) as u32);
         p = maxrp / r;
     }
     if n_log2 > n_log2_max {
