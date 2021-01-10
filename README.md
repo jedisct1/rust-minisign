@@ -1,3 +1,4 @@
+![CI status](https://github.com/jedisct1/rust-minisign/workflows/Rust/badge.svg)
 [![Last version](https://img.shields.io/crates/v/minisign.svg)](https://crates.io/crates/minisign)
 [![Documentation](https://docs.rs/minisign/badge.svg)](https://docs.rs/minisign)
 
