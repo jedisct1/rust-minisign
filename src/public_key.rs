@@ -143,7 +143,7 @@ impl PublicKey {
                 ),
             )
         })?;
-        Ok(PublicKey::from_bytes(&decoded_buf)?)
+        PublicKey::from_bytes(&decoded_buf)
     }
 
     /// Convert a `PublicKey` to a `PublicKeyBox`.
