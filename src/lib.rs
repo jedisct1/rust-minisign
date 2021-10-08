@@ -46,7 +46,7 @@
 //!     // Now, we can use the secret key to sign anything.
 //!     let data = b"lorem ipsum";
 //!     let data_reader = Cursor::new(data);
-//!     let signature_box = minisign::sign(None, &sk, data_reader, false, None, None).unwrap();
+//!     let signature_box = minisign::sign(None, &sk, data_reader, None, None).unwrap();
 //!
 //!     // We have a signature! Let's inspect it a little bit.
 //!     println!(
@@ -73,7 +73,7 @@
 //!
 //!     // And verify the data.
 //!     let data_reader = Cursor::new(data);
-//!     let verified = minisign::verify(&pk, &signature_box, data_reader, true, false);
+//!     let verified = minisign::verify(&pk, &signature_box, data_reader, true, false, false);
 //!     match verified {
 //!         Ok(()) => println!("Success!"),
 //!         Err(_) => println!("Verification failed"),
@@ -138,27 +138,19 @@ where
 /// * `pk` - an optional public key. If provided, it must be the public key from the original key pair.
 /// * `sk` - the secret key
 /// * `data_reader` - the source of the data to be signed
-/// * `prehashed` - use prehashing. Recommended for large files, enabled by default if the data size exceeds 1 GiB.
 /// * `trusted_comment` - overrides the default trusted comment
 /// * `untrusted_comment` - overrides the default untrusted comment
 pub fn sign<R>(
     pk: Option<&PublicKey>,
     sk: &SecretKey,
     mut data_reader: R,
-    prehashed: bool,
     trusted_comment: Option<&str>,
     untrusted_comment: Option<&str>,
 ) -> Result<SignatureBox>
 where
     R: Read,
 {
-    let data = if prehashed {
-        prehash(&mut data_reader)?
-    } else {
-        let mut data = vec![];
-        data_reader.read_to_end(&mut data)?;
-        data
-    };
+    let data = prehash(&mut data_reader)?;
     let trusted_comment = match trusted_comment {
         Some(trusted_comment) => trusted_comment.to_string(),
         None => format!("timestamp:{}", unix_timestamp()),
@@ -168,11 +160,8 @@ where
         None => DEFAULT_COMMENT.to_string(),
     };
     let mut signature = Signature::default();
-    if !prehashed {
-        signature.sig_alg = sk.sig_alg;
-    } else {
-        signature.sig_alg = SIGALG_PREHASHED;
-    }
+    signature.sig_alg = SIGALG_PREHASHED;
+
     signature.keynum.copy_from_slice(&sk.keynum_sk.keynum[..]);
     let mut z = vec![0; 64];
     getrandom(&mut z)?;
@@ -202,7 +191,7 @@ where
         signature,
         sig_and_trusted_comment: Some(sig_and_trusted_comment),
         global_sig: Some(global_sig.to_vec()),
-        is_prehashed: prehashed,
+        is_prehashed: true,
     };
     Ok(signature_box)
 }
@@ -216,12 +205,14 @@ where
 /// * `data_reader` - the data source
 /// * `quiet` - use `false` to output status information to `stderr`
 /// * `output` - use `true` to output a copy of the data to `stdout`
+/// * `allow_legacy` - accept signatures from legacy versions of minisign
 pub fn verify<R>(
     pk: &PublicKey,
     signature_box: &SignatureBox,
     mut data_reader: R,
     quiet: bool,
     output: bool,
+    allow_legacy: bool,
 ) -> Result<()>
 where
     R: Read + Seek,
@@ -242,6 +233,12 @@ where
                 load_u64_le(&sig.keynum[..]),
                 load_u64_le(&pk.keynum_pk.keynum[..])
             ),
+        ));
+    }
+    if !allow_legacy && !signature_box.is_prehashed() {
+        return Err(PError::new(
+            ErrorKind::Verify,
+            "Legacy signatures are not accepted",
         ));
     }
     if !ed25519::verify(&data, &pk.keynum_pk.pk, &sig.sig) {

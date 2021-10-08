@@ -72,23 +72,10 @@ fn signature() {
 
     let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
     let data = b"test";
-    let signature_box = sign(None, &sk, Cursor::new(data), false, None, None).unwrap();
-    verify(&pk, &signature_box, Cursor::new(data), true, false).unwrap();
+    let signature_box = sign(None, &sk, Cursor::new(data), None, None).unwrap();
+    verify(&pk, &signature_box, Cursor::new(data), true, false, false).unwrap();
     let data = b"test2";
-    assert!(verify(&pk, &signature_box, Cursor::new(data), true, false).is_err());
-}
-
-#[test]
-fn signature_prehashed() {
-    use crate::{sign, verify, KeyPair};
-    use std::io::Cursor;
-
-    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
-    let data = b"test";
-    let signature_box = sign(None, &sk, Cursor::new(data), true, None, None).unwrap();
-    verify(&pk, &signature_box, Cursor::new(data), true, false).unwrap();
-    let data = b"test2";
-    assert!(verify(&pk, &signature_box, Cursor::new(data), true, false).is_err());
+    assert!(verify(&pk, &signature_box, Cursor::new(data), true, false, false).is_err());
 }
 
 #[test]
@@ -98,7 +85,7 @@ fn signature_bones() {
 
     let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
     let data = b"test";
-    let signature_box = sign(None, &sk, Cursor::new(data), false, None, None).unwrap();
+    let signature_box = sign(None, &sk, Cursor::new(data), None, None).unwrap();
     let signature_bones: SignatureBones = signature_box.into();
     verify(
         &pk,
@@ -106,10 +93,19 @@ fn signature_bones() {
         Cursor::new(data),
         true,
         false,
+        false,
     )
     .unwrap();
     let data = b"test2";
-    assert!(verify(&pk, &signature_bones.into(), Cursor::new(data), true, false).is_err());
+    assert!(verify(
+        &pk,
+        &signature_bones.into(),
+        Cursor::new(data),
+        true,
+        false,
+        false
+    )
+    .is_err());
 }
 
 #[test]
@@ -136,7 +132,8 @@ QtKMXWyYcwdpZAlPF7tE2ENJkRd1ujvKjlj1m9RtHTBnZPa5WKU5uWRs5GoP5M/VqE81QFuMKI5k/SfN
         "timestamp:1555779966\tfile:test"
     );
     let bin = b"test";
-    verify(&pk, &signature_box, Cursor::new(bin), false, false).expect("Signature didn't verify");
+    verify(&pk, &signature_box, Cursor::new(bin), false, false, true)
+        .expect("Signature didn't verify");
 }
 
 #[test]
@@ -163,6 +160,6 @@ y/rUw2y8/hOUYjZU71eHp/Wo1KZ40fGy2VJEDl34XMJM+TX48Ss/17u3IvIfbVR1FkZZSNCisQbuQY+b
         "timestamp:1556193335\tfile:test"
     );
     let bin = b"test";
-    verify(&pk, &signature_box, Cursor::new(bin), false, false)
+    verify(&pk, &signature_box, Cursor::new(bin), false, false, false)
         .expect("Signature with prehashing didn't verify");
 }
