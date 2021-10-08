@@ -57,7 +57,7 @@ fn main() {
     // Now, we can use the secret key to sign anything.
     let data = b"lorem ipsum";
     let data_reader = Cursor::new(data);
-    let signature_box = minisign::sign(None, &sk, data_reader, false, None, None).unwrap();
+    let signature_box = minisign::sign(None, &sk, data_reader, None, None).unwrap();
 
     // We have a signature! Let's inspect it a little bit.
     println!(
@@ -82,7 +82,7 @@ fn main() {
 
     // And verify the data.
     let data_reader = Cursor::new(data);
-    let verified = minisign::verify(&pk, &signature_box, data_reader, true, false);
+    let verified = minisign::verify(&pk, &signature_box, data_reader, true, false, false);
     match verified {
         Ok(()) => println!("Success!"),
         Err(_) => println!("Verification failed"),
