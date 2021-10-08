@@ -16,15 +16,15 @@ pub struct SignatureBox {
     pub(crate) is_prehashed: bool,
 }
 
-impl Into<String> for SignatureBox {
-    fn into(self) -> String {
-        self.into_string()
+impl From<SignatureBox> for String {
+    fn from(sig_box: SignatureBox) -> String {
+        sig_box.into_string()
     }
 }
 
-impl Into<SignatureBox> for String {
-    fn into(self) -> SignatureBox {
-        SignatureBox::from_string(&self).unwrap()
+impl From<String> for SignatureBox {
+    fn from(s: String) -> SignatureBox {
+        SignatureBox::from_string(&s).unwrap()
     }
 }
 

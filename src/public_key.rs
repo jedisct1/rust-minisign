@@ -21,15 +21,15 @@ use std::path::Path;
 #[derive(Clone, Debug)]
 pub struct PublicKeyBox(String);
 
-impl Into<String> for PublicKeyBox {
-    fn into(self) -> String {
-        self.0
+impl From<PublicKeyBox> for String {
+    fn from(pkb: PublicKeyBox) -> String {
+        pkb.0
     }
 }
 
-impl Into<PublicKeyBox> for String {
-    fn into(self) -> PublicKeyBox {
-        PublicKeyBox(self)
+impl From<String> for PublicKeyBox {
+    fn from(s: String) -> PublicKeyBox {
+        PublicKeyBox(s)
     }
 }
 
@@ -39,9 +39,9 @@ impl ToString for PublicKeyBox {
     }
 }
 
-impl Into<PublicKey> for PublicKeyBox {
-    fn into(self) -> PublicKey {
-        self.into_public_key().unwrap()
+impl From<PublicKeyBox> for PublicKey {
+    fn from(pkb: PublicKeyBox) -> PublicKey {
+        pkb.into_public_key().unwrap()
     }
 }
 

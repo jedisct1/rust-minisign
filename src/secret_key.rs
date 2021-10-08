@@ -26,15 +26,15 @@ use std::path::Path;
 #[derive(Clone, Debug)]
 pub struct SecretKeyBox(String);
 
-impl Into<String> for SecretKeyBox {
-    fn into(self) -> String {
-        self.0
+impl From<SecretKeyBox> for String {
+    fn from(skb: SecretKeyBox) -> String {
+        skb.0
     }
 }
 
-impl Into<SecretKeyBox> for String {
-    fn into(self) -> SecretKeyBox {
-        SecretKeyBox(self)
+impl From<String> for SecretKeyBox {
+    fn from(s: String) -> SecretKeyBox {
+        SecretKeyBox(s)
     }
 }
 
@@ -127,7 +127,7 @@ impl SecretKey {
             return Err(PError::new(ErrorKind::KDF, "scrypt parameters too high"));
         }
         let params = raw_scrypt_params(memlimit, opslimit, N_LOG2_MAX)?;
-        scrypt::scrypt(&password.as_bytes(), &self.kdf_salt, &params, &mut stream)?;
+        scrypt::scrypt(password.as_bytes(), &self.kdf_salt, &params, &mut stream)?;
         self.xor_keynum(&stream);
         Ok(self)
     }
@@ -203,7 +203,7 @@ impl SecretKey {
                 "Missing encoded key in secret key".to_string(),
             )
         })?;
-        let sk = SecretKey::from_base64(&encoded_sk)?;
+        let sk = SecretKey::from_base64(encoded_sk)?;
         let interactive = password.is_none();
         let password = match password {
             Some(password) => password,

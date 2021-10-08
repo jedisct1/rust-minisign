@@ -18,7 +18,7 @@ impl SignatureBones {
 
     /// Create a new `SignatureBones` from a &[u8].
     pub fn from_bytes(bytes: &[u8]) -> Result<SignatureBones> {
-        let signature = Signature::from_bytes(&bytes)?;
+        let signature = Signature::from_bytes(bytes)?;
         let is_prehashed = match signature.sig_alg {
             SIGALG => false,
             SIGALG_PREHASHED => true,
@@ -44,12 +44,12 @@ impl SignatureBones {
     pub const BYTES: usize = Signature::BYTES;
 }
 
-impl Into<SignatureBox> for SignatureBones {
-    fn into(self) -> SignatureBox {
-        let is_prehashed = self.is_prehashed();
+impl From<SignatureBones> for SignatureBox {
+    fn from(signature: SignatureBones) -> SignatureBox {
+        let is_prehashed = signature.is_prehashed();
         SignatureBox {
             untrusted_comment: String::new(),
-            signature: self.signature,
+            signature: signature.signature,
             sig_and_trusted_comment: None,
             global_sig: None,
             is_prehashed,
@@ -57,11 +57,11 @@ impl Into<SignatureBox> for SignatureBones {
     }
 }
 
-impl Into<SignatureBones> for SignatureBox {
-    fn into(self) -> SignatureBones {
-        let is_prehashed = self.is_prehashed();
+impl From<SignatureBox> for SignatureBones {
+    fn from(signature: SignatureBox) -> SignatureBones {
+        let is_prehashed = signature.is_prehashed();
         SignatureBones {
-            signature: self.signature,
+            signature: signature.signature,
             is_prehashed,
         }
     }

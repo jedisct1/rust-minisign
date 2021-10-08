@@ -80,7 +80,13 @@
 //!     };
 //!```
 
-#![allow(clippy::inherent_to_string)]
+#![allow(
+    clippy::inherent_to_string,
+    clippy::wrong_self_convention,
+    clippy::derivable_impls,
+    clippy::field_reassign_with_default,
+    clippy::vec_init_then_push
+)]
 
 mod base64;
 mod constants;
@@ -252,7 +258,7 @@ where
         &signature_box.global_sig,
     ) {
         (Some(sig_and_trusted_comment), Some(global_sig)) => {
-            if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk, &global_sig[..]) {
+            if !ed25519::verify(sig_and_trusted_comment, &pk.keynum_pk.pk, &global_sig[..]) {
                 return Err(PError::new(
                     ErrorKind::Verify,
                     "Comment signature verification failed",
