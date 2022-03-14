@@ -4,7 +4,7 @@ use std::cmp;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(any(windows, unix))]
-use rpassword::prompt_password_stdout;
+use rpassword::prompt_password;
 
 #[cfg(not(any(windows, unix)))]
 fn prompt_password_stdout(prompt: &str) -> Result<String> {
@@ -73,7 +73,7 @@ pub fn raw_scrypt_params(memlimit: usize, opslimit: u64, n_log2_max: u8) -> Resu
 }
 
 pub fn get_password(prompt: &str) -> Result<String> {
-    let pwd = prompt_password_stdout(prompt)?;
+    let pwd = prompt_password(prompt)?;
     if pwd.is_empty() {
         println!("<empty>");
         Ok(pwd)
