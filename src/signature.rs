@@ -11,6 +11,8 @@ pub(crate) struct Signature {
 }
 
 impl Signature {
+    pub const BYTES: usize = 2 + KEYNUM_BYTES + SIGNATURE_BYTES;
+
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut v: Vec<u8> = Vec::with_capacity(Self::BYTES);
         v.extend(&self.sig_alg);
@@ -35,8 +37,6 @@ impl Signature {
             sig,
         })
     }
-
-    pub const BYTES: usize = 2 + KEYNUM_BYTES + SIGNATURE_BYTES;
 }
 
 impl Default for Signature {

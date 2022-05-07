@@ -11,6 +11,9 @@ pub struct SignatureBones {
 }
 
 impl SignatureBones {
+    /// Size of a minimal signature in bytes
+    pub const BYTES: usize = Signature::BYTES;
+
     /// Returns `true` if the signed data was pre-hashed.
     pub fn is_prehashed(&self) -> bool {
         self.is_prehashed
@@ -39,9 +42,6 @@ impl SignatureBones {
     pub fn to_bytes(&self) -> Vec<u8> {
         self.signature.to_bytes()
     }
-
-    /// Size of a minimal signature in bytes
-    pub const BYTES: usize = Signature::BYTES;
 }
 
 impl From<SignatureBones> for SignatureBox {

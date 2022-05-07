@@ -78,7 +78,7 @@
 //!         Ok(()) => println!("Success!"),
 //!         Err(_) => println!("Verification failed"),
 //!     };
-//!```
+//! ```
 
 #![allow(
     clippy::inherent_to_string,

@@ -102,21 +102,25 @@ where
         let buff = [val];
         self.write_all(&buff)
     }
+
     fn write_u32_le(&mut self, val: u32) -> io::Result<()> {
         let mut buff = [0u8; 4];
         write_u32_le(&mut buff, val);
         self.write_all(&buff)
     }
+
     fn write_u32_be(&mut self, val: u32) -> io::Result<()> {
         let mut buff = [0u8; 4];
         write_u32_be(&mut buff, val);
         self.write_all(&buff)
     }
+
     fn write_u64_le(&mut self, val: u64) -> io::Result<()> {
         let mut buff = [0u8; 8];
         write_u64_le(&mut buff, val);
         self.write_all(&buff)
     }
+
     fn write_u64_be(&mut self, val: u64) -> io::Result<()> {
         let mut buff = [0u8; 8];
         write_u64_be(&mut buff, val);
