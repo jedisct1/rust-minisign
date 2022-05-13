@@ -1,10 +1,11 @@
-use crate::constants::*;
-use crate::errors::*;
 use std::cmp;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[cfg(any(windows, unix))]
 use rpassword::prompt_password;
+
+use crate::constants::*;
+use crate::errors::*;
 
 #[cfg(not(any(windows, unix)))]
 fn prompt_password_stdout(prompt: &str) -> Result<String> {

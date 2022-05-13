@@ -1,6 +1,7 @@
-use crate::base64;
 use std::error::Error as StdError;
 use std::{self, fmt, io};
+
+use crate::base64;
 
 macro_rules! werr(
     ($($arg:tt)*) => ({

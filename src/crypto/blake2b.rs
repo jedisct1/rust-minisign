@@ -99,14 +99,14 @@ macro_rules! round( ($r:expr, $v:expr, $m:expr) => ( {
 
 impl Blake2b {
     fn set_lastnode(&mut self) {
-        self.f[1] = 0xFFFFFFFFFFFFFFFF;
+        self.f[1] = 0xffffffffffffffff;
     }
 
     fn set_lastblock(&mut self) {
         if self.last_node != 0 {
             self.set_lastnode();
         }
-        self.f[0] = 0xFFFFFFFFFFFFFFFF;
+        self.f[0] = 0xffffffffffffffff;
     }
 
     fn increment_counter(&mut self, inc: u64) {
@@ -131,8 +131,9 @@ impl Blake2b {
     }
 
     fn apply_param(&mut self) {
-        use super::cryptoutil::WriteExt;
         use std::io::Write;
+
+        use super::cryptoutil::WriteExt;
 
         let mut param_bytes: [u8; 64] = [0; 64];
         {

@@ -1,3 +1,11 @@
+use std::cmp;
+use std::fmt::Write as fmtWrite;
+use std::fmt::{self, Formatter};
+use std::fs;
+use std::io::{self, Write};
+use std::io::{Cursor, Read};
+use std::path::Path;
+
 use crate::base64::{Base64, Decoder, Encoder};
 use crate::constants::*;
 use crate::crypto::blake2b::Blake2b;
@@ -6,13 +14,6 @@ use crate::errors::*;
 use crate::helpers::*;
 use crate::keynum::*;
 use crate::Result;
-use std::cmp;
-use std::fmt::Write as fmtWrite;
-use std::fmt::{self, Formatter};
-use std::fs;
-use std::io::{self, Write};
-use std::io::{Cursor, Read};
-use std::path::Path;
 
 /// A secret key and its metadata.
 ///

@@ -1,7 +1,8 @@
-use crate::constants::*;
-use crate::crypto::util::fixed_time_eq;
 use std::cmp;
 use std::fmt::{self, Formatter};
+
+use crate::constants::*;
+use crate::crypto::util::fixed_time_eq;
 
 #[derive(Debug, Clone)]
 pub(crate) struct KeynumPK {

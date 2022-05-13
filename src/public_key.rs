@@ -1,14 +1,15 @@
+use std::cmp;
+use std::fmt::Write as fmtWrite;
+use std::fs;
+use std::io::{Cursor, Read};
+use std::path::Path;
+
 use crate::base64::{Base64, Decoder, Encoder};
 use crate::constants::*;
 use crate::crypto::util::fixed_time_eq;
 use crate::errors::*;
 use crate::helpers::*;
 use crate::keynum::*;
-use std::cmp;
-use std::fmt::Write as fmtWrite;
-use std::fs;
-use std::io::{Cursor, Read};
-use std::path::Path;
 
 /// A public key and its metadata.
 ///

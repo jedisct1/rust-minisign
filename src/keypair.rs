@@ -1,3 +1,8 @@
+use std::io::{self, Write};
+use std::u64;
+
+use getrandom::getrandom;
+
 use crate::constants::*;
 use crate::crypto::ed25519;
 use crate::errors::*;
@@ -5,9 +10,6 @@ use crate::helpers::*;
 use crate::keynum::*;
 use crate::public_key::*;
 use crate::secret_key::*;
-use getrandom::getrandom;
-use std::io::{self, Write};
-use std::u64;
 
 /// A key pair (`PublicKey` and `SecretKey`).
 #[derive(Clone, Debug)]

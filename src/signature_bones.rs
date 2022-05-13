@@ -3,7 +3,8 @@ use crate::errors::*;
 use crate::signature::*;
 use crate::signature_box::*;
 
-/// A trimmed-down signature, without any comments section, with binary serialization only
+/// A trimmed-down signature, without any comments section, with binary
+/// serialization only
 #[derive(Clone)]
 pub struct SignatureBones {
     pub(crate) signature: Signature,

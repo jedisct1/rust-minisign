@@ -1,10 +1,11 @@
+use std::fmt::Write as fmtWrite;
+use std::fs;
+use std::path::Path;
+
 use crate::base64::{Base64, Decoder, Encoder};
 use crate::constants::*;
 use crate::errors::*;
 use crate::signature::*;
-use std::fmt::Write as fmtWrite;
-use std::fs;
-use std::path::Path;
 
 /// A signature, as well as the metadata required to verify it.
 #[derive(Clone)]
