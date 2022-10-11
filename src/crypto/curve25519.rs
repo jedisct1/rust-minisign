@@ -1042,11 +1042,6 @@ pub fn sc_reduce(s: &mut [u8]) {
     let mut carry9: i64;
     let mut carry10: i64;
     let mut carry11: i64;
-    let carry12: i64;
-    let carry13: i64;
-    let carry14: i64;
-    let carry15: i64;
-    let carry16: i64;
 
     s11 += s23 * 666643;
     s12 += s23 * 470296;
@@ -1099,13 +1094,13 @@ pub fn sc_reduce(s: &mut [u8]) {
     carry10 = (s10 + (1 << 20)) >> 21;
     s11 += carry10;
     s10 -= carry10 << 21;
-    carry12 = (s12 + (1 << 20)) >> 21;
+    let carry12: i64 = (s12 + (1 << 20)) >> 21;
     s13 += carry12;
     s12 -= carry12 << 21;
-    carry14 = (s14 + (1 << 20)) >> 21;
+    let carry14: i64 = (s14 + (1 << 20)) >> 21;
     s15 += carry14;
     s14 -= carry14 << 21;
-    carry16 = (s16 + (1 << 20)) >> 21;
+    let carry16: i64 = (s16 + (1 << 20)) >> 21;
     s17 += carry16;
     s16 -= carry16 << 21;
 
@@ -1118,10 +1113,10 @@ pub fn sc_reduce(s: &mut [u8]) {
     carry11 = (s11 + (1 << 20)) >> 21;
     s12 += carry11;
     s11 -= carry11 << 21;
-    carry13 = (s13 + (1 << 20)) >> 21;
+    let carry13: i64 = (s13 + (1 << 20)) >> 21;
     s14 += carry13;
     s13 -= carry13 << 21;
-    carry15 = (s15 + (1 << 20)) >> 21;
+    let carry15: i64 = (s15 + (1 << 20)) >> 21;
     s16 += carry15;
     s15 -= carry15 << 21;
 
@@ -1404,12 +1399,6 @@ pub fn sc_muladd(s: &mut [u8], a: &[u8], b: &[u8], c: &[u8]) {
     let mut carry14: i64;
     let mut carry15: i64;
     let mut carry16: i64;
-    let carry17: i64;
-    let carry18: i64;
-    let carry19: i64;
-    let carry20: i64;
-    let carry21: i64;
-    let carry22: i64;
 
     s0 = c0 + a0 * b0;
     s1 = c1 + a0 * b1 + a1 * b0;
@@ -1525,13 +1514,13 @@ pub fn sc_muladd(s: &mut [u8], a: &[u8], b: &[u8], c: &[u8]) {
     carry16 = (s16 + (1 << 20)) >> 21;
     s17 += carry16;
     s16 -= carry16 << 21;
-    carry18 = (s18 + (1 << 20)) >> 21;
+    let carry18: i64 = (s18 + (1 << 20)) >> 21;
     s19 += carry18;
     s18 -= carry18 << 21;
-    carry20 = (s20 + (1 << 20)) >> 21;
+    let carry20: i64 = (s20 + (1 << 20)) >> 21;
     s21 += carry20;
     s20 -= carry20 << 21;
-    carry22 = (s22 + (1 << 20)) >> 21;
+    let carry22: i64 = (s22 + (1 << 20)) >> 21;
     s23 += carry22;
     s22 -= carry22 << 21;
 
@@ -1559,13 +1548,13 @@ pub fn sc_muladd(s: &mut [u8], a: &[u8], b: &[u8], c: &[u8]) {
     carry15 = (s15 + (1 << 20)) >> 21;
     s16 += carry15;
     s15 -= carry15 << 21;
-    carry17 = (s17 + (1 << 20)) >> 21;
+    let carry17: i64 = (s17 + (1 << 20)) >> 21;
     s18 += carry17;
     s17 -= carry17 << 21;
-    carry19 = (s19 + (1 << 20)) >> 21;
+    let carry19: i64 = (s19 + (1 << 20)) >> 21;
     s20 += carry19;
     s19 -= carry19 << 21;
-    carry21 = (s21 + (1 << 20)) >> 21;
+    let carry21: i64 = (s21 + (1 << 20)) >> 21;
     s22 += carry21;
     s21 -= carry21 << 21;
 

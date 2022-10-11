@@ -63,10 +63,10 @@ pub fn keypair(seed: &[u8]) -> ([u8; 64], [u8; 32]) {
     };
     let a = ge_scalarmult_base(&secret[0..32]);
     let public_key = a.to_bytes();
-    for (dest, src) in (&mut secret[32..64]).iter_mut().zip(public_key.iter()) {
+    for (dest, src) in secret[32..64].iter_mut().zip(public_key.iter()) {
         *dest = *src;
     }
-    for (dest, src) in (&mut secret[0..32]).iter_mut().zip(seed.iter()) {
+    for (dest, src) in secret[0..32].iter_mut().zip(seed.iter()) {
         *dest = *src;
     }
     (secret, public_key)
@@ -97,10 +97,10 @@ pub fn signature(message: &[u8], secret_key: &[u8], z: Option<&[u8]>) -> [u8; 64
     };
     let mut signature: [u8; 64] = [0; 64];
     let r: GeP3 = ge_scalarmult_base(&nonce[0..32]);
-    for (result_byte, source_byte) in (&mut signature[0..32]).iter_mut().zip(r.to_bytes().iter()) {
+    for (result_byte, source_byte) in signature[0..32].iter_mut().zip(r.to_bytes().iter()) {
         *result_byte = *source_byte;
     }
-    for (result_byte, source_byte) in (&mut signature[32..64]).iter_mut().zip(public_key.iter()) {
+    for (result_byte, source_byte) in signature[32..64].iter_mut().zip(public_key.iter()) {
         *result_byte = *source_byte;
     }
     {

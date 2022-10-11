@@ -16,8 +16,8 @@ impl Signature {
 
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut v: Vec<u8> = Vec::with_capacity(Self::BYTES);
-        v.extend(&self.sig_alg);
-        v.extend(&self.keynum);
+        v.extend(self.sig_alg);
+        v.extend(self.keynum);
         v.extend(&self.sig[..]);
         debug_assert_eq!(v.len(), Self::BYTES);
         v

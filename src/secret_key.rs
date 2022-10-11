@@ -223,7 +223,7 @@ impl SecretKey {
         if interactive {
             writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?
         }
-        let checksum_vec = sk.read_checksum().map_err(|e| e)?;
+        let checksum_vec = sk.read_checksum()?;
         let mut chk = [0u8; CHK_BYTES];
         chk.copy_from_slice(&checksum_vec[..]);
         if chk != sk.keynum_sk.chk {
