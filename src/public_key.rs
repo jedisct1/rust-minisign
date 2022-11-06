@@ -1,15 +1,16 @@
 use std::cmp;
+use std::convert::TryInto;
 use std::fmt::Write as fmtWrite;
 use std::fs;
 use std::io::{Cursor, Read};
 use std::path::Path;
 
 use crate::base64::{Base64, Decoder, Encoder};
-use crate::constants::*;
 use crate::crypto::util::fixed_time_eq;
 use crate::errors::*;
 use crate::helpers::*;
 use crate::keynum::*;
+use crate::{constants::*, SecretKey};
 
 /// A public key and its metadata.
 ///
@@ -92,6 +93,23 @@ impl PublicKey {
         buf.read_exact(&mut sig_alg)?;
         buf.read_exact(&mut keynum)?;
         buf.read_exact(&mut pk)?;
+        Ok(PublicKey {
+            sig_alg,
+            keynum_pk: KeynumPK { keynum, pk },
+        })
+    }
+
+    /// Regenerate a `PublicKey` from `SecretKey`
+    pub fn from_secret_key(sk: &SecretKey) -> Result<PublicKey> {
+        let sig_alg = sk.sig_alg;
+        let keynum = sk.keynum_sk.keynum;
+        let pk = sk.keynum_sk.sk[PUBLICKEY_BYTES..].try_into().map_err(|_| {
+            PError::new(
+                ErrorKind::Misc,
+                "secret key does not contain public key".to_string(),
+            )
+        })?;
+
         Ok(PublicKey {
             sig_alg,
             keynum_pk: KeynumPK { keynum, pk },
