@@ -67,6 +67,21 @@ fn load_public_key_string() {
 }
 
 #[test]
+fn public_key_regenerate() {
+    use std::io::Cursor;
+
+    use crate::{sign, verify, KeyPair, PublicKey};
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    let pk_regen = PublicKey::from_secret_key(&sk).unwrap();
+    assert!(pk_regen.to_base64() == pk.to_base64());
+
+    let data = b"test";
+    let sb = sign(None, &sk, Cursor::new(data), None, None).unwrap();
+    assert!(verify(&pk_regen, &sb, Cursor::new(data), true, false, false).is_ok());
+}
+
+#[test]
 fn signature() {
     use std::io::Cursor;
 
