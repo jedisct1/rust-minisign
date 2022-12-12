@@ -118,6 +118,6 @@ impl From<scrypt::errors::InvalidOutputLen> for PError {
 
 impl From<getrandom::Error> for PError {
     fn from(err: getrandom::Error) -> PError {
-        PError::new(ErrorKind::RNG, format!("{}", err))
+        PError::new(ErrorKind::RNG, format!("{err}"))
     }
 }

@@ -34,7 +34,7 @@ impl KeynumSK {
 impl fmt::Debug for KeynumSK {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for byte in self.sk.iter() {
-            write!(f, "{:x}", byte)?
+            write!(f, "{byte:x}")?
         }
         Ok(())
     }

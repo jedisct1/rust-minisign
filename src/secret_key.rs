@@ -239,11 +239,11 @@ impl SecretKey {
     /// Convert a `SecretKey` to a `SecretKeyBox`.
     pub fn to_box(&self, comment: Option<&str>) -> Result<SecretKeyBox> {
         let mut s = String::new();
-        write!(s, "{}", COMMENT_PREFIX)?;
+        write!(s, "{COMMENT_PREFIX}")?;
         if let Some(comment) = comment {
-            writeln!(s, "{}", comment)?;
+            writeln!(s, "{comment}")?;
         } else {
-            writeln!(s, "{}", SECRETKEY_DEFAULT_COMMENT)?;
+            writeln!(s, "{SECRETKEY_DEFAULT_COMMENT}")?;
         }
         writeln!(s, "{}", self.to_base64())?;
         Ok(s.into())
@@ -268,7 +268,7 @@ impl SecretKey {
 impl fmt::Debug for SecretKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for byte in self.keynum_sk.sk.iter() {
-            write!(f, "{:x}", byte)?
+            write!(f, "{byte:x}")?
         }
         Ok(())
     }

@@ -156,10 +156,7 @@ impl PublicKey {
         let decoded_buf = Base64::decode_to_vec(encoded_pk.trim()).map_err(|e| {
             PError::new(
                 ErrorKind::Io,
-                format!(
-                    "Base64 conversion failed - was an actual public key given?: {}",
-                    e
-                ),
+                format!("Base64 conversion failed - was an actual public key given?: {e}"),
             )
         })?;
         PublicKey::from_bytes(&decoded_buf)
@@ -168,7 +165,7 @@ impl PublicKey {
     /// Convert a `PublicKey` to a `PublicKeyBox`.
     pub fn to_box(&self) -> Result<PublicKeyBox> {
         let mut s = String::new();
-        write!(s, "{}minisign public key: ", COMMENT_PREFIX)?;
+        write!(s, "{COMMENT_PREFIX}minisign public key: ")?;
         writeln!(s, "{:X}", load_u64_le(&self.keynum_pk.keynum[..]))?;
         writeln!(s, "{}", self.to_base64())?;
         Ok(s.into())
@@ -186,10 +183,7 @@ impl PublicKey {
         let decoded_string = Base64::decode_to_vec(encoded_string.as_bytes()).map_err(|e| {
             PError::new(
                 ErrorKind::Io,
-                format!(
-                    "base64 conversion failed - was an actual public key given?: {}",
-                    e
-                ),
+                format!("base64 conversion failed - was an actual public key given?: {e}"),
             )
         })?;
         PublicKey::from_bytes(&decoded_string)

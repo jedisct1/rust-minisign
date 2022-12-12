@@ -999,7 +999,7 @@ pub fn ge_scalarmult_base(scalar: &[u8]) -> GeP3 {
         let q_cached = q.to_cached();
         let ps = (p + q_cached).to_p3();
         q = (q + q_cached).to_p3();
-        let b = ((scalar[(i >> 3)] >> (i as u8 & 7)) & 1) as u8;
+        let b = ((scalar[(i >> 3)] >> (i as u8 & 7)) & 1);
         p.maybe_set(&ps, b);
     }
     p

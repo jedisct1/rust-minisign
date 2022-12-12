@@ -88,7 +88,7 @@ impl SignatureBox {
         if !untrusted_comment.starts_with(COMMENT_PREFIX) {
             return Err(PError::new(
                 ErrorKind::Verify,
-                format!("Untrusted comment must start with: {}", COMMENT_PREFIX),
+                format!("Untrusted comment must start with: {COMMENT_PREFIX}"),
             ));
         }
         let untrusted_comment = untrusted_comment[COMMENT_PREFIX.len()..].to_string();
@@ -98,10 +98,7 @@ impl SignatureBox {
         if !trusted_comment_str.starts_with(TRUSTED_COMMENT_PREFIX) {
             return Err(PError::new(
                 ErrorKind::Verify,
-                format!(
-                    "Trusted comment should start with: {}",
-                    TRUSTED_COMMENT_PREFIX
-                ),
+                format!("Trusted comment should start with: {TRUSTED_COMMENT_PREFIX}"),
             ));
         }
         let is_prehashed = match signature.sig_alg {

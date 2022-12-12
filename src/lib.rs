@@ -105,7 +105,7 @@ mod signature_box;
 #[cfg(test)]
 mod tests;
 
-use std::io::{self, Read, Seek, SeekFrom, Write};
+use std::io::{self, Read, Seek, Write};
 
 use getrandom::getrandom;
 
@@ -282,7 +282,7 @@ where
         }
     }
     if output {
-        data_reader.seek(SeekFrom::Start(0))?;
+        data_reader.rewind()?;
         let mut buf = vec![0; 65536];
         loop {
             let len = data_reader.read(&mut buf)?;
