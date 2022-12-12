@@ -8,7 +8,7 @@ use crate::constants::*;
 use crate::errors::*;
 
 #[cfg(not(any(windows, unix)))]
-fn prompt_password_stdout(prompt: &str) -> Result<String> {
+fn prompt_password(prompt: &str) -> Result<String> {
     use std::io::{stdin, stdout, Write};
 
     stdout().write_all(prompt.as_bytes())?;
