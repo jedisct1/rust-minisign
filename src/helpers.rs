@@ -70,7 +70,7 @@ pub fn raw_scrypt_params(memlimit: usize, opslimit: u64, n_log2_max: u8) -> Resu
     if n_log2 > n_log2_max {
         return Err(PError::new(ErrorKind::KDF, "scrypt parameters too high"));
     }
-    scrypt::Params::new(n_log2, r, p).map_err(Into::into)
+    scrypt::Params::new(n_log2, r, p, scrypt::Params::RECOMMENDED_LEN).map_err(Into::into)
 }
 
 pub fn get_password(prompt: &str) -> Result<String> {
