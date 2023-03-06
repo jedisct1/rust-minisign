@@ -13,7 +13,7 @@ homepage = "https://github.com/jedisct1/rust-minisign"
 
 [dependencies]
 getrandom = { version = "0.2.8", default-features = false }
-scrypt = { version = "0.10.0", default-features = false }
+scrypt = { version = "0.11.0", default-features = false }
 
 [target.'cfg(any(windows, unix))'.dependencies]
 rpassword = "7.2.0"
