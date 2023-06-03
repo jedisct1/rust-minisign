@@ -204,7 +204,7 @@ impl SecretKey {
                 "Missing encoded key in secret key".to_string(),
             )
         })?;
-        let sk = SecretKey::from_base64(encoded_sk)?;
+        let mut sk = SecretKey::from_base64(encoded_sk)?;
         let interactive = password.is_none();
         let password = match password {
             Some(password) => password,
@@ -219,7 +219,10 @@ impl SecretKey {
                 password
             }
         };
-        let sk = sk.encrypt(password)?;
+        if password.is_empty() {
+            return Ok(sk);
+        }
+        sk = sk.encrypt(password)?;
         if interactive {
             writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?
         }
