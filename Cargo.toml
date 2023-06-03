@@ -1,6 +1,6 @@
 [package]
 name = "minisign"
-version = "0.7.4"
+version = "0.7.5"
 authors = [
     "Frank Denis <github@pureftpd.org>",
     "Daniel Rangel <daniel@rangel.in>",

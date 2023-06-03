@@ -91,8 +91,9 @@ impl KeyPair {
                 password
             }
         };
-        let sk = sk.encrypt(password)?;
-        if interactive {
+        if !password.is_empty() {
+            sk = sk.encrypt(password)?;
+        } else if interactive {
             writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?;
         }
         Ok(KeyPair { pk, sk })

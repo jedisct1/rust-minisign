@@ -219,11 +219,9 @@ impl SecretKey {
                 password
             }
         };
-        if password.is_empty() {
-            return Ok(sk);
-        }
-        sk = sk.encrypt(password)?;
-        if interactive {
+        if !password.is_empty() {
+            sk = sk.encrypt(password)?;
+        } else if interactive {
             writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?
         }
         let checksum_vec = sk.read_checksum()?;
