@@ -188,7 +188,7 @@ where
             return Err(PError::new(
                 ErrorKind::Verify,
                 format!(
-                    "Could not verify signature with the provided public key ID: {:X}",
+                    "Could not verify signature with the provided public key ID: {:016X}",
                     load_u64_le(&pk.keynum_pk.keynum[..])
                 ),
             ));
@@ -237,7 +237,7 @@ where
         return Err(PError::new(
             ErrorKind::Verify,
             format!(
-                "Signature key id: {:X} is different from public key: {:X}",
+                "Signature key id: {:016X} is different from public key: {:016X}",
                 load_u64_le(&sig.keynum[..]),
                 load_u64_le(&pk.keynum_pk.keynum[..])
             ),

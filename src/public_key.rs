@@ -166,7 +166,7 @@ impl PublicKey {
     pub fn to_box(&self) -> Result<PublicKeyBox> {
         let mut s = String::new();
         write!(s, "{COMMENT_PREFIX}minisign public key: ")?;
-        writeln!(s, "{:X}", load_u64_le(&self.keynum_pk.keynum[..]))?;
+        writeln!(s, "{:016X}", load_u64_le(&self.keynum_pk.keynum[..]))?;
         writeln!(s, "{}", self.to_base64())?;
         Ok(s.into())
     }
