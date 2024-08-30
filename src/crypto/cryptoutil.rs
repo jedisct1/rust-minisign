@@ -11,15 +11,6 @@
 use std::ptr;
 use std::{io, mem::MaybeUninit};
 
-pub fn write_u64_be(dst: &mut [u8], mut input: u64) {
-    assert!(dst.len() == 8);
-    input = input.to_be();
-    unsafe {
-        let tmp = &input as *const _ as *const u8;
-        ptr::copy_nonoverlapping(tmp, dst.get_unchecked_mut(0), 8);
-    }
-}
-
 pub fn write_u64_le(dst: &mut [u8], mut input: u64) {
     assert!(dst.len() == 8);
     input = input.to_le();
@@ -40,15 +31,6 @@ pub fn write_u64v_le(dst: &mut [u8], input: &[u64]) {
             x = x.offset(8);
             y = y.offset(1);
         }
-    }
-}
-
-pub fn write_u32_be(dst: &mut [u8], mut input: u32) {
-    assert!(dst.len() == 4);
-    input = input.to_be();
-    unsafe {
-        let tmp = &input as *const _ as *const u8;
-        ptr::copy_nonoverlapping(tmp, dst.get_unchecked_mut(0), 4);
     }
 }
 
@@ -89,9 +71,7 @@ pub fn copy_memory(src: &[u8], dst: &mut [u8]) {
 pub trait WriteExt {
     fn write_u8(&mut self, val: u8) -> io::Result<()>;
     fn write_u32_le(&mut self, val: u32) -> io::Result<()>;
-    fn write_u32_be(&mut self, val: u32) -> io::Result<()>;
     fn write_u64_le(&mut self, val: u64) -> io::Result<()>;
-    fn write_u64_be(&mut self, val: u64) -> io::Result<()>;
 }
 
 impl<T> WriteExt for T
@@ -109,21 +89,9 @@ where
         self.write_all(&buff)
     }
 
-    fn write_u32_be(&mut self, val: u32) -> io::Result<()> {
-        let mut buff = [0u8; 4];
-        write_u32_be(&mut buff, val);
-        self.write_all(&buff)
-    }
-
     fn write_u64_le(&mut self, val: u64) -> io::Result<()> {
         let mut buff = [0u8; 8];
         write_u64_le(&mut buff, val);
-        self.write_all(&buff)
-    }
-
-    fn write_u64_be(&mut self, val: u64) -> io::Result<()> {
-        let mut buff = [0u8; 8];
-        write_u64_be(&mut buff, val);
         self.write_all(&buff)
     }
 }
