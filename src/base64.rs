@@ -1,10 +1,12 @@
 #![forbid(unsafe_code)]
 
-use std::fmt::{self, Display};
+use core::fmt::{self, Display};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error {
+    /// The provided output buffer would be too small.
     Overflow,
+    /// The input isn't valid for the given encoding.
     InvalidInput,
 }
 
@@ -20,14 +22,15 @@ impl Display for Error {
 }
 
 pub trait Encoder {
+    /// Length of `bin_len` bytes after encoding.
     fn encoded_len(bin_len: usize) -> Result<usize, Error>;
 
+    /// Encode `bin` into `encoded`.
+    /// The output buffer can be larger than required; the returned slice is
+    /// a view of the buffer with the correct length.
     fn encode<IN: AsRef<[u8]>>(encoded: &mut [u8], bin: IN) -> Result<&[u8], Error>;
 
-    fn encode_to_str<IN: AsRef<[u8]>>(encoded: &mut [u8], bin: IN) -> Result<&str, Error> {
-        Ok(core::str::from_utf8(Self::encode(encoded, bin)?).unwrap())
-    }
-
+    /// Encode `bin` as a `String`.
     fn encode_to_string<IN: AsRef<[u8]>>(bin: IN) -> Result<String, Error> {
         let mut encoded = vec![0u8; Self::encoded_len(bin.as_ref().len())?];
         let encoded_len = Self::encode(&mut encoded, bin)?.len();
@@ -37,8 +40,12 @@ pub trait Encoder {
 }
 
 pub trait Decoder {
+    /// Decode `encoded` into `bin`.
+    /// The output buffer can be larger than required; the returned slice is
+    /// a view of the buffer with the correct length.
     fn decode<IN: AsRef<[u8]>>(bin: &mut [u8], encoded: IN) -> Result<&[u8], Error>;
 
+    /// Decode `encoded` into a `Vec<u8>`.
     fn decode_to_vec<IN: AsRef<[u8]>>(encoded: IN) -> Result<Vec<u8>, Error> {
         let mut bin = vec![0u8; encoded.as_ref().len()];
         let bin_len = Self::decode(&mut bin, encoded)?.len();
@@ -101,7 +108,7 @@ impl Base64Impl {
         let pad = bin_len - rounded;
         Ok(nibbles.checked_mul(4).ok_or(Error::Overflow)?
             + ((pad | (pad >> 1)) & 1)
-                * (4 - (!((((1usize) & 2) >> 1).wrapping_sub(1)) & (3 - pad)))
+                * (4 - (!(((1_usize & 2) >> 1).wrapping_sub(1)) & (3 - pad)))
             + 1)
     }
 
@@ -145,7 +152,7 @@ impl Base64Impl {
         let b64_len = b64.len();
         let mut b64_pos = 0usize;
         while padding_len > 0 {
-            if b64_pos > b64_len {
+            if b64_pos >= b64_len {
                 return Err(Error::InvalidInput);
             }
             let c = b64[b64_pos];
@@ -185,14 +192,14 @@ impl Base64Impl {
         if acc_len > 4 || (acc & ((1u16 << acc_len).wrapping_sub(1))) != 0 {
             return Err(Error::InvalidInput);
         }
+        let padding_len = acc_len / 2;
         if let Some(premature_end) = premature_end {
-            let remaining = {
-                let padding_len = acc_len / 2;
-                Self::skip_padding(&b64[premature_end..], padding_len)?
-            };
+            let remaining = Self::skip_padding(&b64[premature_end..], padding_len)?;
             if !remaining.is_empty() {
                 return Err(Error::InvalidInput);
             }
+        } else if padding_len != 0 {
+            return Err(Error::InvalidInput);
         }
         Ok(&bin[..bin_pos])
     }
@@ -217,4 +224,45 @@ impl Decoder for Base64 {
     fn decode<IN: AsRef<[u8]>>(bin: &mut [u8], b64: IN) -> Result<&[u8], Error> {
         Base64Impl::decode(bin, b64.as_ref())
     }
+}
+
+#[test]
+fn test_base64() {
+    let bin = [1u8, 5, 11, 15, 19, 131, 122];
+    let expected = "AQULDxODeg==";
+    let b64 = Base64::encode_to_string(bin).unwrap();
+    assert_eq!(b64, expected);
+    let bin2 = Base64::decode_to_vec(&b64).unwrap();
+    assert_eq!(bin, &bin2[..]);
+}
+
+#[test]
+fn test_base64_mising_padding() {
+    let missing_padding = "AA";
+    assert!(Base64::decode_to_vec(missing_padding).is_err());
+    let missing_padding = "AAA";
+    assert!(Base64::decode_to_vec(missing_padding).is_err());
+}
+
+#[test]
+fn test_base64_no_std() {
+    let bin = [1u8, 5, 11, 15, 19, 131, 122];
+    let expected = [65, 81, 85, 76, 68, 120, 79, 68, 101, 103, 61, 61];
+    let mut b64 = [0u8; 12];
+    let b64 = Base64::encode(&mut b64, bin).unwrap();
+    assert_eq!(b64, expected);
+    let mut bin2 = [0u8; 7];
+    let bin2 = Base64::decode(&mut bin2, b64).unwrap();
+    assert_eq!(bin, bin2);
+}
+
+#[test]
+fn test_base64_invalid_padding() {
+    let valid_padding = "AA==";
+    assert_eq!(Base64::decode_to_vec(valid_padding), Ok(vec![0u8; 1]));
+    let invalid_padding = "AA=";
+    assert_eq!(
+        Base64::decode_to_vec(invalid_padding),
+        Err(Error::InvalidInput)
+    );
 }
