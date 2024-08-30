@@ -1,6 +1,6 @@
 [package]
 name = "minisign"
-version = "0.7.6"
+version = "0.7.7"
 authors = [
     "Frank Denis <github@pureftpd.org>",
     "Daniel Rangel <daniel@rangel.in>",
@@ -15,7 +15,9 @@ repository = "https://github.com/jedisct1/rust-minisign"
 homepage = "https://github.com/jedisct1/rust-minisign"
 
 [target.'cfg(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.2", optional = false, default-features = false, features = ["js"] }
+getrandom = { version = "0.2", optional = false, default-features = false, features = [
+    "js",
+] }
 
 [target.'cfg(not(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown")))'.dependencies]
 getrandom = { version = "0.2", optional = false, default-features = false }
