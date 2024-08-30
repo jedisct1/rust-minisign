@@ -5,7 +5,8 @@ use std::fs;
 use std::io::{Cursor, Read};
 use std::path::Path;
 
-use crate::base64::{Base64, Decoder, Encoder};
+use ct_codecs::{Base64, Decoder, Encoder};
+
 use crate::crypto::util::fixed_time_eq;
 use crate::errors::*;
 use crate::helpers::*;
@@ -153,7 +154,7 @@ impl PublicKey {
                 "Base64 conversion failed - was an actual public key given?".to_string(),
             ));
         }
-        let decoded_buf = Base64::decode_to_vec(encoded_pk.trim()).map_err(|e| {
+        let decoded_buf = Base64::decode_to_vec(encoded_pk.trim(), None).map_err(|e| {
             PError::new(
                 ErrorKind::Io,
                 format!("Base64 conversion failed - was an actual public key given?: {e}"),
@@ -180,12 +181,13 @@ impl PublicKey {
                 "base64 conversion failed - was an actual public key given?".to_string(),
             ));
         }
-        let decoded_string = Base64::decode_to_vec(encoded_string.as_bytes()).map_err(|e| {
-            PError::new(
-                ErrorKind::Io,
-                format!("base64 conversion failed - was an actual public key given?: {e}"),
-            )
-        })?;
+        let decoded_string =
+            Base64::decode_to_vec(encoded_string.as_bytes(), None).map_err(|e| {
+                PError::new(
+                    ErrorKind::Io,
+                    format!("base64 conversion failed - was an actual public key given?: {e}"),
+                )
+            })?;
         PublicKey::from_bytes(&decoded_string)
     }
 

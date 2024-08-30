@@ -1,6 +1,7 @@
 use std::io::{Cursor, Read};
 
-use crate::base64::{Base64, Encoder};
+use ct_codecs::{Base64, Encoder};
+
 use crate::constants::*;
 use crate::Result;
 

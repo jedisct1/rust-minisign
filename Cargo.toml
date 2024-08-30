@@ -24,6 +24,7 @@ getrandom = { version = "0.2", optional = false, default-features = false }
 
 [dependencies]
 scrypt = { version = "0.11.0", default-features = false }
+ct-codecs = "1.1.2"
 
 [target.'cfg(any(windows, unix))'.dependencies]
 rpassword = "7.3.1"

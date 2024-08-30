@@ -7,7 +7,6 @@
     clippy::vec_init_then_push
 )]
 
-mod base64;
 mod constants;
 mod crypto;
 mod errors;

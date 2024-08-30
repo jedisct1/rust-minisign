@@ -6,7 +6,8 @@ use std::io::{self, Write};
 use std::io::{Cursor, Read};
 use std::path::Path;
 
-use crate::base64::{Base64, Decoder, Encoder};
+use ct_codecs::{Base64, Decoder, Encoder};
+
 use crate::constants::*;
 use crate::crypto::blake2b::Blake2b;
 use crate::crypto::util::fixed_time_eq;
@@ -251,7 +252,7 @@ impl SecretKey {
     }
 
     pub(crate) fn from_base64(s: &str) -> Result<SecretKey> {
-        let bytes = Base64::decode_to_vec(s)?;
+        let bytes = Base64::decode_to_vec(s, None)?;
         SecretKey::from_bytes(&bytes[..])
     }
 
