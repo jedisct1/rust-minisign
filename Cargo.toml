@@ -1,6 +1,6 @@
 [package]
 name = "minisign"
-version = "0.7.8"
+version = "0.7.9"
 authors = [
     "Frank Denis <github@pureftpd.org>",
     "Daniel Rangel <daniel@rangel.in>",
@@ -24,7 +24,7 @@ getrandom = { version = "0.2", optional = false, default-features = false }
 
 [dependencies]
 scrypt = { version = "0.11.0", default-features = false }
-ct-codecs = "1.1.2"
+ct-codecs = "1.1.3"
 
 [target.'cfg(any(windows, unix))'.dependencies]
 rpassword = "7.3.1"
