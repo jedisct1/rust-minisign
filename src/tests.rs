@@ -184,3 +184,15 @@ y/rUw2y8/hOUYjZU71eHp/Wo1KZ40fGy2VJEDl34XMJM+TX48Ss/17u3IvIfbVR1FkZZSNCisQbuQY+b
     verify(&pk, &signature_box, Cursor::new(bin), false, false, false)
         .expect("Signature with prehashing didn't verify");
 }
+
+#[test]
+fn unencrypted_key() {
+    use crate::{KeyPair, SecretKey};
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    _ = pk;
+    let sk_box = sk.to_box(None).unwrap();
+    let sk2 = SecretKey::from_box(sk_box.clone(), Some("".to_string()));
+    assert!(sk2.is_err());
+    SecretKey::from_unencrypted_box(sk_box).unwrap();
+}

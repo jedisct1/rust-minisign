@@ -20,6 +20,7 @@ pub(crate) const CHK_ALG: [u8; 2] = *b"B2";
 pub(crate) const CHK_BYTES: usize = 32;
 pub(crate) const COMMENT_PREFIX: &str = "untrusted comment: ";
 pub(crate) const KDF_ALG: [u8; 2] = *b"Sc";
+pub(crate) const KDF_NONE: [u8; 2] = [0, 0];
 pub(crate) const KDF_SALTBYTES: usize = 32;
 pub(crate) const KEYNUM_BYTES: usize = 8;
 pub(crate) const MEMLIMIT: usize = 33_554_432;

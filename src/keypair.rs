@@ -34,28 +34,27 @@ impl KeyPair {
         let (sk, pk) = ed25519::keypair(&seed);
         let mut keynum = [0u8; KEYNUM_BYTES];
         getrandom(&mut keynum)?;
-        let mut kdf_salt = [0u8; KDF_SALTBYTES];
-        getrandom(&mut kdf_salt)?;
 
-        let opslimit = OPSLIMIT;
-        let memlimit = MEMLIMIT;
         let pk = PublicKey {
             sig_alg: SIGALG,
             keynum_pk: KeynumPK { keynum, pk },
         };
-        let sk = SecretKey {
+        let mut sk = SecretKey {
             sig_alg: SIGALG,
-            kdf_alg: KDF_ALG,
+            kdf_alg: KDF_NONE,
             chk_alg: CHK_ALG,
-            kdf_salt,
-            kdf_opslimit_le: store_u64_le(opslimit),
-            kdf_memlimit_le: store_u64_le(memlimit as u64),
+            kdf_salt: Default::default(),
+            kdf_opslimit_le: Default::default(),
+            kdf_memlimit_le: Default::default(),
             keynum_sk: KeynumSK {
                 keynum,
                 sk,
                 chk: [0; CHK_BYTES],
             },
         };
+        sk.write_checksum()
+            .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
+
         Ok(KeyPair { pk, sk })
     }
 
@@ -67,9 +66,19 @@ impl KeyPair {
     /// Ex: `pk.to_box()?.to_bytes()`
     pub fn generate_encrypted_keypair(password: Option<String>) -> Result<Self> {
         let KeyPair { pk, mut sk } = Self::generate_unencrypted_keypair()?;
-        let interactive = password.is_none();
+
+        let opslimit = OPSLIMIT;
+        let memlimit = MEMLIMIT;
+        let mut kdf_salt = [0u8; KDF_SALTBYTES];
+        getrandom(&mut kdf_salt)?;
+        sk.kdf_alg = KDF_ALG;
+        sk.kdf_salt = kdf_salt;
+        sk.kdf_opslimit_le = store_u64_le(opslimit);
+        sk.kdf_memlimit_le = store_u64_le(memlimit as u64);
         sk.write_checksum()
             .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
+
+        let interactive = password.is_none();
         let password = match password {
             Some(password) => password,
             None => {
@@ -118,7 +127,6 @@ impl KeyPair {
         X: Write,
     {
         let KeyPair { pk, sk } = Self::generate_encrypted_keypair(password)?;
-
         pk_writer.write_all(&pk.to_box()?.to_bytes())?;
         pk_writer.flush()?;
 

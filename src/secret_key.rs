@@ -58,8 +58,14 @@ impl SecretKeyBox {
     }
 
     /// Convert a `SecretKeyBox` to a string, for storage.
+    /// If `password` is `None`, a password is going to be prompted interactively.
     pub fn into_secret_key(self, password: Option<String>) -> Result<SecretKey> {
         SecretKey::from_box(self, password)
+    }
+
+    /// Convert an unencrypted `SecretKeyBox` to a string, for storage.
+    pub fn into_unencrypted_secret_key(self) -> Result<SecretKey> {
+        SecretKey::from_unencrypted_box(self)
     }
 
     /// Return a byte representation of the secret key, for storage.
@@ -192,8 +198,11 @@ impl SecretKey {
         v
     }
 
-    /// Convert a `SecretKeyBox` to a `SecretKey`.
-    pub fn from_box(sk_box: SecretKeyBox, password: Option<String>) -> Result<SecretKey> {
+    fn from_box_(
+        sk_box: SecretKeyBox,
+        password: Option<String>,
+        unencrypted_key: bool,
+    ) -> Result<SecretKey> {
         let s = sk_box.0;
         let mut lines = s.lines();
         lines.next().ok_or_else(|| {
@@ -206,36 +215,74 @@ impl SecretKey {
             )
         })?;
         let mut sk = SecretKey::from_base64(encoded_sk)?;
-        let interactive = password.is_none();
-        let password = match password {
-            Some(password) => password,
-            None => {
-                let password = get_password("Password: ")?;
-                write!(
-                    io::stdout(),
-                    "Deriving a key from the password and decrypting the secret key... "
-                )
-                .map_err(|e| PError::new(ErrorKind::Io, e))?;
-                io::stdout().flush()?;
-                password
+        if unencrypted_key {
+            if sk.kdf_alg != KDF_NONE {
+                return Err(PError::new(
+                    ErrorKind::Io,
+                    "Key might be encrypted".to_string(),
+                ));
             }
-        };
-        if !password.is_empty() {
+        } else {
+            match sk.kdf_alg {
+                KDF_NONE => {
+                    return Err(PError::new(
+                        ErrorKind::Io,
+                        "Key might be encrypted".to_string(),
+                    ))
+                }
+                KDF_ALG => {}
+                _ => {
+                    return Err(PError::new(
+                        ErrorKind::Io,
+                        "Unsupported encryption algorithm".to_string(),
+                    ))
+                }
+            }
+            let interactive = password.is_none();
+            let password = match password {
+                Some(password) => password,
+                None => {
+                    let password = get_password("Password: ")?;
+                    write!(
+                        io::stdout(),
+                        "Deriving a key from the password and decrypting the secret key... "
+                    )
+                    .map_err(|e| PError::new(ErrorKind::Io, e))?;
+                    io::stdout().flush()?;
+                    password
+                }
+            };
             sk = sk.encrypt(password)?;
-        } else if interactive {
-            writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?
+            if interactive {
+                writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?
+            }
         }
         let checksum_vec = sk.read_checksum()?;
         let mut chk = [0u8; CHK_BYTES];
         chk.copy_from_slice(&checksum_vec[..]);
         if chk != sk.keynum_sk.chk {
-            Err(PError::new(
-                ErrorKind::Verify,
-                "Wrong password for that key",
-            ))
+            if unencrypted_key {
+                Err(PError::new(ErrorKind::Verify, "Corrupted key"))
+            } else {
+                Err(PError::new(
+                    ErrorKind::Verify,
+                    "Wrong password for that key",
+                ))
+            }
         } else {
             Ok(sk)
         }
+    }
+
+    /// Convert a `SecretKeyBox` to a `SecretKey`.
+    /// If `password` is `None`, a password is going to be prompted interactively.
+    pub fn from_box(sk_box: SecretKeyBox, password: Option<String>) -> Result<SecretKey> {
+        Self::from_box_(sk_box, password, false)
+    }
+
+    /// Convert an unencrypted `SecretKeyBox` to an unencrypted `SecretKey`.
+    pub fn from_unencrypted_box(sk_box: SecretKeyBox) -> Result<SecretKey> {
+        Self::from_box_(sk_box, None, true)
     }
 
     /// Convert a `SecretKey` to a `SecretKeyBox`.
