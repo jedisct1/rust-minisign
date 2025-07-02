@@ -138,7 +138,7 @@ impl SignatureBox {
             COMMENT_PREFIX, self.untrusted_comment
         )
         .unwrap();
-        writeln!(signature_box, "{}", self.signature.to_string()).unwrap();
+        writeln!(signature_box, "{}", self.signature).unwrap();
         writeln!(
             signature_box,
             "{}{}",

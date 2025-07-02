@@ -36,9 +36,9 @@ impl From<String> for PublicKeyBox {
     }
 }
 
-impl ToString for PublicKeyBox {
-    fn to_string(&self) -> String {
-        self.0.to_string()
+impl std::fmt::Display for PublicKeyBox {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 

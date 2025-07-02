@@ -1,5 +1,4 @@
 use std::io::{self, Write};
-use std::u64;
 
 use getrandom::getrandom;
 

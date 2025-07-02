@@ -51,8 +51,9 @@ impl Default for Signature {
     }
 }
 
-impl ToString for Signature {
-    fn to_string(&self) -> String {
-        Base64::encode_to_string(self.to_bytes().as_slice()).unwrap()
+impl std::fmt::Display for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let encoded = Base64::encode_to_string(self.to_bytes().as_slice()).unwrap();
+        write!(f, "{}", encoded)
     }
 }
