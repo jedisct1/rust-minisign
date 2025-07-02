@@ -21,6 +21,7 @@ pub enum ErrorKind {
     KDF,
     RNG,
     Encoding,
+    EncryptedKey,
 }
 
 /// Error structure for the `minisign` crate.
@@ -45,6 +46,11 @@ impl PError {
             err: err.into(),
         }
     }
+
+    /// Get the kind of error.
+    pub fn kind(&self) -> &ErrorKind {
+        &self.kind
+    }
 }
 
 impl fmt::Display for PError {
@@ -59,6 +65,7 @@ impl fmt::Display for PError {
             ErrorKind::KDF => write!(f, "{}", self.err),
             ErrorKind::RNG => write!(f, "{}", self.err),
             ErrorKind::Encoding => write!(f, "{}", self.err),
+            ErrorKind::EncryptedKey => write!(f, "{}", self.err),
         }
     }
 }
@@ -74,6 +81,7 @@ impl StdError for PError {
             ErrorKind::KDF => "key derivation error",
             ErrorKind::RNG => "random number generator error",
             ErrorKind::Encoding => "encoding error",
+            ErrorKind::EncryptedKey => "encrypted key error",
         }
     }
 }

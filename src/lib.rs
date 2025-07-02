@@ -76,6 +76,12 @@ pub fn sign<R>(
 where
     R: Read,
 {
+    if sk.is_encrypted() {
+        return Err(PError::new(
+            ErrorKind::EncryptedKey,
+            "Cannot sign with an encrypted secret key. The key must be decrypted first. Options include: SecretKeyBox::into_secret_key(password), SecretKey::from_box(box, password), SecretKey::from_file(path, password), or use KeyPair::generate_unencrypted_keypair() for passwordless keys.",
+        ));
+    }
     let data = prehash(&mut data_reader)?;
     let trusted_comment = match trusted_comment {
         Some(trusted_comment) => trusted_comment.to_string(),

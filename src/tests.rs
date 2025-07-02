@@ -96,6 +96,71 @@ fn signature() {
 }
 
 #[test]
+fn encrypted_key_signing_fails() {
+    use std::io::Cursor;
+
+    use crate::{sign, ErrorKind, KeyPair};
+
+    let KeyPair { sk, .. } =
+        KeyPair::generate_encrypted_keypair(Some("password".to_string())).unwrap();
+    let data = b"test";
+    let result = sign(None, &sk, Cursor::new(data), None, None);
+
+    assert!(result.is_err());
+    if let Err(err) = result {
+        // Check that we get the specific EncryptedKey error
+        match err.kind() {
+            ErrorKind::EncryptedKey => {
+                // This is expected - we should get an EncryptedKey error
+            }
+            _ => panic!("Expected EncryptedKey error, got: {:?}", err.kind()),
+        }
+    }
+}
+
+#[test]
+fn is_encrypted_detection() {
+    use crate::KeyPair;
+
+    let KeyPair {
+        sk: unencrypted_sk, ..
+    } = KeyPair::generate_unencrypted_keypair().unwrap();
+    assert!(!unencrypted_sk.is_encrypted());
+
+    let KeyPair {
+        sk: encrypted_sk, ..
+    } = KeyPair::generate_encrypted_keypair(Some("password".to_string())).unwrap();
+    assert!(encrypted_sk.is_encrypted());
+}
+
+#[test]
+fn decrypt_key_process() {
+    use crate::{KeyPair, SecretKeyBox};
+
+    // Generate encrypted keypair
+    let KeyPair {
+        sk: encrypted_sk, ..
+    } = KeyPair::generate_encrypted_keypair(Some("password".to_string())).unwrap();
+    assert!(
+        encrypted_sk.is_encrypted(),
+        "Generated key should be encrypted"
+    );
+
+    // Convert to box
+    let sk_box_str = encrypted_sk.to_box(None).unwrap().to_string();
+    let sk_box = SecretKeyBox::from_string(&sk_box_str).unwrap();
+
+    // Decrypt the key
+    let decrypted_sk = sk_box
+        .into_secret_key(Some("password".to_string()))
+        .unwrap();
+    assert!(
+        !decrypted_sk.is_encrypted(),
+        "Decrypted key should not be encrypted"
+    );
+}
+
+#[test]
 fn signature_bones() {
     use std::io::Cursor;
 

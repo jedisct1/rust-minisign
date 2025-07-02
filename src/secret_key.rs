@@ -145,6 +145,25 @@ impl SecretKey {
         &self.keynum_sk.keynum[..]
     }
 
+    /// Returns `true` if this secret key is encrypted and requires a password to use.
+    /// This checks both the encryption algorithm and whether the key material has been properly decrypted.
+    pub fn is_encrypted(&self) -> bool {
+        if self.kdf_alg == KDF_NONE {
+            return false;
+        }
+
+        // For encrypted keys, verify that the key material is valid by checking the checksum
+        // If the checksum doesn't match, the key is still encrypted
+        match self.read_checksum() {
+            Ok(checksum_vec) => {
+                let mut expected_chk = [0u8; CHK_BYTES];
+                expected_chk.copy_from_slice(&checksum_vec[..]);
+                expected_chk != self.keynum_sk.chk
+            }
+            Err(_) => true, // If we can't read checksum, assume encrypted
+        }
+    }
+
     /// Deserialize a `SecretKey`.
     ///
     /// For storage, a `SecretKeyBox` is usually what you need instead.
