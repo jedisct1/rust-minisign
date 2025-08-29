@@ -24,8 +24,6 @@ mod tests;
 
 use std::io::{self, Read, Seek, Write};
 
-use getrandom::getrandom;
-
 pub use crate::constants::*;
 use crate::crypto::blake2b::Blake2b;
 use crate::crypto::ed25519;
@@ -96,7 +94,7 @@ where
 
     signature.keynum.copy_from_slice(&sk.keynum_sk.keynum[..]);
     let mut z = vec![0; 64];
-    getrandom(&mut z)?;
+    getrandom::fill(&mut z)?;
     let signature_raw = ed25519::signature(&data, &sk.keynum_sk.sk, Some(&z));
     signature.sig.copy_from_slice(&signature_raw[..]);
 
@@ -104,7 +102,7 @@ where
     sig_and_trusted_comment.extend(signature.sig.iter());
     sig_and_trusted_comment.extend(trusted_comment.as_bytes().iter());
 
-    getrandom(&mut z)?;
+    getrandom::fill(&mut z)?;
     let global_sig = ed25519::signature(&sig_and_trusted_comment, &sk.keynum_sk.sk, Some(&z));
     if let Some(pk) = pk {
         if !ed25519::verify(&sig_and_trusted_comment, &pk.keynum_pk.pk[..], &global_sig) {

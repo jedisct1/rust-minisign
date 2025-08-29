@@ -6,7 +6,7 @@ authors = [
     "Daniel Rangel <daniel@rangel.in>",
 ]
 description = "A crate to sign files and verify signatures."
-edition = "2018"
+edition = "2021" # MSRV 1.63 because of libc and getrandom 
 license = "MIT"
 readme = "README.md"
 categories = ["cryptography"]
@@ -15,12 +15,12 @@ repository = "https://github.com/jedisct1/rust-minisign"
 homepage = "https://github.com/jedisct1/rust-minisign"
 
 [target.'cfg(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.2", optional = false, default-features = false, features = [
-    "js",
+getrandom = { version = "0.3", optional = false, default-features = false, features = [
+    "wasm_js",
 ] }
 
 [target.'cfg(not(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown")))'.dependencies]
-getrandom = { version = "0.2", optional = false, default-features = false }
+getrandom = { version = "0.3", optional = false, default-features = false }
 
 [dependencies]
 scrypt = { version = "0.11.0", default-features = false }

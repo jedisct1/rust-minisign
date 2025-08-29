@@ -1,7 +1,5 @@
 use std::io::{self, Write};
 
-use getrandom::getrandom;
-
 use crate::constants::*;
 use crate::crypto::ed25519;
 use crate::errors::*;
@@ -29,10 +27,10 @@ impl KeyPair {
     /// You generally want to use `generated_encrypted_keypair()` instead.
     pub fn generate_unencrypted_keypair() -> Result<Self> {
         let mut seed = vec![0u8; 32];
-        getrandom(&mut seed)?;
+        getrandom::fill(&mut seed)?;
         let (sk, pk) = ed25519::keypair(&seed);
         let mut keynum = [0u8; KEYNUM_BYTES];
-        getrandom(&mut keynum)?;
+        getrandom::fill(&mut keynum)?;
 
         let pk = PublicKey {
             sig_alg: SIGALG,
@@ -69,7 +67,7 @@ impl KeyPair {
         let opslimit = OPSLIMIT;
         let memlimit = MEMLIMIT;
         let mut kdf_salt = [0u8; KDF_SALTBYTES];
-        getrandom(&mut kdf_salt)?;
+        getrandom::fill(&mut kdf_salt)?;
         sk.kdf_alg = KDF_ALG;
         sk.kdf_salt = kdf_salt;
         sk.kdf_opslimit_le = store_u64_le(opslimit);
