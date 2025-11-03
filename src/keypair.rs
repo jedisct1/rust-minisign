@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use getrandom::getrandom;
+use getrandom::fill as getrandom;
 
 use crate::constants::*;
 use crate::crypto::ed25519;

@@ -24,7 +24,7 @@ mod tests;
 
 use std::io::{self, Read, Seek, Write};
 
-use getrandom::getrandom;
+use getrandom::fill as getrandom;
 
 pub use crate::constants::*;
 use crate::crypto::blake2b::Blake2b;

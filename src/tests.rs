@@ -30,7 +30,7 @@ fn sk_key_struct_conversion() {
 
 #[test]
 fn xor_keynum() {
-    use getrandom::getrandom;
+    use getrandom::fill as getrandom;
 
     use crate::KeyPair;
 
