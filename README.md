@@ -6,11 +6,11 @@
 
 A pure Rust implementation of the [Minisign](https://jedisct1.github.io/minisign/) signature system.
 
-This is a crate, designed to be used within by applications.
+This is a crate designed to be used by applications.
 
 For a command-line tool reimplementing the Minisign utility in Rust, and based on this crate, check out [rsign2](https://github.com/jedisct1/rsign2).
 
-For a minimal crate that to only verify signatures, check out [minisign-verify](https://github.com/jedisct1/rust-minisign-verify).
+For a minimal crate that only verifies signatures, check out [minisign-verify](https://github.com/jedisct1/rust-minisign-verify).
 
 ## API documentation
 
@@ -19,7 +19,6 @@ For a minimal crate that to only verify signatures, check out [minisign-verify](
 ## Example
 
 ```rust
-extern crate minisign;
 use minisign::{KeyPair, PublicKeyBox, SecretKeyBox, SignatureBox};
 use std::io::Cursor;
 
@@ -40,7 +39,7 @@ let sk_box_str = sk
 
 // `pk_box_str` and `sk_box_str` can now be saved to disk.
 // This is a long-term key pair, that can be used to sign as many files as needed.
-// For conveniency, the `KeyPair::generate_and_write_encrypted_keypair()` function
+// For convenience, the `KeyPair::generate_and_write_encrypted_keypair()` function
 // is available: it generates a new key pair, and saves it to disk (or any `Writer`)
 // before returning it.
 
