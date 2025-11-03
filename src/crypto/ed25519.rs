@@ -16,9 +16,8 @@ fn check_s_lt_l(s: &[u8]) -> bool {
         n &= ((((s[i] ^ L[i]) as i32) - 1) >> 8) as u8;
         if i == 0 {
             break;
-        } else {
-            i -= 1;
         }
+        i -= 1;
     }
     c == 0
 }
