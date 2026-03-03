@@ -261,3 +261,38 @@ fn unencrypted_key() {
     assert!(sk2.is_err());
     SecretKey::from_unencrypted_box(sk_box).unwrap();
 }
+
+#[test]
+fn unencrypted_key_sign_verify_roundtrip() {
+    use std::io::Cursor;
+
+    use crate::{sign, verify, KeyPair, SecretKey};
+
+    let KeyPair { pk, sk } = KeyPair::generate_unencrypted_keypair().unwrap();
+    let sk_box = sk.to_box(None).unwrap();
+    let sk = SecretKey::from_unencrypted_box(sk_box).unwrap();
+
+    let data = b"test";
+    let signature_box = sign(None, &sk, Cursor::new(data), None, None).unwrap();
+    verify(&pk, &signature_box, Cursor::new(data), true, false, false).unwrap();
+}
+
+#[test]
+fn empty_password_key_sign_verify_roundtrip() {
+    use std::io::Cursor;
+
+    use crate::{sign, verify, KeyPair, SecretKeyBox};
+
+    let KeyPair { pk, sk } =
+        KeyPair::generate_encrypted_keypair(Some("".to_string())).unwrap();
+    assert!(sk.is_encrypted());
+
+    let sk_box_str = sk.to_box(None).unwrap().to_string();
+    let sk_box = SecretKeyBox::from_string(&sk_box_str).unwrap();
+    let sk = sk_box.into_secret_key(Some("".to_string())).unwrap();
+    assert!(!sk.is_encrypted());
+
+    let data = b"test";
+    let signature_box = sign(None, &sk, Cursor::new(data), None, None).unwrap();
+    verify(&pk, &signature_box, Cursor::new(data), true, false, false).unwrap();
+}
