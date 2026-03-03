@@ -246,7 +246,7 @@ impl SecretKey {
                 KDF_NONE => {
                     return Err(PError::new(
                         ErrorKind::Io,
-                        "Key might be encrypted".to_string(),
+                        "Key is not encrypted".to_string(),
                     ))
                 }
                 KDF_ALG => {}
