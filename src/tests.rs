@@ -264,12 +264,12 @@ fn unencrypted_key() {
 
 #[test]
 fn empty_key_makes_unencrypted_key() {
-    use crate::{KeyPair, SecretKey};
+    use crate::KeyPair;
 
-    let KeyPair { pk, sk } = KeyPair::generate_encrypted_keypair(Some("".to_owned())).unwrap();
+    let password = Some("".to_owned());
+    let KeyPair { pk, sk } = KeyPair::generate_encrypted_keypair(password.clone()).unwrap();
     _ = pk;
     let sk_box = sk.to_box(None).unwrap();
-    let sk2 = SecretKey::from_box(sk_box.clone(), Some("".to_string()));
-    assert!(sk2.is_err());
-    SecretKey::from_unencrypted_box(sk_box).unwrap();
+    assert!(sk_box.clone().into_secret_key(password).is_err());
+    sk_box.into_unencrypted_secret_key().unwrap();
 }
