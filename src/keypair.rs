@@ -22,7 +22,7 @@ impl KeyPair {
     ///
     /// The secret key will not be protected by a password.
     ///
-    /// This is not recommended and incompatible with other implementations,
+    /// This is not recommended,
     /// but can be necessary if using a password is really not an option
     /// for your application.
     ///
@@ -143,7 +143,7 @@ impl KeyPair {
     /// The secret key will not be protected by a password,
     /// and keys will be stored as raw bytes, not as a box.
     ///
-    /// This is not recommended and incompatible with other implementations,
+    /// This is not recommended,
     /// but can be necessary if using a password is not an option
     /// for your application.
     ///
