@@ -61,21 +61,12 @@ impl KeyPair {
     ///
     /// If `password` is `None`, a password will be interactively asked for.
     ///
+    /// If the password is an empty string, the secret key will be unecrypted (same as [`Self::generate_unencrypted_keypair`])
+    ///
     /// A key can be converted to a box in order to be serialized and saved.
     /// Ex: `pk.to_box()?.to_bytes()`
     pub fn generate_encrypted_keypair(password: Option<String>) -> Result<Self> {
         let KeyPair { pk, mut sk } = Self::generate_unencrypted_keypair()?;
-
-        let opslimit = OPSLIMIT;
-        let memlimit = MEMLIMIT;
-        let mut kdf_salt = [0u8; KDF_SALTBYTES];
-        getrandom(&mut kdf_salt)?;
-        sk.kdf_alg = KDF_ALG;
-        sk.kdf_salt = kdf_salt;
-        sk.kdf_opslimit_le = store_u64_le(opslimit);
-        sk.kdf_memlimit_le = store_u64_le(memlimit as u64);
-        sk.write_checksum()
-            .map_err(|_| PError::new(ErrorKind::Generate, "failed to hash and write checksum!"))?;
 
         let interactive = password.is_none();
         let password = match password {
@@ -100,6 +91,18 @@ impl KeyPair {
             }
         };
         if !password.is_empty() {
+            let opslimit = OPSLIMIT;
+            let memlimit = MEMLIMIT;
+            let mut kdf_salt = [0u8; KDF_SALTBYTES];
+            getrandom(&mut kdf_salt)?;
+            sk.kdf_alg = KDF_ALG;
+            sk.kdf_salt = kdf_salt;
+            sk.kdf_opslimit_le = store_u64_le(opslimit);
+            sk.kdf_memlimit_le = store_u64_le(memlimit as u64);
+            sk.write_checksum().map_err(|_| {
+                PError::new(ErrorKind::Generate, "failed to hash and write checksum!")
+            })?;
+
             sk = sk.encrypt(password)?;
         } else if interactive {
             writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?;

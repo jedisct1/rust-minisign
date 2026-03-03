@@ -261,3 +261,15 @@ fn unencrypted_key() {
     assert!(sk2.is_err());
     SecretKey::from_unencrypted_box(sk_box).unwrap();
 }
+
+#[test]
+fn empty_key_makes_unencrypted_key() {
+    use crate::{KeyPair, SecretKey};
+
+    let KeyPair { pk, sk } = KeyPair::generate_encrypted_keypair(Some("".to_owned())).unwrap();
+    _ = pk;
+    let sk_box = sk.to_box(None).unwrap();
+    let sk2 = SecretKey::from_box(sk_box.clone(), Some("".to_string()));
+    assert!(sk2.is_err());
+    SecretKey::from_unencrypted_box(sk_box).unwrap();
+}
