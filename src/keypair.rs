@@ -22,11 +22,10 @@ impl KeyPair {
     ///
     /// The secret key will not be protected by a password.
     ///
-    /// This is not recommended and incompatible with other implementations,
-    /// but can be necessary if using a password is really not an option
-    /// for your application.
+    /// This is not recommended, but can be necessary if using a password
+    /// is really not an option for your application.
     ///
-    /// You generally want to use `generated_encrypted_keypair()` instead.
+    /// You generally want to use `generate_encrypted_keypair()` instead.
     pub fn generate_unencrypted_keypair() -> Result<Self> {
         let mut seed = vec![0u8; 32];
         getrandom(&mut seed)?;
@@ -99,9 +98,8 @@ impl KeyPair {
                 password
             }
         };
-        if !password.is_empty() {
-            sk = sk.encrypt(password)?;
-        } else if interactive {
+        sk = sk.encrypt(password)?;
+        if interactive {
             writeln!(io::stdout(), "done").map_err(|e| PError::new(ErrorKind::Io, e))?;
         }
         Ok(KeyPair { pk, sk })
@@ -140,11 +138,10 @@ impl KeyPair {
     /// The secret key will not be protected by a password,
     /// and keys will be stored as raw bytes, not as a box.
     ///
-    /// This is not recommended and incompatible with other implementations,
-    /// but can be necessary if using a password is not an option
-    /// for your application.
+    /// This is not recommended, but can be necessary if using a password
+    /// is not an option for your application.
     ///
-    /// You generally want to use `generated_encrypted_keypair()` instead.
+    /// You generally want to use `generate_encrypted_keypair()` instead.
     ///
     /// # Arguments
     ///
