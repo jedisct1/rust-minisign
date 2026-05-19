@@ -8,64 +8,40 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use std::ptr;
-use std::{io, mem::MaybeUninit};
+use std::{convert::TryInto, io};
 
-pub fn write_u64_le(dst: &mut [u8], mut input: u64) {
+#[inline(always)]
+pub fn write_u64_le(dst: &mut [u8], input: u64) {
     assert!(dst.len() == 8);
-    input = input.to_le();
-    unsafe {
-        let tmp = &input as *const _ as *const u8;
-        ptr::copy_nonoverlapping(tmp, dst.get_unchecked_mut(0), 8);
-    }
+    dst.copy_from_slice(&input.to_le_bytes());
 }
 
+#[inline(always)]
 pub fn write_u64v_le(dst: &mut [u8], input: &[u64]) {
     assert!(dst.len() == 8 * input.len());
-    unsafe {
-        let mut x: *mut u8 = dst.get_unchecked_mut(0);
-        let mut y: *const u64 = input.get_unchecked(0);
-        for _ in 0..input.len() {
-            let tmp = (*y).to_le();
-            ptr::copy_nonoverlapping(&tmp as *const _ as *const u8, x, 8);
-            x = x.offset(8);
-            y = y.offset(1);
-        }
+    for (chunk, word) in dst.chunks_exact_mut(8).zip(input.iter()) {
+        chunk.copy_from_slice(&word.to_le_bytes());
     }
 }
 
-pub fn write_u32_le(dst: &mut [u8], mut input: u32) {
+#[inline(always)]
+pub fn write_u32_le(dst: &mut [u8], input: u32) {
     assert!(dst.len() == 4);
-    input = input.to_le();
-    unsafe {
-        let tmp = &input as *const _ as *const u8;
-        ptr::copy_nonoverlapping(tmp, dst.get_unchecked_mut(0), 4);
-    }
+    dst.copy_from_slice(&input.to_le_bytes());
 }
 
+#[inline(always)]
 pub fn read_u64v_le(dst: &mut [u64], input: &[u8]) {
     assert!(dst.len() * 8 == input.len());
-    unsafe {
-        let mut x: *mut u64 = dst.get_unchecked_mut(0);
-        let mut y: *const u8 = input.get_unchecked(0);
-        for _ in 0..dst.len() {
-            let mut tmp = MaybeUninit::<u64>::uninit();
-            ptr::copy_nonoverlapping(y, tmp.as_mut_ptr() as *mut u8, 8);
-            *x = u64::from_le(tmp.assume_init());
-            x = x.offset(1);
-            y = y.offset(8);
-        }
+    for (word, chunk) in dst.iter_mut().zip(input.chunks_exact(8)) {
+        *word = u64::from_le_bytes(chunk.try_into().unwrap());
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn copy_memory(src: &[u8], dst: &mut [u8]) {
     assert!(dst.len() >= src.len());
-    unsafe {
-        let srcp = src.as_ptr();
-        let dstp = dst.as_mut_ptr();
-        ptr::copy_nonoverlapping(srcp, dstp, src.len());
-    }
+    dst[..src.len()].copy_from_slice(src);
 }
 
 pub trait WriteExt {
