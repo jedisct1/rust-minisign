@@ -6,3 +6,4 @@
 *.minisig
 Cargo.lock
 testfile.txt
+.swival
