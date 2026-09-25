@@ -5,12 +5,12 @@ authors = [
     "Frank Denis <github@pureftpd.org>",
     "Daniel Rangel <daniel@rangel.in>",
 ]
-description = "A crate to sign files and verify signatures."
+description = "Minisign file signing and signature verification in pure Rust, with Ed25519 signatures and password-protected secret keys."
 edition = "2018"
 license = "MIT"
 readme = "README.md"
 categories = ["cryptography"]
-keywords = ["command-line", "sign", "publickey", "cryptography", "minisign"]
+keywords = ["minisign", "ed25519", "signatures", "file-signing", "verification"]
 repository = "https://github.com/jedisct1/rust-minisign"
 homepage = "https://github.com/jedisct1/rust-minisign"
 
