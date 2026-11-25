@@ -296,3 +296,28 @@ fn empty_password_key_sign_verify_roundtrip() {
     let signature_box = sign(None, &sk, Cursor::new(data), None, None).unwrap();
     verify(&pk, &signature_box, Cursor::new(data), true, false, false).unwrap();
 }
+
+#[test]
+fn a_key_encrypted_with_scrypt_0_11_still_opens() {
+    use crate::{PublicKeyBox, SecretKeyBox};
+    use std::io::Cursor;
+
+    // Encrypted with the password "password" by minisign 0.10.0, whose scrypt was 0.11: a later
+    // scrypt must derive the same bytes, or every key encrypted before no longer opens.
+    let sk_box = "untrusted comment: rsign encrypted secret key\n\
+RWRTY0Iy3F1y/9e2NoCAh3u6ZW7WYPFejLOcSJVkHfqr2C5Y6akAABAAAAAAAAAAAAIAAAAAXjiiBM9UZzi90fOu1j1SOExmcabjtzkZA2Y27cYnIcKlt80QOm+o1MBdZfgB4VINpgrD+q4P5QnmscjJoWNkHJtobHiaUc+rDVrJfW9kcoKBIfdDLYPhrFnKzehLljVhPZARwGAEJG0=\n";
+    let pk_box = "untrusted comment: minisign public key: BE32F5ADDEE53844\n\
+RWREOOXerfUyvmM6YJPdvC2mbdFCNui6/dQAwRvJYeX96EnoNtwLCCao\n";
+    let sk = SecretKeyBox::from_string(sk_box)
+        .unwrap()
+        .into_secret_key(Some("password".to_string()))
+        .expect("the key opens with the password it was encrypted with");
+    let pk = PublicKeyBox::from_string(pk_box)
+        .unwrap()
+        .into_public_key()
+        .unwrap();
+    let message = b"the same key, after the upgrade";
+    let signature = crate::sign(Some(&pk), &sk, Cursor::new(message), None, None).unwrap();
+    crate::verify(&pk, &signature, Cursor::new(message), true, false, false)
+        .expect("what the opened key signs, its public key verifies");
+}
