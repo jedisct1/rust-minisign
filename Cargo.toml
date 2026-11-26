@@ -12,7 +12,6 @@ readme = "README.md"
 categories = ["cryptography"]
 keywords = ["minisign", "ed25519", "signatures", "file-signing", "verification"]
 repository = "https://github.com/jedisct1/rust-minisign"
-homepage = "https://github.com/jedisct1/rust-minisign"
 
 [target.'cfg(all(any(target_arch = "wasm32", target_arch = "wasm64"), target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.4", optional = false, default-features = false, features = ["wasm_js"] }
